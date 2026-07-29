@@ -9,10 +9,9 @@ const { React } = revenge.react
 const { Alert, ScrollView, Text, View } = revenge.react.ReactNative
 const { TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
 
-const { lookupModule } = revenge.modules.finders
-const { withStoreName } = revenge.modules.finders.filters
-
-const GuildStore = lookupModule<any>(withStoreName("GuildStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { GuildStore } = revenge.discord.flux.Stores
 
 type Guild = { id: string; name: string; icon?: string }
 type Group = { title: string; guilds: Guild[]; folderId?: string | number }

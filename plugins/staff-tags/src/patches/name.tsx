@@ -2,21 +2,24 @@ import getTag, { isBuiltInTag } from "../lib/getTag"
 import type { StaffTagsStorage } from "../index"
 
 const { lookupModule } = revenge.modules.finders
-const { withName, withProps, withStoreName } = revenge.modules.finders.filters
+const { withName, withProps } = revenge.modules.finders.filters
 const { findInReactTree } = revenge.utils.react
 
-const DisplayName = lookupModule<any>(withName("DisplayName"))?.[0]
-const HeaderName = lookupModule<any>(withName("HeaderName"))?.[0]
+// returnNamespace: true -- both patch `.default` below, so the wrapper object is needed
+// back, not the unwrapped function `withName` hands back by default.
+const DisplayName = lookupModule<any>(withName("DisplayName"), { returnNamespace: true })?.[0]
+const HeaderName = lookupModule<any>(withName("HeaderName"), { returnNamespace: true })?.[0]
 
 const TagModule = lookupModule<any>(withProps("getBotLabel"))?.[0]
 
-const GuildStore = lookupModule<any>(withStoreName("GuildStore"))?.[0]
-const ChannelStore = lookupModule<any>(withStoreName("ChannelStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { GuildStore, ChannelStore } = revenge.discord.flux.Stores
 
 export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	const patches: Array<() => void> = []
 
-	if (HeaderName) {
+	if (HeaderName?.default) {
 		patches.push(
 			revenge.patcher.after(HeaderName, "default", ([{ channelId }]: any[], ret: any) => {
 				if (ret?.props) ret.props.channelId = channelId
@@ -25,7 +28,7 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 		)
 	}
 
-	if (DisplayName) {
+	if (DisplayName?.default) {
 		patches.push(
 			revenge.patcher.after(DisplayName, "default", ([{ guildId, channelId, user }]: any[], ret: any) => {
 				const tagComponent = findInReactTree(ret, (c: any) => c?.type?.Types)

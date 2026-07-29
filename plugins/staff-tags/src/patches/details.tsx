@@ -2,11 +2,13 @@ import getTag, { isBuiltInTag } from "../lib/getTag"
 import type { StaffTagsStorage } from "../index"
 
 const { lookupModule, lookupModules } = revenge.modules.finders
-const { withProps, withStoreName, withTypeName } = revenge.modules.finders.filters
+const { withProps, withName } = revenge.modules.finders.filters
 const { findInReactTree } = revenge.utils.react
 
 const TagModule = lookupModule<any>(withProps("getBotLabel"))?.[0]
-const GuildStore = lookupModule<any>(withStoreName("GuildStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { GuildStore } = revenge.discord.flux.Stores
 
 const rowPatch =
 	(jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) =>
@@ -60,9 +62,17 @@ const rowPatch =
 export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	const patches: Array<() => void> = []
 
-	const rows = lookupModules<any>(withTypeName("UserRow"))
-	for (const UserRow of rows ?? []) {
-		if (UserRow) patches.push(revenge.patcher.after(UserRow, "type", rowPatch(jsonStorage)))
+	// There's no confirmed equivalent of classic Revenge's findByTypeNameAll (which scanned
+	// rendered React element types, not metro modules) -- withName over metro modules is the
+	// closest available primitive and may not find every "UserRow" closure. Best-effort;
+	// member-list tags via this surface may simply not appear if it finds nothing, while the
+	// primary chat tag surface (patches/chat.ts) is unaffected either way.
+	try {
+		for (const [UserRow] of lookupModules<any>(withName("UserRow"))) {
+			if (UserRow) patches.push(revenge.patcher.after(UserRow, "type", rowPatch(jsonStorage)))
+		}
+	} catch (error) {
+		console.error("[StaffTags] UserRow lookup failed:", error)
 	}
 
 	return () => patches.forEach(unpatch => unpatch())

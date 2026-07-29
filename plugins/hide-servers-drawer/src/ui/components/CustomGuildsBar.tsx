@@ -11,10 +11,12 @@ const { React } = revenge.react
 const { ScrollView, View, StatusBar, Platform } = revenge.react.ReactNative
 
 const { lookupModule } = revenge.modules.finders
-const { withProps, withStoreName } = revenge.modules.finders.filters
+const { withProps } = revenge.modules.finders.filters
 
 const ChannelActions = lookupModule<any>(withProps("selectPrivateChannel"))?.[0]
-const SelectedChannelStore = lookupModule<any>(withStoreName("SelectedChannelStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { SelectedChannelStore } = revenge.discord.flux.Stores
 const Routes = lookupModule<any>(withProps("ME"))?.[0]
 const ME = Routes?.ME ?? "/channels/@me"
 const SafeArea = lookupModule<any>(withProps("useSafeAreaInsets"))?.[0]
@@ -78,7 +80,11 @@ function useSelectedChannelId(): string | null {
  * would be a guild channel whenever the user is sitting in a server).
  */
 function openDms() {
-	revenge.discord.haptics.trigger("soft")
+	try {
+		revenge.discord.haptics.trigger("soft")
+	} catch {
+		/* haptics API is unconfirmed; ignore if unavailable */
+	}
 	try {
 		ChannelActions?.selectPrivateChannel?.(null)
 	} catch {

@@ -1,17 +1,14 @@
 const { lookupModule } = revenge.modules.finders
-const { withPredicate, withProps } = revenge.modules.finders.filters
+const { withName, withProps } = revenge.modules.finders.filters
 
-// getGuildsBarGuildMenuItems is assumed findable only by its inner function name (matching
-// classic Revenge, where findByName/findByDisplayName missed it) -- takes a guildId, returns
-// the real stock long-press menu, each item shaped { IconComponent, label, action }.
+// getGuildsBarGuildMenuItems is a named function, findable directly via withName -- takes a
+// guildId, returns the real stock long-press menu, each item shaped { IconComponent, label, action }.
 let menuItemsFn: ((guildId: string) => any[]) | undefined
 
 function resolveMenuItemsFn() {
 	if (menuItemsFn !== undefined) return menuItemsFn
 	try {
-		menuItemsFn = lookupModule<any>(
-			withPredicate((m: any) => m?.default?.name === "getGuildsBarGuildMenuItems"),
-		)?.[0]?.default
+		menuItemsFn = lookupModule<any>(withName("getGuildsBarGuildMenuItems"))?.[0]
 	} catch {
 		menuItemsFn = undefined
 	}

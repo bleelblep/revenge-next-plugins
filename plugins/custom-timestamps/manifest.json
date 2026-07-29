@@ -2,6 +2,5 @@
 	"name": "Custom Timestamps",
 	"description": "Customize the format of timestamps in chat — calendar, relative, ISO 8601, or a custom format string.",
 	"author": "bleelblep, Fiery",
-	"icon": "ClockIcon",
 	"version": "1.0.0"
 }

@@ -1,7 +1,6 @@
-const { lookupModule } = revenge.modules.finders
-const { withStoreName } = revenge.modules.finders.filters
-
-const UserGuildSettingsStore = lookupModule<any>(withStoreName("UserGuildSettingsStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { UserGuildSettingsStore } = revenge.discord.flux.Stores
 
 /** Exposed so callers can subscribe to mute/notification-level changes and re-render. */
 export function settingsStore() {

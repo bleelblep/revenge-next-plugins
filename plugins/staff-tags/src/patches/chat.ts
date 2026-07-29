@@ -2,18 +2,19 @@ import getTag from "../lib/getTag"
 import type { StaffTagsStorage } from "../index"
 
 const { lookupModule } = revenge.modules.finders
-const { withName, withStoreName } = revenge.modules.finders.filters
+const { withName } = revenge.modules.finders.filters
 const { ReactNative } = revenge.react
 const { chroma } = revenge.discord.common
 
-const getTagProperties = lookupModule<any>(withName("getTagProperties"))?.[0]
-const GuildStore = lookupModule<any>(withStoreName("GuildStore"))?.[0]
-const ChannelStore = lookupModule<any>(withStoreName("ChannelStore"))?.[0]
+// returnNamespace: true -- we're patching `.default` on the module below, so we need the
+// wrapper object back, not the unwrapped function `withName` hands back by default.
+const getTagProperties = lookupModule<any>(withName("getTagProperties"), { returnNamespace: true })?.[0]
+const { GuildStore, ChannelStore } = revenge.discord.flux.Stores
 
 export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	// Patching a module that didn't resolve throws, which takes the whole plugin down with
 	// it. Skip this surface instead and let the others carry on.
-	if (!getTagProperties) return () => {}
+	if (!getTagProperties?.default) return () => {}
 
 	return revenge.patcher.after(getTagProperties, "default", ([{ message }]: any[], ret: any) => {
 		// A message that already carries a tag (bot, system, automod...) has non-empty

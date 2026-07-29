@@ -14,13 +14,13 @@ const { Pressable, View } = revenge.react.ReactNative
 const { show: showToast } = revenge.utils.toast
 
 const { lookupModule } = revenge.modules.finders
-const { withStoreName, withProps } = revenge.modules.finders.filters
+const { withProps } = revenge.modules.finders.filters
 
-const GuildStore = lookupModule<any>(withStoreName("GuildStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
 // The *selected* guild id is assumed to live on a dedicated SelectedGuildStore, not
 // GuildStore (GuildStore only holds guild data: getGuild/getGuilds), matching classic Revenge.
-const SelectedGuildStore = lookupModule<any>(withStoreName("SelectedGuildStore"))?.[0]
-const SelectedChannelStore = lookupModule<any>(withStoreName("SelectedChannelStore"))?.[0]
+const { GuildStore, SelectedGuildStore, SelectedChannelStore } = revenge.discord.flux.Stores
 const Routing = lookupModule<any>(withProps("transitionToGuild"))?.[0]
 
 const SIZE = ICON_SIZE
@@ -79,7 +79,11 @@ function GuildRow({ id, selected, onNavigated }: { id: string; selected: boolean
 	}, [id])
 
 	const navigate = React.useCallback(() => {
-		revenge.discord.haptics.trigger("soft")
+		try {
+			revenge.discord.haptics.trigger("soft")
+		} catch {
+			/* haptics API is unconfirmed; ignore if unavailable */
+		}
 		// Deliberately no second argument: passing an explicit null selects *no* channel, so
 		// the chat area renders empty for a frame before Discord resolves the guild's
 		// remembered/default channel. Omitting it lets Discord pick the destination itself.
@@ -109,7 +113,11 @@ function GuildRow({ id, selected, onNavigated }: { id: string; selected: boolean
 	)
 
 	const openMenu = React.useCallback(() => {
-		revenge.discord.haptics.trigger("impactMedium")
+		try {
+			revenge.discord.haptics.trigger("impactMedium")
+		} catch {
+			/* haptics API is unconfirmed; ignore if unavailable */
+		}
 		// Prefer Discord's own action sheet -- identical chrome, no reimplementation to keep
 		// in sync. Only fall back to the custom modal if that call isn't available/throws.
 		if (!openNativeActionSheet(guild?.name ?? "Server", items)) setMenuOpen(true)

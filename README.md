@@ -31,6 +31,17 @@ That means:
 If a plugin here fails to load or misbehaves, that's the most likely cause — please open
 an issue with what broke.
 
+**Known pitfall — `manifest.icon` + `SettingsComponent` can freeze the app at boot.**
+Confirmed on-device (Staff Tags, RevengeXposed 1.5.3 / Discord 340.9): `Invariant Violation:
+Setting <id> is missing a title`, thrown from Discord's own settings-navigator code
+(`getSettingTitle`) while Revenge Next registers the plugin's settings route
+(`src/plugins/start/settings.plugins/plugins.tsx` in revenge-bundle-next — when
+`manifest.icon` is set, it configures a custom `headerTitle` instead of a plain `title`,
+and something downstream that expects `.title` breaks). Reproduced with a **guessed, likely
+invalid** icon name (`ShieldIcon`); not yet confirmed whether a real icon name avoids it. Only
+set `manifest.icon` on a plugin with a `SettingsComponent` if you've confirmed the icon name
+is real and tested it on-device — when in doubt, leave `icon` unset (it's optional).
+
 ## Repository format
 
 Built with `pnpm run build` into `dist/`: one `<plugin-id>.zip` (`manifest.json` +

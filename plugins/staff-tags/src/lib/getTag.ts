@@ -1,5 +1,5 @@
 const { lookupModule } = revenge.modules.finders
-const { withProps, withStoreName } = revenge.modules.finders.filters
+const { withProps } = revenge.modules.finders.filters
 const { chroma } = revenge.discord.common
 const { RawColors } = revenge.discord.design
 
@@ -16,7 +16,9 @@ const PermissionUtils =
 const computePermissions =
 	PermissionUtils?.computePermissionsForMember ?? PermissionUtils?.computePermissions
 
-const GuildMemberStore = lookupModule<any>(withStoreName("GuildMemberStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { GuildMemberStore } = revenge.discord.flux.Stores
 const TagModule = lookupModule<any>(withProps("getBotLabel"))?.[0]
 
 /**

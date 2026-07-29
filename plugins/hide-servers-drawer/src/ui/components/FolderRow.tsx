@@ -11,11 +11,12 @@ const { show: showToast } = revenge.utils.toast
 const { getAssetIDByName } = revenge.components
 
 const { lookupModule } = revenge.modules.finders
-const { withProps, withStoreName } = revenge.modules.finders.filters
+const { withProps } = revenge.modules.finders.filters
 
 const GuildActions = lookupModule<any>(withProps("toggleGuildFolderExpand"))?.[0]
-const ExpandedGuildFolderStore = lookupModule<any>(withStoreName("ExpandedGuildFolderStore"))?.[0]
-const GuildStore = lookupModule<any>(withStoreName("GuildStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { ExpandedGuildFolderStore, GuildStore } = revenge.discord.flux.Stores
 
 const ICON = 48
 const MINI = 16
@@ -76,7 +77,11 @@ export default function FolderRow({ node }: { node: any }) {
 	// entirely (same as a hidden guild), so it can only be unhidden from Settings, not
 	// re-found here to toggle back off.
 	const openMenu = React.useCallback(() => {
-		revenge.discord.haptics.trigger("impactMedium")
+		try {
+			revenge.discord.haptics.trigger("impactMedium")
+		} catch {
+			/* haptics API is unconfirmed; ignore if unavailable */
+		}
 		setMenuOpen(true)
 	}, [])
 

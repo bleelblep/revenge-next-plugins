@@ -3,7 +3,7 @@ import CustomGuildsBar from "../ui/components/CustomGuildsBar"
 import { registerIntercept, unregisterIntercept } from "./createElementIntercept"
 
 const { lookupModules } = revenge.modules.finders
-const { withTypeName } = revenge.modules.finders.filters
+const { withName } = revenge.modules.finders.filters
 
 // Nulling individual guild-bar rows leaves the row in the virtualized list's geometry -- the
 // bar keeps a phantom slot and tapping a server jumps the scroll position, because a
@@ -19,9 +19,13 @@ const { withTypeName } = revenge.modules.finders.filters
 export default function patchGuildsBar(): () => void {
 	const patches: Array<() => void> = []
 
+	// There's no confirmed equivalent of classic Revenge's findByTypeNameAll (which scanned
+	// rendered React element types, not metro modules). withName over metro modules is the
+	// closest available primitive -- may not match if GuildsBar is exported as an unnamed
+	// React.memo() wrapper, in which case this simply finds nothing and the bar goes unpatched.
 	let bars: any[] = []
 	try {
-		bars = lookupModules<any>(withTypeName("GuildsBar")) ?? []
+		bars = [...lookupModules<any>(withName("GuildsBar"))].map(([exports]) => exports)
 	} catch {
 		return () => {}
 	}

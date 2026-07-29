@@ -1,12 +1,19 @@
 // Ambient types for Revenge Next's external-plugin runtime.
 //
-// There is no public spec for this API. Every shape here was reverse-engineered by
-// downloading and reading three of PalmDevs' own built plugin zips from
-// https://copyparty.palmdevs.me/revenge-plugin-repo/ (palmdevs.silent-typing,
-// palmdevs.hide-blocked-messages, palmdevs.flashbang) and reading the minified output.
-// Anything not exercised by those three samples is a best-effort guess by analogy with
-// the equivalent classic Revenge/Vendetta API (@vendetta/*) our other plugins use.
-// Expect to correct this file once plugins are actually tested on-device.
+// There is no public spec for this API. The core shapes (plugin(), jsonStorage, patcher,
+// jsx runtime) were reverse-engineered by downloading and reading three of PalmDevs' own
+// built plugin zips from https://copyparty.palmdevs.me/revenge-plugin-repo/
+// (palmdevs.silent-typing, palmdevs.hide-blocked-messages, palmdevs.flashbang).
+//
+// The `modules.finders` section below was corrected against a real on-device crash log
+// (an "undefined is not a function" during preInitPlugin, from a guessed `withStoreName`
+// filter that doesn't exist under `modules.finders.filters`) by reading the actual source
+// of revenge-mod/revenge-bundle-next (lib/modules/src/finders/**, lib/discord/src/flux/stores.ts).
+// That source is the external plugin host's own implementation, so these shapes are
+// confirmed-accurate for lookupModule/lookupModules/getModules/withProps/withName/
+// withDependencies/Stores. Anything else (haptics, alerts, toasts, Design/Tokens) is still
+// a best-effort guess by analogy with the classic Revenge/Vendetta API our other plugins
+// use, and may need correcting once tested on-device.
 
 import type * as ReactTypes from 'react'
 import type * as ReactNativeTypes from 'react-native'
@@ -67,7 +74,22 @@ declare global {
 	}
 
 	interface RevengeModuleFilter<T = any> {
+		(id: number, exports?: unknown): boolean
+		key: string
 		and(other: RevengeModuleFilter<any>): RevengeModuleFilter<T>
+		or(other: RevengeModuleFilter<any>): RevengeModuleFilter<T>
+	}
+
+	interface RevengeLookupOptions {
+		/** Use cached lookup results. @default true */
+		cached?: boolean
+		/** Initialize matching uninitialized modules. @default true */
+		initialize?: boolean
+		/** Return the whole module exports (with `.default` intact) instead of unwrapping to
+		 *  the default export when the filter matched via the default export. Needed when you
+		 *  intend to patch `.default` on the module itself rather than call the returned value
+		 *  directly. @default false */
+		returnNamespace?: boolean
 	}
 
 	interface RevengePatcherApi {
@@ -90,25 +112,37 @@ declare global {
 
 	interface RevengeModuleFindersApi {
 		filters: {
+			/** Confirmed live (revenge-bundle-next source): matches modules whose exports have
+			 *  every listed property. */
 			withProps<T = any>(...props: string[]): RevengeModuleFilter<T>
+			withoutProps<T = any>(...props: string[]): RevengeModuleFilter<T>
+			withSingleProp<T = any>(prop: string): RevengeModuleFilter<T>
+			/** Confirmed live: matches a module whose exports (or default export) has
+			 *  `.name === name` — for named function components/classes. NOT a Flux-store-name
+			 *  lookup (there is no such filter here — use `revenge.discord.flux.Stores.<Name>`
+			 *  for that instead). */
 			withName<T = any>(name: string): RevengeModuleFilter<T>
-			/** Not observed in any of the 3 samples — modelled on classic `findByStoreName`. */
-			withStoreName<T = any>(name: string): RevengeModuleFilter<T>
-			/** Not observed — modelled on classic `findByTypeNameAll`. */
-			withTypeName<T = any>(name: string): RevengeModuleFilter<T>
-			/** Not observed — modelled on classic `find(predicate)`. */
-			withPredicate<T = any>(fn: (mod: any) => boolean): RevengeModuleFilter<T>
 			withDependencies(deps: unknown[]): RevengeModuleFilter<any>
 		}
 		/** Subscribes to every currently-loaded and future module matching `filter`. */
 		getModules<T = any>(
 			filter: RevengeModuleFilter<T>,
-			cb: (mod: T) => void,
+			cb: (mod: T, id: number) => void,
+			options?: RevengeLookupOptions & { max?: number },
 		): () => void
-		/** One-shot synchronous lookup; returns `[module, moduleId]` or undefined. */
-		lookupModule<T = any>(filter: RevengeModuleFilter<T>): [T, number] | undefined
-		/** One-shot synchronous lookup of every match (classic `findByTypeNameAll`-style). */
-		lookupModules<T = any>(filter: RevengeModuleFilter<T>): T[]
+		/** One-shot synchronous lookup of the first match. Returns `[exports, id]`, or `[]`
+		 *  (empty array, NOT undefined) if nothing matched — `?.[0]` still works either way. */
+		lookupModule<T = any>(
+			filter: RevengeModuleFilter<T>,
+			options?: RevengeLookupOptions,
+		): [T, number] | []
+		/** Generator over every match — NOT an array. Iterate with `for...of` (or
+		 *  `[...lookupModules(filter)]` to collect eagerly) and destructure each
+		 *  `[exports, id]` yielded pair. */
+		lookupModules<T = any>(
+			filter: RevengeModuleFilter<T>,
+			options?: RevengeLookupOptions,
+		): Generator<[T, number], undefined>
 	}
 
 	interface RevengeDesignApi {
@@ -156,6 +190,11 @@ declare global {
 		}
 		discord: {
 			flux: {
+				/** Confirmed live (both the hide-blocked-messages sample and
+				 *  revenge-bundle-next's own `lib/discord/src/flux/stores.ts`): a proxy keyed
+				 *  by Flux store name, e.g. `Stores.GuildStore`, `Stores.ChannelStore`. Plain
+				 *  property access — safe even for an unregistered name (`undefined`, not a
+				 *  throw). Prefer this over any module-finder-based store lookup. */
 				Stores: Record<string, any>
 				onFluxEventDispatched(
 					event: string,
@@ -182,6 +221,8 @@ declare global {
 				/** Discord's bundled chroma-js instance. */
 				chroma: (...args: unknown[]) => any
 			}
+			/** Unconfirmed -- not found in a quick pass over revenge-bundle-next's source, and
+			 *  no reference sample used haptics. Every call site wraps this in try/catch. */
 			haptics: {
 				trigger(type?: string): void
 			}

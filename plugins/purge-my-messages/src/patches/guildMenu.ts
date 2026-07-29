@@ -1,21 +1,24 @@
 import { cancelPurge, confirmAndPurge, isPurging } from "../ui/confirmAndPurge"
 
 const { lookupModule } = revenge.modules.finders
-const { withPredicate, withStoreName } = revenge.modules.finders.filters
+const { withName } = revenge.modules.finders.filters
 
 /**
  * Appends one item to the real per-guild long-press menu (getGuildsBarGuildMenuItems, same
  * lookup Hide Servers (Drawer Fix) uses) rather than building a custom menu -- the native
  * menu already renders wherever the guild bar's long-press opens it, native chrome included.
+ *
+ * `withName` matches a module whose exports (or default export) has `.name === name` --
+ * `getGuildsBarGuildMenuItems` is a named function, so this finds it directly. `returnNamespace`
+ * is required because the module we want to patch is the wrapper object holding `.default`,
+ * not the unwrapped function `withName` would otherwise hand back.
  */
 export default function patchGuildMenu(): () => void {
-	const found = lookupModule<any>(
-		withPredicate((m: any) => m?.default?.name === "getGuildsBarGuildMenuItems"),
-	)
+	const found = lookupModule<any>(withName("getGuildsBarGuildMenuItems"), { returnNamespace: true })
 	const mod = found?.[0]
 	if (!mod?.default) return () => {}
 
-	const GuildStore = lookupModule<any>(withStoreName("GuildStore"))?.[0]
+	const { GuildStore } = revenge.discord.flux.Stores
 
 	return revenge.patcher.after(mod, "default", (args: any[], ret: any) => {
 		const guildId = args?.[0]

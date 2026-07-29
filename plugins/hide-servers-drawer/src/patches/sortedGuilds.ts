@@ -1,9 +1,8 @@
 import { isEmpty, isFolderHidden, isHidden } from "../lib/hidden"
 
-const { lookupModule } = revenge.modules.finders
-const { withStoreName } = revenge.modules.finders.filters
-
-const SortedGuildStore = lookupModule<any>(withStoreName("SortedGuildStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { SortedGuildStore } = revenge.discord.flux.Stores
 
 // No server-list component resolves reliably by name across builds, so filter at the
 // source instead: everything that draws the list reads it from this store, so removing

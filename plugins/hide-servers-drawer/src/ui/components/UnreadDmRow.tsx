@@ -82,7 +82,11 @@ function GroupAvatars({ members }: { members: Array<{ id: string; url?: string; 
  */
 function UnreadDmRow({ dm, selected }: { dm: UnreadDm; selected: boolean }) {
 	const navigate = React.useCallback(() => {
-		revenge.discord.haptics.trigger("soft")
+		try {
+			revenge.discord.haptics.trigger("soft")
+		} catch {
+			/* haptics API is unconfirmed; ignore if unavailable */
+		}
 		try {
 			ChannelActions?.selectPrivateChannel?.(dm.channelId)
 		} catch {

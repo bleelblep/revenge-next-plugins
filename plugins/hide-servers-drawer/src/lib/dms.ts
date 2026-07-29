@@ -1,9 +1,6 @@
-const { lookupModule } = revenge.modules.finders
-const { withStoreName } = revenge.modules.finders.filters
-
-const ChannelStore = lookupModule<any>(withStoreName("ChannelStore"))?.[0]
-const UserStore = lookupModule<any>(withStoreName("UserStore"))?.[0]
-const ReadStateStore = lookupModule<any>(withStoreName("ReadStateStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { ChannelStore, UserStore, ReadStateStore } = revenge.discord.flux.Stores
 
 export interface RecentDm {
 	channelId: string

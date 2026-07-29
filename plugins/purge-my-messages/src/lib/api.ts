@@ -1,10 +1,11 @@
 const { lookupModule } = revenge.modules.finders
-const { withProps, withStoreName } = revenge.modules.finders.filters
+const { withProps } = revenge.modules.finders.filters
 
 const MessageActions = lookupModule<any>(withProps("deleteMessage"))?.[0]
 const HTTPMod = lookupModule<any>(withProps("getAPIBaseURL"))?.[0]
-const UserStore = lookupModule<any>(withStoreName("UserStore"))?.[0]
-const ChannelStore = lookupModule<any>(withStoreName("ChannelStore"))?.[0]
+// Flux stores are looked up by name directly through the Stores proxy, not a module finder
+// filter -- there is no `withStoreName` under modules.finders.filters.
+const { UserStore, ChannelStore } = revenge.discord.flux.Stores
 
 export function currentUserId(): string | undefined {
 	try {
