@@ -42,8 +42,17 @@ version, matching the format Revenge Next's repo-add flow expects. Version histo
 
 ```sh
 pnpm install
-pnpm run build   # builds every plugin in plugins/ into dist/
+pnpm run build          # builds every plugin in plugins/ into dist/
+node serve.mjs --watch  # build, then serve dist/ over LAN for on-device testing
+node devtools.mjs       # debug websocket bridge -- see errors/logs live from the client
 ```
+
+`serve.mjs` prints a LAN `index.json` URL you can add as a repository source in Revenge
+Next directly, and rebuilds on change. `devtools.mjs` is the same debug-websocket bridge
+`bleelblep/revengeplugins` uses: point the client's Debugger URL at the printed LAN
+address, and its output streams into this terminal. `ws` isn't a listed dependency
+(`npm i ws --no-save` / `pnpm add ws --no-save` first) so the CI lockfile stays in sync,
+since it's only needed for this local script.
 
 ## License
 
