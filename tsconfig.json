@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"outDir": "dist",
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"esModuleInterop": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "revenge",
+		"baseUrl": ".",
+		"paths": {
+			"revenge/jsx-runtime": ["./types/jsx-runtime.d.ts"]
+		},
+		"strict": true,
+		"skipLibCheck": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"allowJs": true,
+		"noEmit": true
+	},
+	"include": ["plugins", "types"]
+}

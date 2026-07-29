@@ -1,0 +1,7 @@
+{
+	"name": "Staff Tags",
+	"description": "Shows extra tags for staff members — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK.",
+	"author": "bleelblep, Fiery",
+	"icon": "ShieldIcon",
+	"version": "1.0.0"
+}

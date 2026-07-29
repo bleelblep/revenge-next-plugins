@@ -1,0 +1,42 @@
+name: Build and deploy
+
+on:
+    push:
+        branches: [main]
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Prepare environment
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - run: npm install --global pnpm
+
+            - name: Fetch previous dist/index.json so version history accumulates
+              run: |
+                  git fetch origin gh-pages --depth=1 2>/dev/null || exit 0
+                  mkdir -p dist
+                  git show origin/gh-pages:index.json > dist/index.json 2>/dev/null || true
+
+            - name: Install deps
+              run: pnpm install
+
+            - name: Build plugin(s)
+              run: pnpm run build
+
+            - name: Copy additional files
+              run: cp README.md dist/README.md
+
+            - name: Deploy to GitHub Pages
+              uses: peaceiris/actions-gh-pages@v3
+              with:
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  publish_dir: ./dist
