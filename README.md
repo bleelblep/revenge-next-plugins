@@ -17,6 +17,33 @@ by downloading and reading the built output of three of [Palm](https://github.co
 own plugins from their live repo, then corrected repeatedly against on-device crash logs and
 revenge-bundle-next's own source.
 
+## Working
+
+**Staff Tags** — chat tags and member-list tags are both confirmed working on-device.
+
+Fixes it took to get there (kept here since the same classes of bug are likely lurking in
+the other two plugins too):
+- `patcher.after`'s hook only receives the return value, not the original args — code
+  written against the classic Revenge/Vendetta `(args, ret)` convention needs `instead` +
+  `original(...args)` instead.
+- `lookupModule`/`lookupModules` are one-shot and permanently cache a miss if the target
+  module hasn't loaded yet (very possible from `preInit`, and even from `start()` for
+  chat/member-list UI modules that only initialize once their screen renders) — use
+  `getModules` (subscribes, calls back whenever a match actually loads) for anything UI-related.
+- `revenge.discord.common.chroma` and `.moment` don't exist. Replaced with a self-contained
+  brightness calc and, in Custom Timestamps, a self-contained date formatter.
+- `revenge.utils.react.findInReactTree` doesn't exist — replaced with a local implementation
+  (`plugins/staff-tags/src/lib/findInReactTree.ts`).
+- The member-list patch (`details.tsx`) needed a hand-built module filter to catch `UserRow`,
+  which is `React.memo()`-wrapped (so `filters.withName` can never match it — memo wrappers
+  have no `.name` of their own). That hand-built filter also has to implement a `.scope(...)`
+  **method**, not just a `.scopes` property — `getModules`/`lookupModule` call it as a
+  function internally, and a filter missing it throws immediately, silently, every time.
+
+Known limitation: **no settings page** (see below), so `useRoleColor` is hardcoded to `false`
+in `jsonStorage`'s default. Once settings are usable again, wiring up a real toggle for that
+is still outstanding.
+
 ## Currently broken
 
 - **Settings pages don't work on any plugin.** Setting `SettingsComponent` reliably crashes
@@ -28,9 +55,9 @@ revenge-bundle-next's own source.
   real source exactly, unchanged across their 2026-07-25 plugin-system rewrite, and no one
   else has reported this upstream — root cause unconfirmed. All three plugins currently ship
   with `SettingsComponent` omitted and their options hardcoded to sensible defaults.
-- **Custom Timestamps** and **Hide Servers (Drawer Fix)** load without crashing, but beyond
-  that haven't been thoroughly exercised on-device. Unlike Staff Tags (chat tags and
-  member-list tags both confirmed working), functional correctness here is unverified.
+- **Hide Servers (Drawer Fix)** soft-bootloops the app on reopen in its current state.
+- **Custom Timestamps** loads without crashing, but beyond that hasn't been thoroughly
+  exercised on-device — functional correctness is unverified.
 
 ## Repository format
 
