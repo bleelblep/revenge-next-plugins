@@ -15,7 +15,22 @@ function resolveMenuItemsFn() {
 	return menuItemsFn
 }
 
-const showSimpleActionSheet = lookupModule<any>(withProps("showSimpleActionSheet"))?.[0]?.showSimpleActionSheet
+// Also deferred to first use, not resolved at module top level: this file's top-level code
+// runs at preInit (the whole plugin bundle executes together), before Discord's module
+// registry is populated -- lookupModule gives up immediately and permanently caches a false
+// "not found" for anything not already loaded that early. Confirmed on-device elsewhere
+// (staff-tags' getTagProperties).
+let actionSheetFn: ((opts: Record<string, unknown>) => void) | undefined
+
+function resolveActionSheetFn() {
+	if (actionSheetFn !== undefined) return actionSheetFn
+	try {
+		actionSheetFn = lookupModule<any>(withProps("showSimpleActionSheet"))?.[0]?.showSimpleActionSheet
+	} catch {
+		actionSheetFn = undefined
+	}
+	return actionSheetFn
+}
 
 export interface MenuItem {
 	label: string
@@ -53,6 +68,7 @@ export function stockMenuItems(guildId: string): MenuItem[] {
  * wrong", so a bad guess at the payload shape needs to be caught by eye.
  */
 export function openNativeActionSheet(title: string, items: MenuItem[]): boolean {
+	const showSimpleActionSheet = resolveActionSheetFn()
 	if (typeof showSimpleActionSheet !== "function" || !items.length) return false
 
 	try {

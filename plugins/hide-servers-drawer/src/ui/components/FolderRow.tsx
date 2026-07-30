@@ -7,20 +7,35 @@ import GuildIcon from "./GuildIcon"
 
 const { React } = revenge.react
 const { Pressable, View, Image } = revenge.react.ReactNative
-const { show: showToast } = revenge.utils.toast
-const { getAssetIDByName } = revenge.components
+// revenge.utils.toast.show doesn't exist -- was a guess, confirmed wrong on-device
+// ("Cannot read property 'show' of undefined" at preInit). ToastActionCreators.open is
+// confirmed live from revenge-bundle-next's own source (used by the staff-settings and
+// developer-kit internal plugins).
+function showToast(content: string) {
+	revenge.discord.actions.ToastActionCreators.open({ key: "HideServersDrawerToast", content })
+}
+// getAssetIdByName (lowercase "d"), under revenge.assets not revenge.components -- confirmed
+// from revenge-bundle-next's own source. This is available at module top level (assets isn't
+// lazy-guarded the way modules.finders lookups are), so no getModules-style deferral needed.
+const { getAssetIdByName } = revenge.assets
 
-const { lookupModule } = revenge.modules.finders
-const { withProps } = revenge.modules.finders.filters
-
-const GuildActions = lookupModule<any>(withProps("toggleGuildFolderExpand"))?.[0]
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters.
 const { ExpandedGuildFolderStore, GuildStore } = revenge.discord.flux.Stores
 
+// getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
+// module can still be unregistered even from inside start() -- this file's top-level code
+// runs at preInit (the whole plugin bundle executes together), before Discord's module
+// registry is populated. lookupModule gives up immediately and permanently caches a false
+// "not found"; getModules subscribes and calls back whenever the module actually loads.
+let guildActions: any
+revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("toggleGuildFolderExpand"), mod => {
+	guildActions = mod
+})
+
 const ICON = 48
 const MINI = 16
-const FOLDER_ASSET = getAssetIDByName("FolderIcon") ?? getAssetIDByName("ic_folder")
+const FOLDER_ASSET = getAssetIdByName("FolderIcon") ?? getAssetIdByName("ic_folder")
 
 const POS = [
 	{ top: 6, left: 6 },
@@ -66,7 +81,7 @@ export default function FolderRow({ node }: { node: any }) {
 
 	const toggle = () => {
 		try {
-			GuildActions?.toggleGuildFolderExpand?.(node.id)
+			guildActions?.toggleGuildFolderExpand?.(node.id)
 		} catch {
 			/* ignore */
 		}

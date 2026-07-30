@@ -11,17 +11,29 @@ import Pill from "./Pill"
 
 const { React } = revenge.react
 const { Pressable, View } = revenge.react.ReactNative
-const { show: showToast } = revenge.utils.toast
-
-const { lookupModule } = revenge.modules.finders
-const { withProps } = revenge.modules.finders.filters
+// revenge.utils.toast.show doesn't exist -- was a guess, confirmed wrong on-device
+// ("Cannot read property 'show' of undefined" at preInit). ToastActionCreators.open is
+// confirmed live from revenge-bundle-next's own source (used by the staff-settings and
+// developer-kit internal plugins).
+function showToast(content: string) {
+	revenge.discord.actions.ToastActionCreators.open({ key: "HideServersDrawerToast", content })
+}
 
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters.
 // The *selected* guild id is assumed to live on a dedicated SelectedGuildStore, not
 // GuildStore (GuildStore only holds guild data: getGuild/getGuilds), matching classic Revenge.
 const { GuildStore, SelectedGuildStore, SelectedChannelStore } = revenge.discord.flux.Stores
-const Routing = lookupModule<any>(withProps("transitionToGuild"))?.[0]
+
+// getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
+// module can still be unregistered even from inside start() -- this file's top-level code
+// runs at preInit (the whole plugin bundle executes together), before Discord's module
+// registry is populated. lookupModule gives up immediately and permanently caches a false
+// "not found"; getModules subscribes and calls back whenever the module actually loads.
+let routing: any
+revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("transitionToGuild"), mod => {
+	routing = mod
+})
 
 const SIZE = ICON_SIZE
 
@@ -88,7 +100,7 @@ function GuildRow({ id, selected, onNavigated }: { id: string; selected: boolean
 		// the chat area renders empty for a frame before Discord resolves the guild's
 		// remembered/default channel. Omitting it lets Discord pick the destination itself.
 		try {
-			Routing?.transitionToGuild?.(id)
+			routing?.transitionToGuild?.(id)
 		} catch {
 			/* ignore */
 		}

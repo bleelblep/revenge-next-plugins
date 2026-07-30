@@ -2,9 +2,6 @@ import { isEmpty, instant } from "../lib/hidden"
 import CustomGuildsBar from "../ui/components/CustomGuildsBar"
 import { registerIntercept, unregisterIntercept } from "./createElementIntercept"
 
-const { lookupModules } = revenge.modules.finders
-const { withName } = revenge.modules.finders.filters
-
 // Nulling individual guild-bar rows leaves the row in the virtualized list's geometry -- the
 // bar keeps a phantom slot and tapping a server jumps the scroll position, because a
 // virtualized list still reserves layout for every entry in its data array, blank or not.
@@ -16,34 +13,68 @@ const { withName } = revenge.modules.finders.filters
 // SortedGuildStore.getGuildsTree(), which patches/sortedGuilds.ts already filters. A hidden
 // guild is simply absent from that array -- nothing reserves a slot for it, so there is no
 // gap and no scroll jump. When nothing is hidden, the real GuildsBar renders untouched.
+/**
+ * A raw custom filter, built by hand instead of via `filters.withName` etc: matches a module
+ * whose exports (or default export) is a `React.memo()` wrapper around a function named
+ * `name` -- i.e. checks `exports.type.name`, not `exports.name`. Confirmed on-device
+ * (staff-tags plugin, an identical "UserRow" lookup) that `withName` alone finds nothing for
+ * a memo-wrapped component: `React.memo(function GuildsBar(){...})` returns a plain
+ * `{ $$typeof, type, compare }` object with no `.name` of its own, which `withName` (checks
+ * `.name` only) can never match -- but `.type.name` (the wrapped function's own name) still
+ * is "GuildsBar". Shaped like `filters.withProps` et al. (a predicate function with
+ * `.key`/`.flags`/`.scopes`) since `revenge.modules.finders` doesn't expose a generic
+ * custom-predicate filter constructor to external plugins.
+ *
+ * IMPORTANT: `getModules`/`lookupModule` call `filter.scope(...)` as a *method*, not a
+ * property read (confirmed from revenge-bundle-next's own source) -- a filter missing this
+ * method throws immediately when passed to getModules. The first version of this filter only
+ * set a `.scopes` property and had no `.scope()` method at all, so (caught silently by the
+ * try/catch below) it never actually ran once.
+ */
+function withMemoName(name: string) {
+	const filter: any = (_id: number, exports: any) => exports?.type?.name === name
+	filter.key = `revenge-next-plugins.memoName(${name})`
+	filter.flags = 1 // FilterFlag.RequiresExports
+	filter.scopes = 4 // FilterScopes.Initialized
+	// Minimal stand-in for the real Helpers prototype (unexposed to external plugins):
+	// getModules/lookupModule only ever call `.scope(...)`, never `.and()`/`.or()`/etc, for
+	// filters passed in from here, so only that needs implementing.
+	filter.scope = (...scopes: number[]) => {
+		const scoped: any = (id: number, exports: any) => filter(id, exports)
+		scoped.key = filter.key
+		scoped.flags = filter.flags
+		scoped.scopes = scopes.reduce((a, b) => a | b, 0)
+		scoped.scope = filter.scope
+		return scoped
+	}
+	return filter
+}
+
 export default function patchGuildsBar(): () => void {
 	const patches: Array<() => void> = []
+	const patchedAlready = new Set<any>()
 
-	// There's no confirmed equivalent of classic Revenge's findByTypeNameAll (which scanned
-	// rendered React element types, not metro modules). withName over metro modules is the
-	// closest available primitive -- may not match if GuildsBar is exported as an unnamed
-	// React.memo() wrapper, in which case this simply finds nothing and the bar goes unpatched.
-	let bars: any[] = []
-	try {
-		bars = [...lookupModules<any>(withName("GuildsBar"))].map(([exports]) => exports)
-	} catch {
-		return () => {}
-	}
-
-	for (const bar of bars) {
-		if (!bar) continue
+	function patchBar(bar: any) {
+		if (!bar || patchedAlready.has(bar)) return
+		patchedAlready.add(bar)
 
 		const original = bar.type
 
 		try {
 			patches.push(
 				revenge.patcher.instead(bar, "type", (args: any[], callOriginal: any) => {
-					if (isEmpty() || !instant()) return callOriginal.apply(bar, args)
+					if (isEmpty() || !instant()) {
+						// Confirmed on-device crash elsewhere (staff-tags): "undefined is not
+						// a function" when a captured original wasn't actually a function yet
+						// at patch time. Never assume it's callable.
+						if (typeof callOriginal !== "function") return null
+						return callOriginal.apply(bar, args)
+					}
 					return revenge.react.React.createElement(CustomGuildsBar, null)
 				}),
 			)
 		} catch {
-			continue
+			return
 		}
 
 		// Belt-and-suspenders: if a closure captured `original` before this patch applied and
@@ -64,5 +95,38 @@ export default function patchGuildsBar(): () => void {
 		}
 	}
 
-	return () => patches.forEach(unpatch => { try { unpatch() } catch { /* already gone */ } })
+	// getModules, not lookupModules: confirmed on-device (staff-tags plugin) that a
+	// chat/guild-UI-related module can still be unloaded even from inside start() on a cold
+	// app restart. lookupModules gives up immediately and permanently caches that as "not
+	// found"; getModules subscribes and calls back whenever a match actually loads. Tries
+	// both withName (a plain named export) and withMemoName (a React.memo() wrapper, which
+	// was confirmed on-device to be the actual shape of an equivalent "UserRow" component in
+	// the staff-tags plugin) since it's unconfirmed which shape GuildsBar itself has. max: 5
+	// since there's no confirmed equivalent of classic Revenge's findByTypeNameAll (which
+	// scanned rendered React element types, not metro modules) -- these are the closest
+	// available primitives and may match zero or several "GuildsBar" closures.
+	let unsubscribeNamed = () => {}
+	let unsubscribeMemo = () => {}
+	try {
+		unsubscribeNamed = revenge.modules.finders.getModules<any>(
+			revenge.modules.finders.filters.withName("GuildsBar"),
+			patchBar,
+			{ max: 5 },
+		)
+		unsubscribeMemo = revenge.modules.finders.getModules<any>(withMemoName("GuildsBar"), patchBar, { max: 5 })
+	} catch {
+		/* leave the bar unpatched */
+	}
+
+	return () => {
+		unsubscribeNamed()
+		unsubscribeMemo()
+		patches.forEach(unpatch => {
+			try {
+				unpatch()
+			} catch {
+				/* already gone */
+			}
+		})
+	}
 }

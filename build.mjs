@@ -168,7 +168,11 @@ async function main() {
         format: 1,
         name: REPO_NAME,
         description: REPO_DESCRIPTION,
-        plugins: previous?.plugins ?? {},
+        // Rebuilt from scratch each run (not seeded from `previous`) so a plugin removed from
+        // ./plugins drops out of index.json too, instead of leaving a stale entry pointing at
+        // a zip that no longer gets built. Version *history* for plugins that are still
+        // present is still inherited from `previous` below.
+        plugins: {},
     };
 
     let failed = false;
@@ -176,7 +180,7 @@ async function main() {
         try {
             const { id, entry, version, versionEntry } = await buildPlugin(dir);
 
-            const existing = index.plugins[id];
+            const existing = previous?.plugins?.[id];
             index.plugins[id] = {
                 ...entry,
                 channels: { ...(existing?.channels ?? {}), latest: version },

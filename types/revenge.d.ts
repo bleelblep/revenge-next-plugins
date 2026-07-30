@@ -92,21 +92,31 @@ declare global {
 		returnNamespace?: boolean
 	}
 
+	/**
+	 * Confirmed live from revenge-bundle-next's own source (lib/patcher/src/hooks/*.ts) --
+	 * NOT the classic Revenge/Vendetta (args, ret) two-parameter convention. Getting this
+	 * wrong (assuming `after`'s hook received `(args, ret)`) caused a real on-device crash:
+	 * "iterator method is not callable", from destructuring `after`'s single `result`
+	 * parameter as if it were an args array.
+	 */
 	interface RevengePatcherApi {
-		before<Self = any>(
+		/** Hook receives only the args array. Return a new array to replace the arguments,
+		 *  or nothing to leave them as-is. */
+		before<Args extends unknown[] = unknown[]>(
 			obj: any,
 			method: string,
-			cb: (args: unknown[], self: Self) => unknown[] | void,
+			hook: (args: Args) => Args | void,
 		): () => void
-		after<Self = any>(
+		/** Hook receives only the original function's return value (NOT the args). Return a
+		 *  new value to replace it, or the same value to leave it as-is. If you need the
+		 *  original arguments too, use `instead` and call `original(...args)` yourself. */
+		after<Result = any>(obj: any, method: string, hook: (result: Result) => Result): () => void
+		/** Hook receives the args array and the next/original function. Call
+		 *  `original(...args)` to get the real result. */
+		instead<Args extends unknown[] = unknown[], Result = any>(
 			obj: any,
 			method: string,
-			cb: (args: unknown[], ret: unknown, self: Self) => unknown,
-		): () => void
-		instead<Self = any>(
-			obj: any,
-			method: string,
-			cb: (args: unknown[], orig: (...a: unknown[]) => unknown, self: Self) => unknown,
+			hook: (args: Args, original: (...args: Args) => Result) => Result,
 		): () => void
 	}
 
@@ -214,12 +224,16 @@ declare global {
 				ToastActionCreators: RevengeToastActionCreators
 				AlertActionCreators: RevengeAlertActionCreators
 			}
+			// Confirmed live from revenge-bundle-next's own source
+			// (lib/discord/src/common/index.ts): Logger, Tokens, flux, utils, Constants.
+			// Explicitly NO `chroma` and NO `moment` -- both were guessed by analogy with
+			// classic Revenge's @vendetta/metro/common and confirmed wrong on-device (a
+			// `chroma` call threw "undefined is not a function"). Do the color/date math
+			// directly instead of assuming either exists.
 			common: {
 				Constants: Record<string, any>
-				/** Discord's bundled moment.js instance (classic `@vendetta/metro/common`'s `moment`). */
-				moment: ((...args: unknown[]) => any) & { isMoment?: (value: unknown) => boolean }
-				/** Discord's bundled chroma-js instance. */
-				chroma: (...args: unknown[]) => any
+				Logger: { log(...a: unknown[]): void; warn(...a: unknown[]): void; error(...a: unknown[]): void }
+				Tokens: Record<string, any>
 			}
 			/** Unconfirmed -- not found in a quick pass over revenge-bundle-next's source, and
 			 *  no reference sample used haptics. Every call site wraps this in try/catch. */
@@ -230,22 +244,26 @@ declare global {
 		components: {
 			Page: ReactTypes.ComponentType<{ children?: ReactTypes.ReactNode }>
 			TableRowAssetIcon: ReactTypes.ComponentType<{ name: string }>
-			getAssetIDByName(name: string): unknown
 		}
+		/** Confirmed live from revenge-bundle-next's own source (lib/assets/src/index.ts) --
+		 *  `getAssetIdByName` (lowercase "d"), under `assets`, not `components`. Was a bad
+		 *  guess before (wrong name AND wrong namespace). */
+		assets: {
+			getAssetIdByName(name: string, type?: string): number | undefined
+		}
+		// `callback.noop` is confirmed live (used directly in the palmdevs.silent-typing
+		// sample). `proxy.unproxify` and `react.findInReactTree` were guesses and
+		// `react.findInReactTree` is confirmed WRONG on-device ("undefined is not a function")
+		// -- the real revenge-bundle-next source has a differently-named `findInReactFiber`
+		// (lib/utils/src/react.ts) and its availability on the external plugin API is
+		// unconfirmed either way. Plugins now implement their own tree-walker instead of
+		// depending on this.
 		utils: {
 			callback: {
 				noop: (...args: unknown[]) => void
 			}
 			proxy: {
 				unproxify(obj: unknown): void
-			}
-			react: {
-				/** Walks a rendered element/fiber tree for the first node matching `predicate`
-				 *  (classic `@vendetta/utils`'s `findInReactTree`). */
-				findInReactTree(tree: unknown, predicate: (node: any) => boolean): any
-			}
-			toast: {
-				show(content: string): void
 			}
 		}
 		jsonStorage: {

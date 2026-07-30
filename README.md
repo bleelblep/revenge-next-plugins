@@ -1,15 +1,12 @@
 # revenge-next-plugins
 
-Revenge Next ports of the plugins in [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins)
-(Staff Tags, Custom Timestamps, Purge My Messages, Hide Servers Drawer Fix), targeting
+Revenge Next ports of plugins from [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins)
+(Staff Tags, Custom Timestamps, Hide Servers Drawer Fix), targeting
 [Revenge Next](https://github.com/revenge-mod/revenge-bundle-next) instead of classic
-Revenge/Vendetta.
+Revenge/Vendetta. Purge My Messages was dropped from this port.
 
-## How to install
-
-Add this repository's URL to Revenge Next's plugin sources:
-
-> https://bleelblep.github.io/revenge-next-plugins/index.json
+This repo is currently **private and unpublished** (GitHub Pages disabled) while the issues
+below get sorted out.
 
 ## ⚠️ About this repository's plugin API
 
@@ -17,30 +14,23 @@ Revenge Next's **external plugin** API (the `plugin({...})` factory and the glob
 `revenge` namespace object every plugin calls into — see [`types/revenge.d.ts`](./types/revenge.d.ts))
 has no public documentation as of writing. The types in this repo were reverse-engineered
 by downloading and reading the built output of three of [Palm](https://github.com/PalmDevs)'s
-own plugins from their live repo
-([`revenge-plugin-repo`](https://copyparty.palmdevs.me/revenge-plugin-repo/)):
-`palmdevs.silent-typing`, `palmdevs.hide-blocked-messages`, and `palmdevs.flashbang`.
+own plugins from their live repo, then corrected repeatedly against on-device crash logs and
+revenge-bundle-next's own source.
 
-That means:
-- Anything exercised by those three plugins (patcher, module finders, jsonStorage, the
-  Design table components, JSX runtime) should be accurate.
-- Anything not exercised by them (e.g. `patcher.before`/`.after`, confirmation dialogs,
-  most Discord action creators) is a best-effort guess by analogy with the classic
-  Revenge/Vendetta API, and may be wrong until corrected against a real device.
+## Currently broken
 
-If a plugin here fails to load or misbehaves, that's the most likely cause — please open
-an issue with what broke.
-
-**Known pitfall — `manifest.icon` + `SettingsComponent` can freeze the app at boot.**
-Confirmed on-device (Staff Tags, RevengeXposed 1.5.3 / Discord 340.9): `Invariant Violation:
-Setting <id> is missing a title`, thrown from Discord's own settings-navigator code
-(`getSettingTitle`) while Revenge Next registers the plugin's settings route
-(`src/plugins/start/settings.plugins/plugins.tsx` in revenge-bundle-next — when
-`manifest.icon` is set, it configures a custom `headerTitle` instead of a plain `title`,
-and something downstream that expects `.title` breaks). Reproduced with a **guessed, likely
-invalid** icon name (`ShieldIcon`); not yet confirmed whether a real icon name avoids it. Only
-set `manifest.icon` on a plugin with a `SettingsComponent` if you've confirmed the icon name
-is real and tested it on-device — when in doubt, leave `icon` unset (it's optional).
+- **Settings pages don't work on any plugin.** Setting `SettingsComponent` reliably crashes
+  Discord's entire Settings screen on open — not just the plugin's own page —
+  `Invariant Violation: Setting <id> is missing a title`, thrown from Discord's own
+  `getSettingTitle` while it builds descriptors for the whole Settings navigator. The wiring
+  Revenge Next uses to register an external plugin's settings route (`useTitle: () =>
+  plugin.manifest.name`, in `src/plugins/start/settings.plugins/plugins.tsx`) matches its
+  real source exactly, unchanged across their 2026-07-25 plugin-system rewrite, and no one
+  else has reported this upstream — root cause unconfirmed. All three plugins currently ship
+  with `SettingsComponent` omitted and their options hardcoded to sensible defaults.
+- **Custom Timestamps** and **Hide Servers (Drawer Fix)** load without crashing, but beyond
+  that haven't been thoroughly exercised on-device. Unlike Staff Tags (chat tags and
+  member-list tags both confirmed working), functional correctness here is unverified.
 
 ## Repository format
 

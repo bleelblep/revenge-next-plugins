@@ -1,7 +1,0 @@
-{
-	"name": "Purge My Messages",
-	"description": "Bulk-delete your own messages from a server. Searches first and shows a preview before anything is deleted, with a separate final confirmation.",
-	"author": "bleelblep",
-	"icon": "TrashIcon",
-	"version": "1.0.0"
-}

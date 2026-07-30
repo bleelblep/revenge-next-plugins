@@ -7,10 +7,15 @@ import Pill from "./Pill"
 const { React } = revenge.react
 const { Pressable, View, Image, Text } = revenge.react.ReactNative
 
-const { lookupModule } = revenge.modules.finders
-const { withProps } = revenge.modules.finders.filters
-
-const ChannelActions = lookupModule<any>(withProps("selectPrivateChannel"))?.[0]
+// getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
+// module can still be unregistered even from inside start() -- this file's top-level code
+// runs at preInit (the whole plugin bundle executes together), before Discord's module
+// registry is populated. lookupModule gives up immediately and permanently caches a false
+// "not found"; getModules subscribes and calls back whenever the module actually loads.
+let channelActions: any
+revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("selectPrivateChannel"), mod => {
+	channelActions = mod
+})
 
 const SIZE = ICON_SIZE
 
@@ -88,7 +93,7 @@ function UnreadDmRow({ dm, selected }: { dm: UnreadDm; selected: boolean }) {
 			/* haptics API is unconfirmed; ignore if unavailable */
 		}
 		try {
-			ChannelActions?.selectPrivateChannel?.(dm.channelId)
+			channelActions?.selectPrivateChannel?.(dm.channelId)
 		} catch {
 			/* ignore */
 		}

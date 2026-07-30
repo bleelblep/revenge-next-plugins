@@ -181,7 +181,10 @@ function install(method: string, filter: (value: unknown) => unknown): (() => vo
 	if (typeof SortedGuildStore[method] !== "function") return undefined
 
 	try {
-		return revenge.patcher.after(SortedGuildStore, method, (_args: unknown, ret: unknown) => {
+		// after's hook receives only the return value (confirmed from revenge-bundle-next's
+		// own patcher source) -- this patch only ever needed the result anyway, so no
+		// conversion to instead is needed here (unlike the other .after( fixes elsewhere).
+		return revenge.patcher.after(SortedGuildStore, method, (ret: unknown) => {
 			// Skip the work entirely when nothing is hidden.
 			if (disabled || isEmpty()) return ret
 

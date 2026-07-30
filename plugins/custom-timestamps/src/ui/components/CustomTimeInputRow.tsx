@@ -1,11 +1,13 @@
-const { lookupModule } = revenge.modules.finders
-const { withProps } = revenge.modules.finders.filters
-
+// getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
+// UI component can still be unregistered even from inside start() -- it only initializes
+// once its screen actually renders. lookupModule gives up immediately and permanently caches
+// that as "not found"; getModules subscribes and calls back whenever the module loads.
 // The input component is a named `InputView` export on classic Revenge builds, not the
 // module's default -- never destructure a finder result, keep both fallbacks.
-const InputModule = lookupModule<any>(withProps("ClearButtonVisibility"))?.[0]
-const ClearButtonVisibility = InputModule?.ClearButtonVisibility
-const InputView = InputModule?.InputView ?? InputModule?.default
+let inputModule: any
+revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("ClearButtonVisibility"), mod => {
+	inputModule = mod
+})
 
 export function CustomTimeInputRow({
 	value,
@@ -18,6 +20,7 @@ export function CustomTimeInputRow({
 	placeholder: string
 	disabled?: boolean
 }) {
+	const InputView = inputModule?.InputView ?? inputModule?.default
 	if (!InputView) return null
 
 	return (
@@ -25,7 +28,7 @@ export function CustomTimeInputRow({
 			value={value}
 			onChangeText={onChangeText}
 			placeholder={placeholder}
-			clearButtonVisibility={ClearButtonVisibility?.WITH_CONTENT}
+			clearButtonVisibility={inputModule?.ClearButtonVisibility?.WITH_CONTENT}
 			showBorder={false}
 			showTopContainer={false}
 			disabled={disabled}

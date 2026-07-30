@@ -6,9 +6,11 @@ import Pill from "./Pill"
 
 const { React } = revenge.react
 const { Pressable, View, Image, Text } = revenge.react.ReactNative
-const { getAssetIDByName } = revenge.components
+// getAssetIdByName (lowercase "d"), under revenge.assets not revenge.components -- confirmed
+// from revenge-bundle-next's own source.
+const { getAssetIdByName } = revenge.assets
 
-const ChatIcon = getAssetIDByName("ChatIcon") ?? getAssetIDByName("ic_message")
+const ChatIcon = getAssetIdByName("ChatIcon") ?? getAssetIdByName("ic_message")
 
 const SIZE = ICON_SIZE
 const GLYPH = 24

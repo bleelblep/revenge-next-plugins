@@ -10,16 +10,27 @@ import UnreadDmRow from "./UnreadDmRow"
 const { React } = revenge.react
 const { ScrollView, View, StatusBar, Platform } = revenge.react.ReactNative
 
-const { lookupModule } = revenge.modules.finders
-const { withProps } = revenge.modules.finders.filters
+// getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
+// module can still be unregistered even from inside start() -- this file's top-level code
+// runs at preInit (the whole plugin bundle executes together), before Discord's module
+// registry is populated. lookupModule gives up immediately and permanently caches a false
+// "not found"; getModules subscribes and calls back whenever the module actually loads.
+let channelActions: any
+let routes: any
+let safeArea: any
+revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("selectPrivateChannel"), mod => {
+	channelActions = mod
+})
+revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("ME"), mod => {
+	routes = mod
+})
+revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("useSafeAreaInsets"), mod => {
+	safeArea = mod
+})
 
-const ChannelActions = lookupModule<any>(withProps("selectPrivateChannel"))?.[0]
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters.
 const { SelectedChannelStore } = revenge.discord.flux.Stores
-const Routes = lookupModule<any>(withProps("ME"))?.[0]
-const ME = Routes?.ME ?? "/channels/@me"
-const SafeArea = lookupModule<any>(withProps("useSafeAreaInsets"))?.[0]
 
 // Discord's own bottom tab bar ("You"/home/etc) is a separate fixed-height UI element, not
 // part of the safe-area inset -- the inset only covers the gesture-nav pill below it. This
@@ -38,8 +49,8 @@ function topInset(): number {
 /** react-native-safe-area-context's hook, if this build bundles it; 0 if not. */
 function useBottomSafeInset(): number {
 	try {
-		if (typeof SafeArea?.useSafeAreaInsets === "function") {
-			const insets = SafeArea.useSafeAreaInsets()
+		if (typeof safeArea?.useSafeAreaInsets === "function") {
+			const insets = safeArea.useSafeAreaInsets()
 			if (typeof insets?.bottom === "number") return insets.bottom
 		}
 	} catch {
@@ -86,7 +97,7 @@ function openDms() {
 		/* haptics API is unconfirmed; ignore if unavailable */
 	}
 	try {
-		ChannelActions?.selectPrivateChannel?.(null)
+		channelActions?.selectPrivateChannel?.(null)
 	} catch {
 		/* ignore */
 	}
@@ -115,7 +126,7 @@ export default function CustomGuildsBar() {
 
 	const selectedId = useSelectedGuildId()
 	const selectedChannelId = useSelectedChannelId()
-	const inDms = selectedId == null || selectedId === ME
+	const inDms = selectedId == null || selectedId === (routes?.ME ?? "/channels/@me")
 	const bottomPadding = TAB_BAR_HEIGHT + useBottomSafeInset()
 
 	let children: any[] = []
