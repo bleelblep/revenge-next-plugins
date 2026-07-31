@@ -1,0 +1,7 @@
+{
+	"name": "Screenshot Redactor",
+	"description": "A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder.",
+	"author": "bleelblep",
+	"icon": "EyeSlashIcon",
+	"version": "0.17.1"
+}
