@@ -4,3 +4,8 @@ yarn.lock
 package-lock.json
 collected.log
 *.tsbuildinfo
+
+# Local-only, work in progress -- deliberately not published.
+# build.mjs still picks it up for local `dist/` builds and serve.mjs, but CI builds from a clean
+# checkout, so it never reaches gh-pages or index.json.
+plugins/jump-to-top/
