@@ -1,0 +1,6 @@
+{
+	"name": "Anti Ghost Ping",
+	"description": "Catches messages that pinged you and were then deleted. Stores their text locally, so it is a message logger — see the warning in its settings.",
+	"author": "bleelblep",
+	"version": "1.3.0"
+}

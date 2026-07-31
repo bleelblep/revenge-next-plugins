@@ -61,11 +61,16 @@ function startIfConfigured() {
 	}
 
 	// Replaces the original's `onDiscordReconnect` lifecycle hook, which has no equivalent here.
-	const unsubscribe = revenge.discord.flux.onFluxEventDispatched("CONNECTION_OPEN", () => {
+	// onFluxEventDispatched is a *patch*, not a listener: whatever it returns becomes the
+	// dispatched payload, and returning a falsy value cancels the event outright. Returning
+	// `payload` unchanged is mandatory -- without it this would swallow CONNECTION_OPEN and break
+	// Discord's own connection handling. See docs/porting-rules.md rule 2.
+	const unsubscribe = revenge.discord.flux.onFluxEventDispatched("CONNECTION_OPEN", payload => {
 		if (UserStore()?.getCurrentUser?.()) {
 			unsubscribe()
 			tryInitialize()
 		}
+		return payload
 	})
 	return unsubscribe
 }
