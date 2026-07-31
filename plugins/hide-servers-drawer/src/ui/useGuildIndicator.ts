@@ -17,7 +17,7 @@ export function useGuildIndicator(guildId: string): GuildIndicatorState {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1. Flux stores
 	// come from the Stores proxy by name; there is no `withStoreName` filter.
 	const { React } = revenge.react
-	const { GuildReadStateStore } = revenge.discord.flux.Stores
+	const { GuildReadStateStore } = revenge.discord.flux.Stores as any
 
 	const [, bump] = React.useReducer((n: number) => n + 1, 0)
 

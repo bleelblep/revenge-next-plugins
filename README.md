@@ -38,11 +38,20 @@ to coexist, but only because Show Tag deliberately avoids `instead` — see
 - **[Known issues](./docs/known-issues.md)** — environment and build-level problems that plugin
   code can't fix, plus when to clear the module cache.
 
-Revenge Next's **external plugin** API (the `plugin({...})` factory and the global `revenge`
-namespace — see [`types/revenge.d.ts`](./types/revenge.d.ts)) has no public documentation. The
-types here were reverse-engineered from the built output of three of
-[Palm](https://github.com/PalmDevs)'s own plugins, then corrected against crash logs and
-revenge-bundle-next's source. Treat them as approximations.
+### Types
+
+[`types/next/`](./types/next) is the **generated** type surface from revenge-bundle-next
+(`bun types` → `dist/types`), vendored. [`types/globals.d.ts`](./types/globals.d.ts) declares the
+two globals an external plugin actually gets — `plugin()` and `revenge` — mirroring that repo's
+own `types/globals.consumers.ts`.
+
+These replaced a hand-written `types/revenge.d.ts` that had been reverse-engineered from built
+plugin output. Adopting the real ones immediately turned up three more non-existent APIs that had
+been sitting behind `?.` doing nothing (`design.RawColors`, `design.Tokens`, `discord.haptics`)
+and one genuine latent crash — `jsonStorage.cache` is possibly `undefined` because `load: true`
+starts the read without awaiting it. See [porting rule 5](./docs/porting-rules.md#5-use-the-official-types-not-guesses).
+
+Regenerate them from a revenge-bundle-next checkout when the API moves.
 
 ## Development
 

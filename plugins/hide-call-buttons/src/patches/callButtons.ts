@@ -1,4 +1,4 @@
-import type { HideCallButtonsStorage } from "../index"
+import { DEFAULTS, type HideCallButtonsStorage } from "../index"
 
 /**
  * Matches a module by the *wrapped* component's name (`exports.type.name`), which is what
@@ -48,7 +48,7 @@ export default function patchCallButtons(
 	const { after, instead } = revenge.patcher
 
 	const patches: Array<() => void> = []
-	const s = () => jsonStorage.cache
+	const s = () => jsonStorage.cache ?? DEFAULTS
 
 	// Every surface is applied independently -- one Discord rename must disable one surface,
 	// not the whole plugin.
@@ -68,7 +68,7 @@ export default function patchCallButtons(
 	// --- User profile (full) ---
 	apply("UserProfileActions", () => {
 		patches.push(
-			getModules<any>(withName("UserProfileActions"), mod => {
+			getModules(withName("UserProfileActions"), (mod: any) => {
 				patches.push(
 					after(mod, "default", (component: any) => {
 						if (!s().upHideVideoButton && !s().upHideVoiceButton) return component
@@ -129,12 +129,12 @@ export default function patchCallButtons(
 		}
 		// Renamed at some point; whichever exists gets patched.
 		patches.push(
-			getModules<any>(withName("SimplifiedUserProfileContactButtons"), patchContactButtons, {
+			getModules(withName("SimplifiedUserProfileContactButtons"), patchContactButtons, {
 				returnNamespace: true,
 			}),
 		)
 		patches.push(
-			getModules<any>(withName("UserProfileContactButtons"), patchContactButtons, {
+			getModules(withName("UserProfileContactButtons"), patchContactButtons, {
 				returnNamespace: true,
 			}),
 		)
@@ -143,7 +143,7 @@ export default function patchCallButtons(
 	// --- Voice channel video button ---
 	apply("VideoButton", () => {
 		patches.push(
-			getModules<any>(withName("VideoButton"), mod => {
+			getModules(withName("VideoButton"), (mod: any) => {
 				patches.push(
 					instead(mod, "default", function (this: any, args: any[], original: any) {
 						if (s().hideVCVideoButton) return undefined
@@ -158,7 +158,7 @@ export default function patchCallButtons(
 	// --- Tabs V2 DM header ---
 	apply("PrivateChannelButtons", () => {
 		patches.push(
-			getModules<any>(withTypeName("PrivateChannelButtons"), mod => {
+			getModules(withTypeName("PrivateChannelButtons"), (mod: any) => {
 				patches.push(
 					after(mod, "type", (component: any) => {
 						if (!s().dmHideCallButton && !s().dmHideVideoButton) return component
@@ -195,7 +195,7 @@ export default function patchCallButtons(
 	// --- Legacy DM header ---
 	apply("ChannelButtons", () => {
 		patches.push(
-			getModules<any>(withProps("ChannelButtons"), mod => {
+			getModules(withProps("ChannelButtons"), (mod: any) => {
 				patches.push(
 					after(mod, "ChannelButtons", (component: any) => {
 						if (!s().dmHideCallButton && !s().dmHideVideoButton) return component

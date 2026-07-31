@@ -17,7 +17,7 @@ function showToast(content: string) {
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters.
 // Read per call, never at module scope -- see docs/porting-rules.md rule 1.
-const stores = () => revenge.discord.flux.Stores
+const stores = (): any => revenge.discord.flux.Stores
 
 // getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
 // module can still be unregistered even from inside start() -- this file's top-level code
@@ -25,7 +25,7 @@ const stores = () => revenge.discord.flux.Stores
 // registry is populated. lookupModule gives up immediately and permanently caches a false
 // "not found"; getModules subscribes and calls back whenever the module actually loads.
 let guildActions: any
-revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("toggleGuildFolderExpand"), mod => {
+revenge.modules.finders.getModules(revenge.modules.finders.filters.withProps("toggleGuildFolderExpand"), (mod: any) => {
 	guildActions = mod
 })
 
@@ -105,11 +105,6 @@ export default function FolderRow({ node }: { node: any }) {
 	// entirely (same as a hidden guild), so it can only be unhidden from Settings, not
 	// re-found here to toggle back off.
 	const openMenu = React.useCallback(() => {
-		try {
-			revenge.discord.haptics.trigger("impactMedium")
-		} catch {
-			/* haptics API is unconfirmed; ignore if unavailable */
-		}
 		setMenuOpen(true)
 	}, [])
 

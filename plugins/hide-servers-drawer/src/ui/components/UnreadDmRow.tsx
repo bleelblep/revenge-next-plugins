@@ -10,7 +10,7 @@ import Pill from "./Pill"
 // registry is populated. lookupModule gives up immediately and permanently caches a false
 // "not found"; getModules subscribes and calls back whenever the module actually loads.
 let channelActions: any
-revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("selectPrivateChannel"), mod => {
+revenge.modules.finders.getModules(revenge.modules.finders.filters.withProps("selectPrivateChannel"), (mod: any) => {
 	channelActions = mod
 })
 
@@ -92,11 +92,6 @@ function UnreadDmRow({ dm, selected }: { dm: UnreadDm; selected: boolean }) {
 	const { Pressable, View, Image, Text } = revenge.react.ReactNative
 
 	const navigate = React.useCallback(() => {
-		try {
-			revenge.discord.haptics.trigger("soft")
-		} catch {
-			/* haptics API is unconfirmed; ignore if unavailable */
-		}
 		try {
 			channelActions?.selectPrivateChannel?.(dm.channelId)
 		} catch {

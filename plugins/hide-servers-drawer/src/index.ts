@@ -11,7 +11,7 @@ export interface HideServersDrawerStorage {
 	staticIcons?: boolean
 }
 
-export default plugin<HideServersDrawerStorage>({
+export default plugin<{ jsonStorage: HideServersDrawerStorage }>({
 	jsonStorage: {
 		load: true,
 		default: {},

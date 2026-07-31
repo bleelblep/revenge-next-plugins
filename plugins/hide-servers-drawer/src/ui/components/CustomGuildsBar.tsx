@@ -16,20 +16,20 @@ import UnreadDmRow from "./UnreadDmRow"
 let channelActions: any
 let routes: any
 let safeArea: any
-revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("selectPrivateChannel"), mod => {
+revenge.modules.finders.getModules(revenge.modules.finders.filters.withProps("selectPrivateChannel"), (mod: any) => {
 	channelActions = mod
 })
-revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("ME"), mod => {
+revenge.modules.finders.getModules(revenge.modules.finders.filters.withProps("ME"), (mod: any) => {
 	routes = mod
 })
-revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("useSafeAreaInsets"), mod => {
+revenge.modules.finders.getModules(revenge.modules.finders.filters.withProps("useSafeAreaInsets"), (mod: any) => {
 	safeArea = mod
 })
 
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters. Read per call, never at
 // module scope -- see docs/porting-rules.md rule 1.
-const selectedChannelStore = () => revenge.discord.flux.Stores.SelectedChannelStore
+const selectedChannelStore = (): any => (revenge.discord.flux.Stores as any).SelectedChannelStore
 
 // Discord's own bottom tab bar ("You"/home/etc) is a separate fixed-height UI element, not
 // part of the safe-area inset -- the inset only covers the gesture-nav pill below it. This
@@ -95,11 +95,6 @@ function useSelectedChannelId(): string | null {
  * would be a guild channel whenever the user is sitting in a server).
  */
 function openDms() {
-	try {
-		revenge.discord.haptics.trigger("soft")
-	} catch {
-		/* haptics API is unconfirmed; ignore if unavailable */
-	}
 	try {
 		channelActions?.selectPrivateChannel?.(null)
 	} catch {

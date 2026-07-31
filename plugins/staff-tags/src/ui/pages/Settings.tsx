@@ -1,4 +1,4 @@
-import type { StaffTagsStorage } from "../../index"
+import { DEFAULTS, type StaffTagsStorage } from "../../index"
 
 export default function Settings({
 	api,
@@ -12,20 +12,23 @@ export default function Settings({
 	// on the *shared* 'revenge.discord.design.Design' key -- which permanently breaks Design for
 	// Revenge's own settings UI too, not just this plugin, and gets flushed to the on-disk module
 	// cache by the next unrelated write. That is what took out the whole Settings screen before.
+	const { Page } = revenge.components
 	const { ScrollView } = revenge.react.ReactNative
 	const { TableRowGroup, TableSwitchRow } = revenge.discord.design.Design
 
-	const { useRoleColor } = api.jsonStorage.use()
+	const { useRoleColor } = api.jsonStorage.use() ?? DEFAULTS
 
 	return (
-		<ScrollView style={{ flex: 1 }}>
-			<TableRowGroup title="Tag style">
-				<TableSwitchRow
-					label="Use top role color for tag backgrounds"
-					value={!!useRoleColor}
-					onValueChange={value => api.jsonStorage.set({ useRoleColor: value })}
-				/>
-			</TableRowGroup>
-		</ScrollView>
+		<Page>
+			<ScrollView>
+				<TableRowGroup title="Tag style">
+					<TableSwitchRow
+						label="Use top role color for tag backgrounds"
+						value={!!useRoleColor}
+						onValueChange={value => api.jsonStorage.set({ useRoleColor: value })}
+					/>
+				</TableRowGroup>
+			</ScrollView>
+		</Page>
 	)
 }

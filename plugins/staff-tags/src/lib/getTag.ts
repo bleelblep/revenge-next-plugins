@@ -20,7 +20,7 @@ const tagModule = lazy(
 	() => revenge.modules.finders.lookupModule<any>(revenge.modules.finders.filters.withProps("getBotLabel"))?.[0],
 )
 
-const guildMemberStore = lazy(() => revenge.discord.flux.Stores.GuildMemberStore)
+const guildMemberStore = lazy(() => (revenge.discord.flux.Stores as any).GuildMemberStore)
 
 /**
  * `revenge.discord.common.chroma` doesn't exist -- confirmed from revenge-bundle-next's own
@@ -185,12 +185,12 @@ export default function getTag(
 				? guildMemberStore()?.getMember?.(guild?.id, user.id)?.colorString
 				: undefined
 			const backgroundColor =
-				roleColor || tag.backgroundColor || revenge.discord.design.RawColors?.BRAND_500 || "#5865F2"
+				roleColor || tag.backgroundColor || "#5865F2"
 			const textColor =
 				roleColor || !tag.textColor
 					? isDarkColor(backgroundColor)
-						? (revenge.discord.design.RawColors?.WHITE_500 ?? "#FFFFFF")
-						: (revenge.discord.design.RawColors?.BLACK_500 ?? "#000000")
+						? "#FFFFFF"
+						: "#000000"
 					: tag.textColor
 
 			return {

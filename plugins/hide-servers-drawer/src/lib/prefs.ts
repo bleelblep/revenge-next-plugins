@@ -13,7 +13,7 @@ export function initPrefs(jsonStorage: RevengeJsonStorageApi<HideServersDrawerSt
 
 export function staticIcons(): boolean {
 	try {
-		return !!js?.cache.staticIcons
+		return !!js?.cache?.staticIcons
 	} catch {
 		return false
 	}

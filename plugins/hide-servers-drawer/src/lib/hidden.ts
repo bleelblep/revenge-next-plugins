@@ -21,7 +21,7 @@ function load() {
 	loaded = true
 
 	try {
-		const saved = js?.cache.hidden
+		const saved = js?.cache?.hidden
 		if (saved && typeof saved === "object") {
 			for (const id of Object.keys(saved)) ids.add(id)
 		}
@@ -81,8 +81,8 @@ export function hiddenFolderIds(): string[] {
 export function instant(): boolean {
 	load()
 	try {
-		if (js?.cache.instant === undefined) js?.set({ instant: true })
-		return js?.cache.instant ?? true
+		if (js?.cache?.instant === undefined) js?.set({ instant: true })
+		return js?.cache?.instant ?? true
 	} catch {
 		return true
 	}

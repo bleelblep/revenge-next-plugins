@@ -3,5 +3,5 @@
 	"description": "Locally hide servers — or entire folders — from your server list, without the scroll-jump bug. Custom bar mirrors stock: your folders, real server icons, unread DMs.",
 	"author": "bleelblep, blerp",
 	"icon": "EyeSlashIcon",
-	"version": "1.0.0"
+	"version": "1.2.0"
 }

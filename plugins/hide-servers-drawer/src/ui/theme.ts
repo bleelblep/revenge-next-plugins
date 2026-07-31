@@ -6,7 +6,7 @@
 
 export function token(name: string, fallback: string): string {
 	try {
-		const resolved = revenge.discord.design.Tokens?.[name]
+		const resolved = (revenge.discord.common.Tokens as any)?.[name]
 		if (typeof resolved === "string") return resolved
 	} catch {
 		/* fall through to the hardcoded fallback */

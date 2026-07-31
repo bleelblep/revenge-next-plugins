@@ -1,4 +1,4 @@
-import type { ShowTagStorage } from "../index"
+import { DEFAULTS, type ShowTagStorage } from "../index"
 
 // A zero-width space, prepended to the rewritten name in "only show usernames" mode. Carried
 // over from Cynosphere's original -- it stops Discord's own header logic from recognising the
@@ -19,7 +19,7 @@ function patchReplyPreview(generated: any, onlyUsername: boolean) {
 	const ref = generated.referencedMessage?.message
 	if (!ref?.username) return
 
-	const { UserStore } = revenge.discord.flux.Stores
+	const { UserStore } = revenge.discord.flux.Stores as any
 	const user = UserStore.getUser(ref.authorId)
 	if (isTagless(user)) return
 
@@ -63,7 +63,7 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<ShowT
 	// stashing the row here and consuming it there is safe -- generate is never re-entered.
 	let pendingRow: any
 
-	const unsubscribe = getModules<any>(withName("RowManager"), RowManager => {
+	const unsubscribe = getModules(withName("RowManager"), (RowManager: any) => {
 		if (!RowManager?.prototype?.generate) {
 			console.error("[ShowTag] RowManager.prototype.generate not found")
 			return
@@ -91,7 +91,7 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<ShowT
 				const author = row.message?.author
 				if (isTagless(author)) return ret
 
-				const onlyUsername = !!jsonStorage.cache.onlyUsername
+				const onlyUsername = !!(jsonStorage.cache ?? DEFAULTS).onlyUsername
 				if (onlyUsername) {
 					generated.username = ZWSP + author.username
 					patchReplyPreview(generated, true)

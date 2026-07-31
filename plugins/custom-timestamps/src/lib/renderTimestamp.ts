@@ -6,6 +6,13 @@ export interface TimestampStorage {
 	separateMessages?: boolean
 }
 
+/** Also the fallback for every read -- see the note in hide-call-buttons' DEFAULTS. */
+export const DEFAULTS: TimestampStorage = {
+	selected: "calendar",
+	customFormat: "dddd, MMMM Do YYYY, h:mm:ss a",
+	separateMessages: false,
+}
+
 // `revenge.discord.common.moment` doesn't exist -- confirmed from revenge-bundle-next's own
 // source (lib/discord/src/common/index.ts only exports Logger, Tokens, flux, utils,
 // Constants), and was a bad guess by analogy with classic Revenge's moment.js binding (same

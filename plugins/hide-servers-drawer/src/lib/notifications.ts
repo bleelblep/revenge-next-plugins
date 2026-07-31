@@ -2,7 +2,7 @@
 // filter -- there is no `withStoreName` under modules.finders.filters. Read per call, never at
 // module scope: the Stores proxy resolves via one-shot `lookupModule`, and at preInit that
 // caches a permanent miss on a key shared app-wide. See docs/porting-rules.md rule 1.
-const store = () => revenge.discord.flux.Stores.UserGuildSettingsStore
+const store = () => (revenge.discord.flux.Stores as any).UserGuildSettingsStore
 
 /** Exposed so callers can subscribe to mute/notification-level changes and re-render. */
 export function settingsStore() {
