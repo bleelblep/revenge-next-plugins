@@ -10,5 +10,9 @@ collected.log
 # checkout, so it never reaches gh-pages or index.json.
 plugins/jump-to-top/
 
+# Local-only at the original author's request -- must not be published.
+# Same mechanics as above: local `dist/` builds and serve.mjs still see it, CI does not.
+plugins/multi-scrobbler/
+
 # Planning notes, kept local.
 docs/plugin-ideas.md
