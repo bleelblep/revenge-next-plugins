@@ -198,11 +198,66 @@ Guessed by analogy with classic Revenge, and confirmed absent from revenge-bundl
 | `revenge.discord.design.RawColors` | Doesn't exist — `@revenge-mod/discord/design` exports only `Design` and `FormSwitch`. Use literal hex |
 | `revenge.discord.design.Tokens` | Wrong namespace — `Tokens` is on `revenge.discord.common`, and is typed `any` |
 | `revenge.discord.haptics` | Doesn't exist at all. No haptics API is exposed to plugins |
+| `revenge.discord.common.Constants.Permissions` | Doesn't exist — hardcode the permission bits |
+
+### `Constants.Permissions` is the cautionary one
+
+It broke Staff Tags in a way that looked like a *partial* failure rather than a missing API, which
+is why it survived for so long. The code computed a correct permission bitmask, then mapped it
+against `revenge.discord.common.Constants?.Permissions ?? {}` — an empty object — producing zero
+permission names. Every permission-based tag (ADMIN, STAFF, MOD, VC Mod, Chat Mod) silently
+disappeared, while OWNER and WEBHOOK kept working because those are the only two driven by a
+`condition` rather than a permission.
+
+Two lessons:
+
+- **`?.` plus a `?? {}` fallback turns a missing API into a silent wrong answer.** The plugin had
+  no way to complain: an empty permission list is indistinguishable from "this user has no
+  permissions". Prefer failing loudly, or log once when a lookup that should always succeed
+  doesn't — `getTag.ts` now does the latter.
+- **Don't ask Discord for values that are part of its public API.** Permission bits cannot change
+  without breaking every bot on the platform, so `PERMISSION_BITS` in `staff-tags/src/lib/getTag.ts`
+  hardcodes the twelve it needs. No lookup, nothing to go stale.
+
+Found by logging one line to `adb logcat` — see the note on tooling below.
 
 The last three were found by adopting the official types (see below), not on-device — every one had
 been sitting behind `?.` and a fallback, silently doing nothing.
 
-## 5. Use the official types, not guesses
+## 5. Read the device instead of guessing
+
+`console.log` reaches `adb logcat` under the `ReactNativeJS` tag. This is by far the fastest way
+to answer "which module is it / what shape are these arguments / what is actually on this object",
+and it was underused for a long time in favour of surfacing one fact at a time through a plugin's
+settings page.
+
+```sh
+adb logcat -c                       # clear first; this device writes ~8k lines/minute
+adb logcat -G 32M                   # the default ring buffer rotates in under a minute
+adb logcat -s ReactNativeJS:I       # filter by tag at the source
+adb reverse tcp:8087 tcp:8087       # let the phone reach `node serve.mjs` over USB
+adb push dist/<id>.zip /sdcard/Download/
+```
+
+Two traps, both hit in practice:
+
+- **Filter by tag, not by grepping for your prefix.** A multi-line `console.log` continues on
+  lines that do *not* repeat the tag, so `| grep MyPlugin` silently drops everything after the
+  first line.
+- **Capture continuously, don't dump afterwards.** The buffer rotates fast enough to lose output
+  between a repro and reading it. Also note `adb reverse` disappears when the device drops off
+  USB, and the repo URL then just fails to load.
+
+Worth building into a plugin while investigating:
+
+- a **Metro sweep** that walks initialized module ids and prints exports matching a pattern —
+  `plugins/screenshot-redactor/src/lib/probe.ts`. This is how `useName`, `renderChannelTitle` and
+  the channel-name helpers were found after several releases of guessing names.
+- a **shape dump** of whatever object you are rewriting, logging key names and types but never
+  values. This is how Screenshot Redactor found the `clanTag` / `clanBadgeUrl` fields it had been
+  leaking — nothing that checks only for fields you already know about can ever find those.
+
+## 6. Use the official types, not guesses
 
 `types/next/` is the **generated** type surface from revenge-bundle-next (`bun types` ->
 `dist/types`), vendored. `types/globals.d.ts` declares the two globals an external plugin gets
