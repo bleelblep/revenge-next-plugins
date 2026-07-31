@@ -1,8 +1,6 @@
 import { PILL_SELECTED_HEIGHT, PILL_WIDTH } from "../layout"
 import { selectedPill } from "../theme"
 
-const { View } = revenge.react.ReactNative
-
 /**
  * Stock's left-edge indicator for the *selected* row. Positioned at left: 0 inside a full
  * bar-width row (see ui/layout.ts for why it must stay inside its parent's bounds).
@@ -12,6 +10,9 @@ const { View } = revenge.react.ReactNative
  * source of bugs on classic Revenge (stale position surviving a rapid re-render).
  */
 export default function Pill({ rowHeight, selected }: { rowHeight: number; selected: boolean }) {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { View } = revenge.react.ReactNative
+
 	if (!selected) return null
 
 	return (

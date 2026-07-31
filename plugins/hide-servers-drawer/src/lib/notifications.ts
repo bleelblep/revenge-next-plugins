@@ -1,10 +1,12 @@
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
-// filter -- there is no `withStoreName` under modules.finders.filters.
-const { UserGuildSettingsStore } = revenge.discord.flux.Stores
+// filter -- there is no `withStoreName` under modules.finders.filters. Read per call, never at
+// module scope: the Stores proxy resolves via one-shot `lookupModule`, and at preInit that
+// caches a permanent miss on a key shared app-wide. See docs/porting-rules.md rule 1.
+const store = () => revenge.discord.flux.Stores.UserGuildSettingsStore
 
 /** Exposed so callers can subscribe to mute/notification-level changes and re-render. */
 export function settingsStore() {
-	return UserGuildSettingsStore
+	return store()
 }
 
 // Discord's per-guild message_notifications level: 0 = all messages, 1 = only @mentions,
@@ -32,6 +34,7 @@ const DEFAULT_STATE: GuildNotificationState = { muted: false, onlyMentions: fals
  * user didn't ask to hide.
  */
 export function guildNotificationState(guildId: string): GuildNotificationState {
+	const UserGuildSettingsStore = store()
 	if (!UserGuildSettingsStore) return DEFAULT_STATE
 
 	let muted = false

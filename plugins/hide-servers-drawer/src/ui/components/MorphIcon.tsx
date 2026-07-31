@@ -1,9 +1,6 @@
 import type { ReactNode } from "react"
 import { SELECTED_RADIUS } from "../layout"
 
-const { React } = revenge.react
-const { Animated } = revenge.react.ReactNative
-
 // borderRadius and backgroundColor can't run on the native driver (only opacity and
 // transforms can), so this one is JS-driven. It's a single small view per row and only
 // animates on an actual selection change, so the cost is acceptable.
@@ -31,6 +28,10 @@ export default function MorphIcon({
 	selectedBackground?: string
 	children: ReactNode
 }) {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { React } = revenge.react
+	const { Animated } = revenge.react.ReactNative
+
 	const progress = React.useRef(new Animated.Value(selected ? 1 : 0)).current
 
 	React.useEffect(() => {

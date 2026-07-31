@@ -4,9 +4,6 @@ import { avatarFallback, barBackground, mentionBadge, selectedFill, unreadDot } 
 import MorphIcon from "./MorphIcon"
 import Pill from "./Pill"
 
-const { React } = revenge.react
-const { Pressable, View, Image, Text } = revenge.react.ReactNative
-
 // getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
 // module can still be unregistered even from inside start() -- this file's top-level code
 // runs at preInit (the whole plugin bundle executes together), before Discord's module
@@ -34,6 +31,9 @@ function acronym(name: string): string {
 }
 
 function MemberAvatar({ member, size, fontSize }: { member: { url?: string; username: string }; size: number; fontSize: number }) {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { View, Image, Text } = revenge.react.ReactNative
+
 	if (member.url) {
 		return <Image source={{ uri: member.url }} style={{ width: size, height: size, borderRadius: size / 2 }} />
 	}
@@ -55,6 +55,8 @@ function MemberAvatar({ member, size, fontSize }: { member: { url?: string; user
 
 /** Two overlapping avatars: first back/top-left, second front/bottom-right with a ring. */
 function GroupAvatars({ members }: { members: Array<{ id: string; url?: string; username: string }> }) {
+	const { View } = revenge.react.ReactNative
+
 	const [back, front] = members
 
 	return (
@@ -86,6 +88,9 @@ function GroupAvatars({ members }: { members: Array<{ id: string; url?: string; 
  * every row's avatar each time flashes the bar.
  */
 function UnreadDmRow({ dm, selected }: { dm: UnreadDm; selected: boolean }) {
+	const { React } = revenge.react
+	const { Pressable, View, Image, Text } = revenge.react.ReactNative
+
 	const navigate = React.useCallback(() => {
 		try {
 			revenge.discord.haptics.trigger("soft")
@@ -170,4 +175,15 @@ const st = {
 	dot: { width: 10, height: 10, borderRadius: 5 },
 }
 
-export default React.memo(UnreadDmRow)
+// React.memo can't run at module scope -- `revenge.react.React` is an ESM live binding that is
+// still undefined at preInit, when this file is evaluated. The wrapper builds the memo on first
+// render and reuses it, so the component type stays stable from render 2 onward, which is what
+// reconciliation needs. Memoization still works: the inner memo shallow-compares the spread
+// props and skips UnreadDmRow when they're unchanged.
+let Memoized: any
+
+export default function UnreadDmRowMemo(props: { dm: UnreadDm; selected: boolean }) {
+	const { React } = revenge.react
+	Memoized ??= React.memo(UnreadDmRow)
+	return <Memoized {...props} />
+}

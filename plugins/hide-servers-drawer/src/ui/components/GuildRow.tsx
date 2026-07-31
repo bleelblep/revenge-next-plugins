@@ -9,8 +9,6 @@ import GuildIcon from "./GuildIcon"
 import MorphIcon from "./MorphIcon"
 import Pill from "./Pill"
 
-const { React } = revenge.react
-const { Pressable, View } = revenge.react.ReactNative
 // revenge.utils.toast.show doesn't exist -- was a guess, confirmed wrong on-device
 // ("Cannot read property 'show' of undefined" at preInit). ToastActionCreators.open is
 // confirmed live from revenge-bundle-next's own source (used by the staff-settings and
@@ -23,7 +21,8 @@ function showToast(content: string) {
 // filter -- there is no `withStoreName` under modules.finders.filters.
 // The *selected* guild id is assumed to live on a dedicated SelectedGuildStore, not
 // GuildStore (GuildStore only holds guild data: getGuild/getGuilds), matching classic Revenge.
-const { GuildStore, SelectedGuildStore, SelectedChannelStore } = revenge.discord.flux.Stores
+// Read per call, never at module scope -- see docs/porting-rules.md rule 1.
+const stores = () => revenge.discord.flux.Stores
 
 // getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
 // module can still be unregistered even from inside start() -- this file's top-level code
@@ -39,6 +38,7 @@ const SIZE = ICON_SIZE
 
 /** Prefer SelectedGuildStore; fall back to GuildStore in case a build exposes it there. */
 function readSelectedGuildId(): string | null {
+	const { SelectedGuildStore, GuildStore } = stores()
 	for (const store of [SelectedGuildStore, GuildStore]) {
 		try {
 			const value = store?.getGuildId?.()
@@ -58,15 +58,18 @@ function readSelectedGuildId(): string | null {
  * every switch.
  */
 export function useSelectedGuildId(): string | null {
+	const { React } = revenge.react
+
 	const [, bump] = React.useReducer((n: number) => n + 1, 0)
 
 	React.useEffect(() => {
-		const stores = [SelectedGuildStore, GuildStore, SelectedChannelStore].filter(s => s?.addChangeListener)
-		if (!stores.length) return
+		const { SelectedGuildStore, GuildStore, SelectedChannelStore } = stores()
+		const subscribed = [SelectedGuildStore, GuildStore, SelectedChannelStore].filter(s => s?.addChangeListener)
+		if (!subscribed.length) return
 
 		const onChange = () => bump()
-		stores.forEach(s => s.addChangeListener(onChange))
-		return () => stores.forEach(s => s.removeChangeListener?.(onChange))
+		subscribed.forEach(s => s.addChangeListener(onChange))
+		return () => subscribed.forEach(s => s.removeChangeListener?.(onChange))
 	}, [])
 
 	return readSelectedGuildId()
@@ -80,11 +83,14 @@ export function useSelectedGuildId(): string | null {
  * subscribes internally.
  */
 function GuildRow({ id, selected, onNavigated }: { id: string; selected: boolean; onNavigated?: () => void }) {
+	const { React } = revenge.react
+	const { Pressable, View } = revenge.react.ReactNative
+
 	const [menuOpen, setMenuOpen] = React.useState(false)
 
 	const guild = React.useMemo(() => {
 		try {
-			return GuildStore?.getGuild?.(id)
+			return stores().GuildStore?.getGuild?.(id)
 		} catch {
 			return undefined
 		}
@@ -164,4 +170,11 @@ function GuildRow({ id, selected, onNavigated }: { id: string; selected: boolean
 	)
 }
 
-export default React.memo(GuildRow)
+// React.memo can't run at module scope -- see the note in UnreadDmRow.tsx.
+let Memoized: any
+
+export default function GuildRowMemo(props: { id: string; selected: boolean; onNavigated?: () => void }) {
+	const { React } = revenge.react
+	Memoized ??= React.memo(GuildRow)
+	return <Memoized {...props} />
+}
