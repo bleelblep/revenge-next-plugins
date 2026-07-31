@@ -1,8 +1,6 @@
 import getTag from "../lib/getTag"
 import type { StaffTagsStorage } from "../index"
 
-const { ReactNative } = revenge.react
-
 // Resolved inside the exported function, not at module top level: Revenge Next's preInit
 // phase runs before Discord's module registry is populated, and a module finder lookup run
 // too early can permanently cache a false "not found" result. This function only runs when
@@ -18,6 +16,10 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	const { getModules } = revenge.modules.finders
 	const { withName } = revenge.modules.finders.filters
 	const { GuildStore, ChannelStore } = revenge.discord.flux.Stores
+	// Same reason as everything else here: `revenge.react.ReactNative` is an ESM live binding
+	// that's still undefined during preInit, so reading it at module scope captures undefined
+	// forever.
+	const { ReactNative } = revenge.react
 
 	let unpatch: (() => void) | undefined
 

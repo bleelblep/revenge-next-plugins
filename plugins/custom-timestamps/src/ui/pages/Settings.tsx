@@ -3,9 +3,6 @@ import renderTimestamp, { type Mode, type TimestampStorage } from "../../lib/ren
 import { CustomTimeInputRow } from "../components/CustomTimeInputRow"
 import { SelectableRow } from "../components/SelectableRow"
 
-const { ScrollView } = revenge.react.ReactNative
-const { TableRowGroup, TableSwitchRow } = revenge.discord.design.Design
-
 interface ModeOption {
 	label: string
 	key: Mode
@@ -17,6 +14,11 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<TimestampStorage>
 }) {
+	// Read per-render, never at module scope -- see the "Never touch revenge.* at module scope"
+	// section in the README.
+	const { ScrollView } = revenge.react.ReactNative
+	const { TableRowGroup, TableSwitchRow } = revenge.discord.design.Design
+
 	const { selected, customFormat, separateMessages } = api.jsonStorage.use()
 
 	const modes: ModeOption[] = [

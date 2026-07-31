@@ -1,5 +1,3 @@
-const { TableRow } = revenge.discord.design.Design
-
 // getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
 // UI component can still be unregistered even from inside start() -- it only initializes
 // once its screen actually renders. lookupModule gives up immediately and permanently caches
@@ -22,6 +20,11 @@ export function SelectableRow({
 	selected: boolean
 	onPress: () => void
 }) {
+	// Read per-render, never at module scope -- see the "Never touch revenge.* at module scope"
+	// section in the README. Design is a lazy proxy over lookupModule, and resolving it during
+	// preInit poisons the shared filter key for the whole app, Revenge's own settings UI included.
+	const { TableRow } = revenge.discord.design.Design
+
 	const RowCheckmark = rowCheckmark
 	return (
 		<TableRow
