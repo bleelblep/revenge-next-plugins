@@ -1,0 +1,6 @@
+{
+	"name": "Relationship Notifier",
+	"description": "Tells you when someone removes you as a friend, when you lose a mutual server, or when a group DM closes. Discord does none of these silently on purpose.",
+	"author": "bleelblep",
+	"version": "1.0.1"
+}

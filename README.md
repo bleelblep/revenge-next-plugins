@@ -6,7 +6,7 @@ earlier classic port in [bleelblep/revengeplugins](https://github.com/bleelblep/
 Credit is given wherever it could be traced: every ported plugin carries a `NOTICE.md` naming the
 original author and licence.
 
-Six plugins: one of my own, five ports.
+Eight plugins: three of my own, five ports.
 
 ## Install
 
@@ -28,7 +28,25 @@ https://bleelblep.github.io/revenge-next-plugins/index.json
 
 | Plugin | Licence | What it does |
 | --- | --- | --- |
+| **Anti Ghost Ping** 🆕 | CC0-1.0 | Catches messages that pinged you and were then deleted — who, where, and what they said. ⚠️ **This is a message logger**, see below. |
+| **Relationship Notifier** 🆕 | CC0-1.0 | Tells you when someone removes you as a friend, when you leave a server, or when a group DM closes. Discord hides all three. Stores names only, no message content. |
 | **Hide Servers (Drawer Fix)** | CC0-1.0 | Locally hide servers or whole folders, without the scroll-jump bug. The replacement bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant apply, static icons. With blerp. One GPL-3.0 file, and design debts to kmmiio99o's ServerDrawer — see [`NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md). |
+
+🆕 Both are new and **lightly tested**. Anti Ghost Ping has been verified end to end, but only
+with its own self-ping test toggle — a genuine ghost ping from someone else hasn't been observed
+yet. Relationship Notifier has been built and typechecked but not run at all: each of its three
+events reads a payload shape I inferred rather than confirmed, so any one of them could be wrong
+independently of the others.
+
+> ### ⚠️ Anti Ghost Ping is a message logger
+>
+> It stores the **text of deleted messages** that pinged you, unencrypted on the device, until you
+> clear the log. Client mods already break Discord's Terms of Service, and message loggers are the
+> category most associated with accounts being actioned. Nothing leaves your device and only you
+> can read the log — but that is the risk, and it is stated in the plugin's own settings too.
+>
+> Relationship Notifier is **not** a logger: it records names and avatar hashes, never message
+> content.
 
 ### Ports
 
@@ -48,8 +66,8 @@ has a `NOTICE.md` in its directory naming the original author and terms.
 | --- | --- | --- | --- |
 | **[removed]** | [kmmiio99o](https://github.com/kmmiio99o) | [GPL-3.0](./plugins/[removed]/NOTICE.md) | Last.fm / Libre.fm / ListenBrainz listening status on your profile, with album art. Scrobbling, album art and all eight settings sub-pages work. Outstanding: the live RPC preview. |
 
-All six are confirmed working on-device, except [removed]'s settings sub-pages, which have
-only been typechecked so far.
+Everything else here is confirmed working on-device, except [removed]'s settings sub-pages,
+which are typechecked but not yet run.
 
 ### Notes
 
@@ -119,6 +137,7 @@ plugin's directory before copying anything out of it:
 
 | Plugin | License |
 | --- | --- |
+| Anti Ghost Ping, Relationship Notifier | CC0-1.0 |
 | Staff Tags | CC0-1.0 (Fiery, シグマ siguma) |
 | Custom Timestamps | Unlicense (Fiery) |
 | Hide Servers (Drawer Fix) | CC0-1.0, **except** `src/patches/createElementIntercept.ts` (GPL-3.0) |
