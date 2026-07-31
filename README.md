@@ -6,7 +6,7 @@ earlier classic port in [bleelblep/revengeplugins](https://github.com/bleelblep/
 Credit is given wherever it could be traced: every ported plugin carries a `NOTICE.md` naming the
 original author and licence.
 
-Eight plugins: three of my own, five ports.
+Seven plugins: three of my own, four ports.
 
 ## Install
 
@@ -59,15 +59,6 @@ has a `NOTICE.md` in its directory naming the original author and terms.
 | **Custom Timestamps** | Fiery | [Unlicense](./plugins/custom-timestamps/NOTICE.md) | Chat timestamps as calendar / relative / ISO 8601 / a custom format string. Settings: mode, separate messages. |
 | **Show Tag** | [Cynosphere](https://github.com/Cynosphere) | ⚠️ [unresolved](./plugins/show-tag/NOTICE.md) | Username — or the full `name#0000` tag on legacy accounts — in the message header and reply previews. Settings: only show usernames. |
 | **Hide Call Buttons** | John ([janisslsm](https://github.com/janisslsm)) | [BSD-3-Clause](./plugins/hide-call-buttons/NOTICE.md) | Hides call and video buttons in DMs, user profiles and voice channels. Settings: five per-surface toggles. |
-
-### In progress
-
-| Plugin | Original author | Licence | State |
-| --- | --- | --- | --- |
-| **[removed]** | [kmmiio99o](https://github.com/kmmiio99o) | [GPL-3.0](./plugins/[removed]/NOTICE.md) | Last.fm / Libre.fm / ListenBrainz listening status on your profile, with album art. Scrobbling, album art and all eight settings sub-pages work. Outstanding: the live RPC preview. |
-
-Everything else here is confirmed working on-device, except [removed]'s settings sub-pages,
-which are typechecked but not yet run.
 
 ### Notes
 
@@ -142,5 +133,4 @@ plugin's directory before copying anything out of it:
 | Custom Timestamps | Unlicense (Fiery) |
 | Hide Servers (Drawer Fix) | CC0-1.0, **except** `src/patches/createElementIntercept.ts` (GPL-3.0) |
 | Hide Call Buttons | BSD-3-Clause |
-| **[removed]** | **GPL-3.0** — copyleft, applies to that whole directory |
 | Show Tag | **Unknown** — upstream is gone; see its `NOTICE.md` |
