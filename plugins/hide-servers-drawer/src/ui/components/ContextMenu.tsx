@@ -1,8 +1,6 @@
 import type { MenuItem } from "../../lib/guildMenu"
 import { dangerText, pressedOverlay, sheetBackdrop, sheetBackground, textMuted, textNormal } from "../theme"
 
-const { Modal, Pressable, View, Text, StyleSheet } = revenge.react.ReactNative
-
 /**
  * Fallback only -- GuildRow tries Discord's own action sheet first (lib/guildMenu.ts) for
  * pixel-identical chrome, custom themes included. This renders if that call isn't available
@@ -19,6 +17,9 @@ export default function ContextMenu({
 	items: MenuItem[]
 	onClose: () => void
 }) {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { Modal, Pressable, View, Text } = revenge.react.ReactNative
+
 	if (!visible) return null
 
 	return (
@@ -48,10 +49,19 @@ export default function ContextMenu({
 	)
 }
 
-const st = StyleSheet.create({
-	backdrop: { flex: 1, justifyContent: "center", padding: 24 },
-	sheet: { borderRadius: 12, overflow: "hidden", minWidth: 220, alignSelf: "center" },
-	title: { fontSize: 12, fontWeight: "700", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
+// A plain object rather than StyleSheet.create: this is module-scope code, and reaching into
+// `revenge.react.ReactNative` out here captures `undefined` at preInit. React Native accepts
+// plain style objects, and Badge.tsx already does the same.
+const st = {
+	backdrop: { flex: 1, justifyContent: "center" as const, padding: 24 },
+	sheet: { borderRadius: 12, overflow: "hidden" as const, minWidth: 220, alignSelf: "center" as const },
+	title: {
+		fontSize: 12,
+		fontWeight: "700" as const,
+		paddingHorizontal: 16,
+		paddingTop: 14,
+		paddingBottom: 8,
+	},
 	item: { paddingHorizontal: 16, paddingVertical: 12 },
 	itemText: { fontSize: 15 },
-})
+}

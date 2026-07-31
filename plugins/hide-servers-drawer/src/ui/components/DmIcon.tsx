@@ -4,13 +4,18 @@ import { avatarFallback, barBackground, mentionBadge, selectedFill, unreadDot } 
 import MorphIcon from "./MorphIcon"
 import Pill from "./Pill"
 
-const { React } = revenge.react
-const { Pressable, View, Image, Text } = revenge.react.ReactNative
 // getAssetIdByName (lowercase "d"), under revenge.assets not revenge.components -- confirmed
-// from revenge-bundle-next's own source.
-const { getAssetIdByName } = revenge.assets
-
-const ChatIcon = getAssetIdByName("ChatIcon") ?? getAssetIdByName("ic_message")
+// from revenge-bundle-next's own source. Resolved on first render rather than at module scope:
+// module-scope code runs at preInit, before the asset registry exists.
+// See docs/porting-rules.md rule 1.
+let chatIcon: number | undefined
+function chatIconAsset() {
+	if (chatIcon === undefined) {
+		const { getAssetIdByName } = revenge.assets
+		chatIcon = getAssetIdByName("ChatIcon") ?? getAssetIdByName("ic_message")
+	}
+	return chatIcon
+}
 
 const SIZE = ICON_SIZE
 const GLYPH = 24
@@ -30,6 +35,10 @@ function avatarUrl(recipient: RecentDm["recipientAvatar"]): string | undefined {
  * for group DMs (no single avatar to show) or when there's no DM history at all.
  */
 export default function DmIcon({ selected, onPress }: { selected: boolean; onPress: () => void }) {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { React } = revenge.react
+	const { Pressable, View, Image, Text } = revenge.react.ReactNative
+
 	const [, bump] = React.useReducer((n: number) => n + 1, 0)
 	React.useEffect(() => subscribeDmChanges(bump), [])
 
@@ -49,7 +58,7 @@ export default function DmIcon({ selected, onPress }: { selected: boolean; onPre
 					</MorphIcon>
 				) : (
 					<MorphIcon size={SIZE} selected={selected} background={avatarFallback()} selectedBackground={selectedFill()}>
-						<Image source={ChatIcon as any} style={{ width: GLYPH, height: GLYPH, tintColor: "#fff" }} />
+						<Image source={chatIconAsset() as any} style={{ width: GLYPH, height: GLYPH, tintColor: "#fff" }} />
 					</MorphIcon>
 				)}
 

@@ -1,8 +1,6 @@
 import { staticIcons } from "../../lib/prefs"
 import { avatarFallback } from "../theme"
 
-const { Image, Text, View } = revenge.react.ReactNative
-
 const SIZE = 36
 
 /** Discord's fallback for a server with no icon: first letter of each word. */
@@ -27,6 +25,9 @@ function iconUrl(guild: any): string | undefined {
 }
 
 export default function GuildIcon({ guild, size = SIZE, radius }: { guild: any; size?: number; radius?: number }) {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { Image, Text, View } = revenge.react.ReactNative
+
 	const url = iconUrl(guild)
 	const rad = radius ?? size / 2
 

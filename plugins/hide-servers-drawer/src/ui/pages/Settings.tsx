@@ -5,20 +5,19 @@ import { refresh, store, unfiltered } from "../../patches/sortedGuilds"
 import GuildIcon from "../components/GuildIcon"
 import { textMuted, textNormal } from "../theme"
 
-const { React } = revenge.react
-const { Alert, ScrollView, Text, View } = revenge.react.ReactNative
-const { TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
-
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
-// filter -- there is no `withStoreName` under modules.finders.filters.
-const { GuildStore } = revenge.discord.flux.Stores
+// filter -- there is no `withStoreName` under modules.finders.filters. Read per call, never at
+// module scope: `revenge.discord.design.Design` in particular is a lazy proxy whose miss is
+// cached against a key shared with Revenge's own settings UI, which took out the entire
+// Settings screen. See docs/porting-rules.md rule 1.
+const guildStore = () => revenge.discord.flux.Stores.GuildStore
 
 type Guild = { id: string; name: string; icon?: string }
 type Group = { title: string; guilds: Guild[]; folderId?: string | number }
 
 function guildById(id: string): Guild | undefined {
 	try {
-		const guild = GuildStore?.getGuild?.(id)
+		const guild = guildStore()?.getGuild?.(id)
 		if (guild) return { id: guild.id, name: guild.name ?? "Unnamed", icon: guild.icon }
 	} catch {
 		/* fall through */
@@ -74,7 +73,7 @@ function groups(): Group[] {
 	// Fallback: the tree was unavailable, so list everything alphabetically.
 	let all: Record<string, any> = {}
 	try {
-		all = GuildStore?.getGuilds?.() ?? {}
+		all = guildStore()?.getGuilds?.() ?? {}
 	} catch {
 		/* none */
 	}
@@ -88,6 +87,11 @@ function groups(): Group[] {
 }
 
 export default function Settings() {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { React } = revenge.react
+	const { Alert, ScrollView, Text, View } = revenge.react.ReactNative
+	const { TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
+
 	// The switches are controlled by isHidden(), so the page has to re-render itself after a
 	// toggle or the switch springs straight back to its old position.
 	const [, bump] = React.useReducer((n: number) => n + 1, 0)

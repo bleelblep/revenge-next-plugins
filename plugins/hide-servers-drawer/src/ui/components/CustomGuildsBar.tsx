@@ -7,8 +7,6 @@ import FolderRow from "./FolderRow"
 import GuildRow, { useSelectedGuildId } from "./GuildRow"
 import UnreadDmRow from "./UnreadDmRow"
 
-const { React } = revenge.react
-const { ScrollView, View, StatusBar, Platform } = revenge.react.ReactNative
 
 // getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
 // module can still be unregistered even from inside start() -- this file's top-level code
@@ -29,8 +27,9 @@ revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProp
 })
 
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
-// filter -- there is no `withStoreName` under modules.finders.filters.
-const { SelectedChannelStore } = revenge.discord.flux.Stores
+// filter -- there is no `withStoreName` under modules.finders.filters. Read per call, never at
+// module scope -- see docs/porting-rules.md rule 1.
+const selectedChannelStore = () => revenge.discord.flux.Stores.SelectedChannelStore
 
 // Discord's own bottom tab bar ("You"/home/etc) is a separate fixed-height UI element, not
 // part of the safe-area inset -- the inset only covers the gesture-nav pill below it. This
@@ -42,6 +41,7 @@ const TAB_BAR_HEIGHT = 140
 // DM button renders flush against the status bar instead of below it. Android needs
 // StatusBar.currentHeight added explicitly; iOS's real inset is handled by useBottomSafeInset.
 function topInset(): number {
+	const { StatusBar, Platform } = revenge.react.ReactNative
 	if (Platform.OS === "android") return StatusBar?.currentHeight ?? 24
 	return 0
 }
@@ -60,6 +60,10 @@ function useBottomSafeInset(): number {
 }
 
 function useSelectedChannelId(): string | null {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { React } = revenge.react
+	const SelectedChannelStore = selectedChannelStore()
+
 	const [id, setId] = React.useState<string | null>(() => {
 		try {
 			return SelectedChannelStore?.getChannelId?.() ?? null
@@ -111,6 +115,10 @@ function openDms() {
  * every item in its data array including ones that render null, a plain array map does not.
  */
 export default function CustomGuildsBar() {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { React } = revenge.react
+	const { ScrollView, View } = revenge.react.ReactNative
+
 	const [, bump] = React.useReducer((n: number) => n + 1, 0)
 
 	React.useEffect(() => {

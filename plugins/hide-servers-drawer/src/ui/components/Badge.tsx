@@ -1,14 +1,15 @@
 import { useGuildIndicator } from "../useGuildIndicator"
 import { barBackground, mentionBadge, unreadDot } from "../theme"
 
-const { View, Text } = revenge.react.ReactNative
-
 /**
  * Mention-count pill, or a plain unread dot when there are no mentions -- but only ever what
  * the guild's own notification setting allows, via useGuildIndicator (shared with GuildRow's
  * left-edge pill so both agree on what counts as "this guild has something to show").
  */
 export default function Badge({ guildId }: { guildId: string }) {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { View, Text } = revenge.react.ReactNative
+
 	const { mentionCount, showDot } = useGuildIndicator(guildId)
 
 	// Resolved per render, not module-level -- the user can switch themes without reloading.

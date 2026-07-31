@@ -1,6 +1,11 @@
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters.
-const { ChannelStore, UserStore, ReadStateStore } = revenge.discord.flux.Stores
+// Read per call, never at module scope: the Stores proxy resolves via one-shot `lookupModule`,
+// and at preInit that caches a permanent miss on a key shared app-wide.
+// See docs/porting-rules.md rule 1.
+const channelStore = () => revenge.discord.flux.Stores.ChannelStore
+const userStore = () => revenge.discord.flux.Stores.UserStore
+const readStateStore = () => revenge.discord.flux.Stores.ReadStateStore
 
 export interface RecentDm {
 	channelId: string
@@ -14,7 +19,7 @@ function recipientAvatarOf(recipients: unknown): RecentDm["recipientAvatar"] {
 	if (!recipientId) return undefined
 
 	try {
-		const user = UserStore?.getUser?.(recipientId)
+		const user = userStore()?.getUser?.(recipientId)
 		if (user) return { id: String(user.id), avatar: user.avatar ?? null, username: user.username ?? "" }
 	} catch {
 		/* ignore */
@@ -26,7 +31,7 @@ function recipientAvatarOf(recipients: unknown): RecentDm["recipientAvatar"] {
  *  ordered most-recent-first, same as classic Revenge and stock Discord's Home button. */
 export function mostRecentDm(): RecentDm | undefined {
 	try {
-		const sorted = ChannelStore?.getSortedPrivateChannels?.() ?? []
+		const sorted = channelStore()?.getSortedPrivateChannels?.() ?? []
 		const first = sorted[0]
 		if (!first?.id) return undefined
 
@@ -85,7 +90,7 @@ function dmMemberAvatars(channel: any): MemberAvatar[] | undefined {
 
 	return ids.map((id: string) => {
 		try {
-			const user = UserStore?.getUser?.(id)
+			const user = userStore()?.getUser?.(id)
 			return { id, url: memberAvatarUrl(id, user?.avatar), username: user?.username ?? "" }
 		} catch {
 			return { id, username: "" }
@@ -104,7 +109,7 @@ function dmName(channel: any): string {
 	// Group DM with no set name: fall back to recipient usernames, same as stock does.
 	try {
 		const names = (Array.isArray(channel.recipients) ? channel.recipients : [])
-			.map((id: string) => UserStore?.getUser?.(id)?.username)
+			.map((id: string) => userStore()?.getUser?.(id)?.username)
 			.filter(Boolean)
 		if (names.length) return names.join(", ")
 	} catch {
@@ -121,7 +126,7 @@ function dmName(channel: any): string {
  */
 export function unreadDmChannels(): UnreadDm[] {
 	try {
-		const sorted: any[] = ChannelStore?.getSortedPrivateChannels?.() ?? []
+		const sorted: any[] = channelStore()?.getSortedPrivateChannels?.() ?? []
 		const out: UnreadDm[] = []
 
 		for (const channel of sorted) {
@@ -154,12 +159,12 @@ export function dmUnreadState(channelId: string): { hasUnread: boolean; mentionC
 	let hasUnread = false
 	let mentionCount = 0
 	try {
-		hasUnread = !!ReadStateStore?.hasUnread?.(channelId)
+		hasUnread = !!readStateStore()?.hasUnread?.(channelId)
 	} catch {
 		/* ignore */
 	}
 	try {
-		mentionCount = Number(ReadStateStore?.getMentionCount?.(channelId)) || 0
+		mentionCount = Number(readStateStore()?.getMentionCount?.(channelId)) || 0
 	} catch {
 		/* ignore */
 	}
@@ -167,7 +172,7 @@ export function dmUnreadState(channelId: string): { hasUnread: boolean; mentionC
 }
 
 export function subscribeDmChanges(fn: () => void): () => void {
-	const stores = [ChannelStore, ReadStateStore].filter(s => s?.addChangeListener)
+	const stores = [channelStore(), readStateStore()].filter(s => s?.addChangeListener)
 	stores.forEach(s => s.addChangeListener(fn))
 	return () => stores.forEach(s => s.removeChangeListener?.(fn))
 }

@@ -5,8 +5,6 @@ import ContextMenu from "./ContextMenu"
 import GuildRow, { useSelectedGuildId } from "./GuildRow"
 import GuildIcon from "./GuildIcon"
 
-const { React } = revenge.react
-const { Pressable, View, Image } = revenge.react.ReactNative
 // revenge.utils.toast.show doesn't exist -- was a guess, confirmed wrong on-device
 // ("Cannot read property 'show' of undefined" at preInit). ToastActionCreators.open is
 // confirmed live from revenge-bundle-next's own source (used by the staff-settings and
@@ -15,13 +13,11 @@ function showToast(content: string) {
 	revenge.discord.actions.ToastActionCreators.open({ key: "HideServersDrawerToast", content })
 }
 // getAssetIdByName (lowercase "d"), under revenge.assets not revenge.components -- confirmed
-// from revenge-bundle-next's own source. This is available at module top level (assets isn't
-// lazy-guarded the way modules.finders lookups are), so no getModules-style deferral needed.
-const { getAssetIdByName } = revenge.assets
 
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters.
-const { ExpandedGuildFolderStore, GuildStore } = revenge.discord.flux.Stores
+// Read per call, never at module scope -- see docs/porting-rules.md rule 1.
+const stores = () => revenge.discord.flux.Stores
 
 // getModules, not lookupModule: confirmed on-device (staff-tags plugin) that a lazily-loaded
 // module can still be unregistered even from inside start() -- this file's top-level code
@@ -35,7 +31,17 @@ revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProp
 
 const ICON = 48
 const MINI = 16
-const FOLDER_ASSET = getAssetIdByName("FolderIcon") ?? getAssetIdByName("ic_folder")
+// `revenge.assets` itself is a plain object and safe to read early, but *calling* it at module
+// scope is not: the asset registry isn't populated at preInit, so the lookup would return
+// undefined and be frozen that way for the session. Resolved on first render instead.
+let folderAsset: number | undefined
+function folderAssetId() {
+	if (folderAsset === undefined) {
+		const { getAssetIdByName } = revenge.assets
+		folderAsset = getAssetIdByName("FolderIcon") ?? getAssetIdByName("ic_folder")
+	}
+	return folderAsset
+}
 
 const POS = [
 	{ top: 6, left: 6 },
@@ -45,6 +51,10 @@ const POS = [
 ]
 
 function useFolderExpanded(folderId: string | number): boolean {
+	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { React } = revenge.react
+	const { ExpandedGuildFolderStore } = stores()
+
 	const [open, setOpen] = React.useState(() => {
 		try {
 			const folders = ExpandedGuildFolderStore?.getExpandedFolders?.()
@@ -73,6 +83,9 @@ function useFolderExpanded(folderId: string | number): boolean {
 
 /** node: { type: "folder", id, name, color, children: [{ id, ... }] } from SortedGuildStore.getGuildsTree(). */
 export default function FolderRow({ node }: { node: any }) {
+	const { React } = revenge.react
+	const { Pressable, View, Image } = revenge.react.ReactNative
+
 	const open = useFolderExpanded(node.id)
 	const selectedId = useSelectedGuildId()
 	const children: any[] = Array.isArray(node.children) ? node.children : []
@@ -143,7 +156,7 @@ export default function FolderRow({ node }: { node: any }) {
 							backgroundColor: tint,
 						}}
 					>
-						<Image source={FOLDER_ASSET as any} style={{ width: 24, height: 24, tintColor: "#fff" }} />
+						<Image source={folderAssetId() as any} style={{ width: 24, height: 24, tintColor: "#fff" }} />
 					</View>
 				</Pressable>
 				{children.map((child, i) => (
@@ -172,7 +185,7 @@ export default function FolderRow({ node }: { node: any }) {
 						{children.slice(0, 4).map((child, i) => {
 							let guild: any
 							try {
-								guild = GuildStore?.getGuild?.(String(child.id))
+								guild = stores().GuildStore?.getGuild?.(String(child.id))
 							} catch {
 								/* ignore */
 							}

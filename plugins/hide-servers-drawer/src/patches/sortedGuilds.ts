@@ -2,7 +2,10 @@ import { isEmpty, isFolderHidden, isHidden } from "../lib/hidden"
 
 // Flux stores are looked up by name directly through the Stores proxy, not a module finder
 // filter -- there is no `withStoreName` under modules.finders.filters.
-const { SortedGuildStore } = revenge.discord.flux.Stores
+// Read per call, never at module scope: the Stores proxy resolves via one-shot `lookupModule`,
+// and at preInit that caches a permanent miss on a key shared app-wide.
+// See docs/porting-rules.md rule 1.
+const sortedGuildStore = () => revenge.discord.flux.Stores.SortedGuildStore
 
 // No server-list component resolves reliably by name across builds, so filter at the
 // source instead: everything that draws the list reads it from this store, so removing
@@ -32,7 +35,7 @@ function hiddenFolderGuildIds(): Set<string> {
 	const out = new Set<string>()
 
 	try {
-		const tree = unfiltered(() => SortedGuildStore?.getGuildsTree?.())
+		const tree = unfiltered(() => sortedGuildStore()?.getGuildsTree?.())
 		const children = tree?.root?.children
 		if (!Array.isArray(children)) return out
 
@@ -167,7 +170,7 @@ export function unfiltered<T>(fn: () => T): T {
 
 /** The store, for callers that need to read it directly. */
 export function store() {
-	return SortedGuildStore
+	return sortedGuildStore()
 }
 
 /**
@@ -178,13 +181,13 @@ export function store() {
  * the final iteration's `method`/`filter`. Function parameters bind per call instead.
  */
 function install(method: string, filter: (value: unknown) => unknown): (() => void) | undefined {
-	if (typeof SortedGuildStore[method] !== "function") return undefined
+	if (typeof sortedGuildStore()[method] !== "function") return undefined
 
 	try {
 		// after's hook receives only the return value (confirmed from revenge-bundle-next's
 		// own patcher source) -- this patch only ever needed the result anyway, so no
 		// conversion to instead is needed here (unlike the other .after( fixes elsewhere).
-		return revenge.patcher.after(SortedGuildStore, method, (ret: unknown) => {
+		return revenge.patcher.after(sortedGuildStore(), method, (ret: unknown) => {
 			// Skip the work entirely when nothing is hidden.
 			if (disabled || isEmpty()) return ret
 
@@ -203,7 +206,7 @@ function install(method: string, filter: (value: unknown) => unknown): (() => vo
 export default function patchSortedGuilds() {
 	const patches: Array<() => void> = []
 
-	if (!SortedGuildStore) return () => {}
+	if (!sortedGuildStore()) return () => {}
 
 	for (const target of TARGETS) {
 		const unpatch = install(target[0], target[1])
@@ -222,8 +225,8 @@ export default function patchSortedGuilds() {
 export function refresh() {
 	for (const method of ["doEmitChanges", "emitChange"]) {
 		try {
-			if (typeof SortedGuildStore?.[method] === "function") {
-				SortedGuildStore[method]()
+			if (typeof sortedGuildStore()?.[method] === "function") {
+				sortedGuildStore()[method]()
 				return method
 			}
 		} catch {
@@ -238,7 +241,7 @@ export function refresh() {
 export function emitterInfo() {
 	const has = (m: string) => {
 		try {
-			return typeof SortedGuildStore?.[m] === "function"
+			return typeof sortedGuildStore()?.[m] === "function"
 		} catch {
 			return false
 		}
