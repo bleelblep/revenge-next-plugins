@@ -70,6 +70,34 @@ export function isBuiltInTag(type: unknown): boolean {
 	}
 }
 
+/**
+ * Discord permission bits, hardcoded.
+ *
+ * This used to read `revenge.discord.common.Constants.Permissions`, which **does not exist** —
+ * confirmed on device: `constantsKeys=no Constants.Permissions`. Behind `?.` and a `?? {}`
+ * fallback it failed silently, mapping a perfectly good permission bitmask against an empty
+ * table, so every permission-based tag (ADMIN, STAFF, MOD, VC Mod, Chat Mod) vanished while
+ * OWNER and WEBHOOK — the only `condition` tags — kept working. See porting rule 4.
+ *
+ * Hardcoding is the right call rather than hunting for the real module: these values are part of
+ * Discord's public API and cannot change without breaking every bot on the platform. Only the
+ * bits this plugin actually tests are listed.
+ */
+const PERMISSION_BITS: Record<string, bigint> = {
+	KICK_MEMBERS: 1n << 1n,
+	BAN_MEMBERS: 1n << 2n,
+	ADMINISTRATOR: 1n << 3n,
+	MANAGE_CHANNELS: 1n << 4n,
+	MANAGE_GUILD: 1n << 5n,
+	MANAGE_MESSAGES: 1n << 13n,
+	MUTE_MEMBERS: 1n << 22n,
+	DEAFEN_MEMBERS: 1n << 23n,
+	MOVE_MEMBERS: 1n << 24n,
+	MANAGE_ROLES: 1n << 28n,
+	MANAGE_WEBHOOKS: 1n << 29n,
+	MODERATE_MEMBERS: 1n << 40n,
+}
+
 interface Tag {
 	text: string
 	textColor?: any
@@ -154,6 +182,21 @@ function computePermissionsInt(guild: any, channel: any, user: any): bigint | un
 	return undefined
 }
 
+/**
+ * Warns once if the permission bitmask can't be computed at all — the remaining way for every
+ * permission tag to disappear at once. Silent when healthy.
+ */
+let warned = false
+function warnIfBroken(permissionsInt: bigint | undefined) {
+	if (warned || permissionsInt !== undefined) return
+	warned = true
+	console.error(
+		"[StaffTags] could not compute permissions" +
+			` (helper=${typeof computePermissionsFn()}, workingShape=${workingShape}).` +
+			" ADMIN/STAFF/MOD tags will not appear.",
+	)
+}
+
 export default function getTag(
 	guild: any,
 	channel: any,
@@ -162,24 +205,21 @@ export default function getTag(
 ) {
 	if (!user) return undefined
 
-	let permissions: string[] | undefined
+	let permissionsInt: bigint | undefined
 	if (guild) {
-		const permissionsInt = computePermissionsInt(guild, channel, user)
+		permissionsInt = computePermissionsInt(guild, channel, user)
+		warnIfBroken(permissionsInt)
+	}
 
-		if (permissionsInt !== undefined) {
-			const permissionConstants = revenge.discord.common.Constants?.Permissions ?? {}
-			permissions = Object.entries(permissionConstants)
-				.map(([permission, permissionInt]: [string, unknown]) =>
-					permissionsInt & BigInt(permissionInt as any) ? permission : "",
-				)
-				.filter(Boolean)
-		}
+	const hasPermission = (name: string) => {
+		const bit = PERMISSION_BITS[name]
+		return bit !== undefined && permissionsInt !== undefined && (permissionsInt & bit) !== 0n
 	}
 
 	for (const tag of tags) {
 		if (
 			tag.condition?.(guild, channel, user) ||
-			(!user.bot && tag.permissions?.some(perm => permissions?.includes(perm)))
+			(!user.bot && tag.permissions?.some(hasPermission))
 		) {
 			const roleColor = useRoleColor
 				? guildMemberStore()?.getMember?.(guild?.id, user.id)?.colorString
