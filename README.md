@@ -4,8 +4,10 @@ Revenge Next ports of plugins from [bleelblep/revengeplugins](https://github.com
 targeting [Revenge Next](https://github.com/revenge-mod/revenge-bundle-next) instead of classic
 Revenge/Vendetta. Purge My Messages was dropped from this port.
 
-Currently **private and unpublished** (GitHub Pages disabled) until Hide Servers is either
-fixed or dropped.
+All five plugins work. The repo is still **private and unpublished** (GitHub Pages disabled)
+because Show Tag's original license can't be determined — see
+[`plugins/show-tag/NOTICE.md`](./plugins/show-tag/NOTICE.md). That's the only thing left
+blocking a publish.
 
 ## Plugins
 
@@ -15,23 +17,18 @@ fixed or dropped.
 | **Custom Timestamps** | Working | Chat timestamps in calendar / relative / ISO 8601 / a custom format string. Settings: mode + "separate messages". |
 | **Show Tag** | Working | Username (or full `name#0000` tag on legacy accounts) in the message header and reply previews. Settings: "only show usernames". Ported from [Cynosphere](https://github.com/Cynosphere)'s Vendetta plugin — see [`NOTICE.md`](./plugins/show-tag/NOTICE.md), the original's **license is unresolved**, don't publish it yet. |
 | **Hide Call Buttons** | Working | Hides call/video buttons in DMs, user profiles and voice channels. Settings: five per-surface toggles. Ported from John ([janisslsm](https://github.com/janisslsm))'s Vendetta plugin, BSD-3-Clause — see [`NOTICE.md`](./plugins/hide-call-buttons/NOTICE.md). |
-| **Hide Servers (Drawer Fix)** | Broken | Soft-bootloops on reopen. See [below](#hide-servers). |
+| **Hide Servers (Drawer Fix)** | Working | Locally hide servers or whole folders from the server list, without the scroll-jump bug. Custom bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant-apply, static icons. |
 
-All four settings pages are confirmed working on-device. They were broken repo-wide until the
+Every settings page is confirmed working on-device. They were broken repo-wide until the
 module-scope bug in [porting rule 1](./docs/porting-rules.md#1-never-touch-revenge-at-module-scope)
-was found — the settings API itself was never at fault.
+was found — the settings API itself was never at fault. Hide Servers additionally bootlooped the
+app until the same rule was applied across it; the specific killer was almost certainly
+`React.memo()` at module scope, which throws inside `optionsFactory()` and fails the plugin before
+`start()` ever runs.
 
 **Show Tag and Custom Timestamps both patch `RowManager.prototype.generate`.** They are confirmed
 to coexist, but only because Show Tag deliberately avoids `instead` — see
 [porting rule 2](./docs/porting-rules.md#the-two-instead-recursion-bug). Keep it that way.
-
-### Hide Servers
-
-Its bundle still has ~14 module-scope `revenge.*` destructures, 5 of them
-`revenge.discord.flux.Stores` (`lib/dms.ts`, `patches/sortedGuilds.ts`, `lib/notifications.ts`,
-`ui/components/GuildRow.tsx`, `ui/components/CustomGuildsBar.tsx`). That violates
-[porting rule 1](./docs/porting-rules.md#1-never-touch-revenge-at-module-scope) and is likely
-most of the bootloop — fix that before looking anywhere else.
 
 ## Documentation
 

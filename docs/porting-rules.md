@@ -46,6 +46,22 @@ The same applies to `revenge.react.ReactNative` and `revenge.assets`: those are 
 bindings that are still `undefined` at preInit, so destructuring them at module scope captures
 `undefined` forever.
 
+**Grepping for `const … = revenge.` is not enough.** Three variants in hide-servers-drawer had
+no `revenge.` on the line at all:
+
+- `getAssetIdByName("FolderIcon")` **called** at module scope. `revenge.assets` is a plain
+  object and safe to *read* early, but the asset registry isn't populated at preInit, so the
+  result was `undefined` and frozen that way in a `const` for the whole session.
+- `React.memo(Component)` at module scope. `revenge.react.React` is an ESM live binding that may
+  still be `undefined` at preInit, so this throws inside `optionsFactory()` — failing the entire
+  plugin before `start()` runs. This was almost certainly what bootlooped the app. Build the memo
+  on first render into a module-level holder instead, so the component type stays stable from
+  render 2 onward and memoisation still works.
+- `StyleSheet.create({…})` at module scope. React Native accepts plain style objects; use one.
+
+The general form: anything **derived from** a `revenge.*` value at module scope is suspect, not
+just the destructure itself.
+
 `revenge.modules.finders.getModules` at module scope is the one safe exception — it scopes its
 internal lookup to already-initialized modules, and `cacheFilterNotFound` only fires on
 full-scope lookups. It still leaks a subscription that's never cleaned up on stop, so prefer
