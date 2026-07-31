@@ -1,5 +1,5 @@
 import getTag from "../lib/getTag"
-import type { StaffTagsStorage } from "../index"
+import { DEFAULTS, type StaffTagsStorage } from "../index"
 
 // Resolved inside the exported function, not at module top level: Revenge Next's preInit
 // phase runs before Discord's module registry is populated, and a module finder lookup run
@@ -15,7 +15,7 @@ import type { StaffTagsStorage } from "../index"
 export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	const { getModules } = revenge.modules.finders
 	const { withName } = revenge.modules.finders.filters
-	const { GuildStore, ChannelStore } = revenge.discord.flux.Stores
+	const { GuildStore, ChannelStore } = revenge.discord.flux.Stores as any
 	// Same reason as everything else here: `revenge.react.ReactNative` is an ESM live binding
 	// that's still undefined during preInit, so reading it at module scope captures undefined
 	// forever.
@@ -23,9 +23,9 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 
 	let unpatch: (() => void) | undefined
 
-	const unsubscribe = getModules<any>(
+	const unsubscribe = getModules(
 		withName("getTagProperties"),
-		getTagProperties => {
+		(getTagProperties: any) => {
 			// returnNamespace: true above gives us the wrapper object so we can patch
 			// `.default` on the module itself, not the unwrapped function.
 			if (!getTagProperties?.default) return
@@ -48,7 +48,7 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 					const channel = ChannelStore.getChannel(message.channel_id)
 					const guild = GuildStore.getGuild(channel?.guild_id)
 
-					const tag = getTag(guild, channel, message.author, !!jsonStorage.cache.useRoleColor)
+					const tag = getTag(guild, channel, message.author, !!(jsonStorage.cache ?? DEFAULTS).useRoleColor)
 
 					if (tag) {
 						// tag.textColor/backgroundColor are always plain hex strings already

@@ -5,7 +5,7 @@
 // The input component is a named `InputView` export on classic Revenge builds, not the
 // module's default -- never destructure a finder result, keep both fallbacks.
 let inputModule: any
-revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withProps("ClearButtonVisibility"), mod => {
+revenge.modules.finders.getModules(revenge.modules.finders.filters.withProps("ClearButtonVisibility"), (mod: any) => {
 	inputModule = mod
 })
 

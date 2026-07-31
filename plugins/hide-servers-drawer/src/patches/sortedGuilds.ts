@@ -5,7 +5,7 @@ import { isEmpty, isFolderHidden, isHidden } from "../lib/hidden"
 // Read per call, never at module scope: the Stores proxy resolves via one-shot `lookupModule`,
 // and at preInit that caches a permanent miss on a key shared app-wide.
 // See docs/porting-rules.md rule 1.
-const sortedGuildStore = () => revenge.discord.flux.Stores.SortedGuildStore
+const sortedGuildStore = (): any => (revenge.discord.flux.Stores as any).SortedGuildStore
 
 // No server-list component resolves reliably by name across builds, so filter at the
 // source instead: everything that draws the list reads it from this store, so removing

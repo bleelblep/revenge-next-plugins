@@ -12,6 +12,13 @@ Read this before touching a plugin.
 The single most important rule here. It was the real cause of the "settings pages crash the
 whole Settings screen" bug that this repo spent a long time misdiagnosing.
 
+Note this rule is specific to **external** plugins. PalmDevs'
+[revenge-next-plugins](https://github.com/PalmDevs/revenge-next-plugins) reads `Design` at module
+scope quite happily — those are *internal* plugins, compiled into the bundle via
+`registerInternalPlugin` and loaded as ordinary Metro modules on demand. Ours are external: loaded
+from a zip and evaluated through `new Function` at preInit. Same code, different moment. Don't
+copy their module-scope patterns.
+
 A plugin's entire bundle is evaluated during **preInit** — revenge-bundle-next's
 `createOptionsFactory` (`lib/plugins/src/_internal/external-plugins.ts`) runs the script
 through `new Function('revenge', 'plugin', 'return ' + script)`, reached from `preinit.ts` →
@@ -46,6 +53,22 @@ The same applies to `revenge.react.ReactNative` and `revenge.assets`: those are 
 bindings that are still `undefined` at preInit, so destructuring them at module scope captures
 `undefined` forever.
 
+**Grepping for `const … = revenge.` is not enough.** Three variants in hide-servers-drawer had
+no `revenge.` on the line at all:
+
+- `getAssetIdByName("FolderIcon")` **called** at module scope. `revenge.assets` is a plain
+  object and safe to *read* early, but the asset registry isn't populated at preInit, so the
+  result was `undefined` and frozen that way in a `const` for the whole session.
+- `React.memo(Component)` at module scope. `revenge.react.React` is an ESM live binding that may
+  still be `undefined` at preInit, so this throws inside `optionsFactory()` — failing the entire
+  plugin before `start()` runs. This was almost certainly what bootlooped the app. Build the memo
+  on first render into a module-level holder instead, so the component type stays stable from
+  render 2 onward and memoisation still works.
+- `StyleSheet.create({…})` at module scope. React Native accepts plain style objects; use one.
+
+The general form: anything **derived from** a `revenge.*` value at module scope is suspect, not
+just the destructure itself.
+
 `revenge.modules.finders.getModules` at module scope is the one safe exception — it scopes its
 internal lookup to already-initialized modules, and `cacheFilterNotFound` only fires on
 full-scope lookups. It still leaks a subscription that's never cleaned up on stop, so prefer
@@ -59,7 +82,7 @@ module-scope destructures with it. The settings API was never the problem.
 bad entry is likely still on disk, and a correct build will look just as broken without it.
 
 Confirmed on-device: moving these reads into render functions restored the settings pages on all
-four working plugins, with no change to how `SettingsComponent` is registered.
+five plugins, with no change to how `SettingsComponent` is registered.
 
 ## 2. The patcher's hook contracts differ from classic Revenge/Vendetta's
 
@@ -166,3 +189,24 @@ Guessed by analogy with classic Revenge, and confirmed absent from revenge-bundl
 | `revenge.discord.common.moment` | Doesn't exist — self-contained date formatter (`custom-timestamps/src/lib/renderTimestamp.ts`) |
 | `revenge.utils.react.findInReactTree` | Doesn't exist — local implementation (`staff-tags/src/lib/findInReactTree.ts`) |
 | `filters.withStoreName` / `withTypeName` / `withPredicate` | Don't exist — Flux stores come from the `revenge.discord.flux.Stores` proxy |
+| `revenge.discord.design.RawColors` | Doesn't exist — `@revenge-mod/discord/design` exports only `Design` and `FormSwitch`. Use literal hex |
+| `revenge.discord.design.Tokens` | Wrong namespace — `Tokens` is on `revenge.discord.common`, and is typed `any` |
+| `revenge.discord.haptics` | Doesn't exist at all. No haptics API is exposed to plugins |
+
+The last three were found by adopting the official types (see below), not on-device — every one had
+been sitting behind `?.` and a fallback, silently doing nothing.
+
+## 5. Use the official types, not guesses
+
+`types/next/` is the **generated** type surface from revenge-bundle-next (`bun types` ->
+`dist/types`), vendored. `types/globals.d.ts` declares the two globals an external plugin gets
+(`plugin()` and `revenge`), mirroring that repo's own `types/globals.consumers.ts`.
+
+This replaced a hand-written `types/revenge.d.ts`. Adopting the real types immediately found the
+three phantom APIs above plus a genuine latent crash: `jsonStorage.cache` and `use()` are both
+possibly-`undefined`, because `load: true` calls `get()` **without awaiting it**. Every read now
+falls back to that plugin's exported `DEFAULTS`.
+
+Some surfaces are legitimately untyped and need `as any` — Discord's own Flux store methods
+(`Stores.GuildStore.getGuild`), and finder results where `returnNamespace` isn't inferred. Cast at
+the destructure point, not at each use.

@@ -8,10 +8,13 @@ export interface StaffTagsStorage {
 	useRoleColor: boolean
 }
 
-export default plugin<StaffTagsStorage>({
+/** Also the fallback for every read -- see the note in hide-call-buttons' DEFAULTS. */
+export const DEFAULTS: StaffTagsStorage = { useRoleColor: false }
+
+export default plugin<{ jsonStorage: StaffTagsStorage }>({
 	jsonStorage: {
 		load: true,
-		default: { useRoleColor: false },
+		default: DEFAULTS,
 	},
 	start({ cleanup, jsonStorage }) {
 		// Apply each surface independently -- a single moved Discord module must disable

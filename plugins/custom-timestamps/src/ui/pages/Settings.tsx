@@ -1,5 +1,5 @@
 import type { ReactElement } from "react"
-import renderTimestamp, { type Mode, type TimestampStorage } from "../../lib/renderTimestamp"
+import renderTimestamp, { DEFAULTS, type Mode, type TimestampStorage } from "../../lib/renderTimestamp"
 import { CustomTimeInputRow } from "../components/CustomTimeInputRow"
 import { SelectableRow } from "../components/SelectableRow"
 
@@ -16,10 +16,11 @@ export default function Settings({
 }) {
 	// Read per-render, never at module scope -- see the "Never touch revenge.* at module scope"
 	// section in the README.
+	const { Page } = revenge.components
 	const { ScrollView } = revenge.react.ReactNative
-	const { TableRowGroup, TableSwitchRow } = revenge.discord.design.Design
+	const { Stack, TableRowGroup, TableSwitchRow } = revenge.discord.design.Design
 
-	const { selected, customFormat, separateMessages } = api.jsonStorage.use()
+	const { selected, customFormat, separateMessages } = api.jsonStorage.use() ?? DEFAULTS
 
 	const modes: ModeOption[] = [
 		{ label: "Calendar", key: "calendar" },
@@ -40,29 +41,33 @@ export default function Settings({
 	]
 
 	return (
-		<ScrollView>
-			<TableRowGroup title="Mode">
-				{modes.map(({ label, key, renderExtra }) => (
-					<>
-						<SelectableRow
-							key={key}
-							label={label}
-							subLabel={renderTimestamp(new Date(), key, customFormat)}
-							selected={selected === key}
-							onPress={() => api.jsonStorage.set({ selected: key })}
+		<Page>
+			<ScrollView>
+				<Stack spacing={24}>
+					<TableRowGroup title="Mode">
+						{modes.map(({ label, key, renderExtra }) => (
+							<>
+								<SelectableRow
+									key={key}
+									label={label}
+									subLabel={renderTimestamp(new Date(), key, customFormat)}
+									selected={selected === key}
+									onPress={() => api.jsonStorage.set({ selected: key })}
+								/>
+								{renderExtra?.(selected === key)}
+							</>
+						))}
+					</TableRowGroup>
+					<TableRowGroup>
+						<TableSwitchRow
+							label="Separate messages"
+							subLabel="Always shows username, avatar and timestamp for each message"
+							value={!!separateMessages}
+							onValueChange={value => api.jsonStorage.set({ separateMessages: value })}
 						/>
-						{renderExtra?.(selected === key)}
-					</>
-				))}
-			</TableRowGroup>
-			<TableRowGroup>
-				<TableSwitchRow
-					label="Separate messages"
-					subLabel="Always shows username, avatar and timestamp for each message"
-					value={!!separateMessages}
-					onValueChange={value => api.jsonStorage.set({ separateMessages: value })}
-				/>
-			</TableRowGroup>
-		</ScrollView>
+					</TableRowGroup>
+				</Stack>
+			</ScrollView>
+		</Page>
 	)
 }

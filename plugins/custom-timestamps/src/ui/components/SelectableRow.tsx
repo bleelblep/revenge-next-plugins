@@ -5,7 +5,7 @@
 // lazily as a plain variable rather than React state -- there's nothing to re-render for
 // here, `trailing` just omits the checkmark until it resolves.
 let rowCheckmark: any
-revenge.modules.finders.getModules<any>(revenge.modules.finders.filters.withName("RowCheckmark"), mod => {
+revenge.modules.finders.getModules(revenge.modules.finders.filters.withName("RowCheckmark"), (mod: any) => {
 	rowCheckmark = mod
 })
 

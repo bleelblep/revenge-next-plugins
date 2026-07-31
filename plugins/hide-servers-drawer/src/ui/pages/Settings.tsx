@@ -10,7 +10,7 @@ import { textMuted, textNormal } from "../theme"
 // module scope: `revenge.discord.design.Design` in particular is a lazy proxy whose miss is
 // cached against a key shared with Revenge's own settings UI, which took out the entire
 // Settings screen. See docs/porting-rules.md rule 1.
-const guildStore = () => revenge.discord.flux.Stores.GuildStore
+const guildStore = (): any => (revenge.discord.flux.Stores as any).GuildStore
 
 type Guild = { id: string; name: string; icon?: string }
 type Group = { title: string; guilds: Guild[]; folderId?: string | number }
@@ -88,6 +88,7 @@ function groups(): Group[] {
 
 export default function Settings() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
+	const { Page } = revenge.components
 	const { React } = revenge.react
 	const { Alert, ScrollView, Text, View } = revenge.react.ReactNative
 	const { TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
@@ -110,91 +111,93 @@ export default function Settings() {
 		])
 
 	return (
-		<ScrollView style={{ flex: 1 }}>
-			<View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
-				<Text style={{ color: textMuted(), fontSize: 12, lineHeight: 16 }}>
-					Hiding is local to this device and never leaves Discord. While anything is hidden, the server bar
-					is replaced with a plain rebuilt version so there's no empty gap and no scroll jump -- the
-					trade-off is that drag-to-reorder isn't available in that state. Turn off "Hide servers in the
-					bar" (or unhide everything) to get the untouched native bar back, reorder included.
-				</Text>
-			</View>
+		<Page>
+			<ScrollView>
+				<View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+					<Text style={{ color: textMuted(), fontSize: 12, lineHeight: 16 }}>
+						Hiding is local to this device and never leaves Discord. While anything is hidden, the server bar
+						is replaced with a plain rebuilt version so there's no empty gap and no scroll jump -- the
+						trade-off is that drag-to-reorder isn't available in that state. Turn off "Hide servers in the
+						bar" (or unhide everything) to get the untouched native bar back, reorder included.
+					</Text>
+				</View>
 
-			<TableRowGroup title="Display">
-				<TableSwitchRow
-					label="Disable animated server icons"
-					subLabel="Show the still frame of animated (GIF) server icons instead."
-					value={staticIcons()}
-					onValueChange={(v: boolean) => {
-						setStaticIcons(v)
-						refresh()
-						bump()
-					}}
-				/>
-			</TableRowGroup>
-
-			{hiddenCount > 0 || canReload() ? (
-				<TableRowGroup title="Hidden">
-					{hiddenCount > 0 ? (
-						<TableRow
-							label={`${hidden.length} server${hidden.length === 1 ? "" : "s"}, ${hiddenFolders.length} folder${hiddenFolders.length === 1 ? "" : "s"} hidden`}
-							subLabel="Tap to show all again"
-							onPress={() => {
-								clearHidden()
-								refresh()
-								bump()
-							}}
-						/>
-					) : null}
-					{canReload() ? <TableRow label="Reload Discord" subLabel="Apply changes everywhere" onPress={confirmReload} /> : null}
+				<TableRowGroup title="Display">
 					<TableSwitchRow
-						label="Hide servers in the bar"
-						subLabel="Turn off to leave the server bar completely untouched."
-						value={instant()}
+						label="Disable animated server icons"
+						subLabel="Show the still frame of animated (GIF) server icons instead."
+						value={staticIcons()}
 						onValueChange={(v: boolean) => {
-							setInstant(v)
+							setStaticIcons(v)
 							refresh()
 							bump()
 						}}
 					/>
 				</TableRowGroup>
-			) : null}
 
-			{list.length === 0 ? (
-				<View style={{ padding: 16 }}>
-					<Text style={{ color: textNormal() }}>No servers found.</Text>
-				</View>
-			) : (
-				list.map((group, index) => (
-					<TableRowGroup key={`${group.title}-${index}`} title={group.title}>
-						{group.folderId != null ? (
-							<TableSwitchRow
-								label={`Hide entire "${group.title}" folder`}
-								subLabel="Overrides the per-server switches below while it's hidden."
-								value={isFolderHidden(group.folderId)}
-								onValueChange={(v: boolean) => {
-									setFolderHidden(group.folderId!, v)
+				{hiddenCount > 0 || canReload() ? (
+					<TableRowGroup title="Hidden">
+						{hiddenCount > 0 ? (
+							<TableRow
+								label={`${hidden.length} server${hidden.length === 1 ? "" : "s"}, ${hiddenFolders.length} folder${hiddenFolders.length === 1 ? "" : "s"} hidden`}
+								subLabel="Tap to show all again"
+								onPress={() => {
+									clearHidden()
 									refresh()
 									bump()
 								}}
 							/>
 						) : null}
-						{group.guilds.map(guild => (
-							<TableSwitchRow
-								key={guild.id}
-								label={guild.name}
-								icon={<GuildIcon guild={guild} />}
-								value={isHidden(guild.id)}
-								onValueChange={(v: boolean) => {
-									setHidden(guild.id, v)
-									refresh()
-									bump()
-								}}
-							/>
-						))}
+						{canReload() ? <TableRow label="Reload Discord" subLabel="Apply changes everywhere" onPress={confirmReload} /> : null}
+						<TableSwitchRow
+							label="Hide servers in the bar"
+							subLabel="Turn off to leave the server bar completely untouched."
+							value={instant()}
+							onValueChange={(v: boolean) => {
+								setInstant(v)
+								refresh()
+								bump()
+							}}
+						/>
 					</TableRowGroup>
-				))
-			)}
-		</ScrollView>
+				) : null}
+
+				{list.length === 0 ? (
+					<View style={{ padding: 16 }}>
+						<Text style={{ color: textNormal() }}>No servers found.</Text>
+					</View>
+				) : (
+					list.map((group, index) => (
+						<TableRowGroup key={`${group.title}-${index}`} title={group.title}>
+							{group.folderId != null ? (
+								<TableSwitchRow
+									label={`Hide entire "${group.title}" folder`}
+									subLabel="Overrides the per-server switches below while it's hidden."
+									value={isFolderHidden(group.folderId)}
+									onValueChange={(v: boolean) => {
+										setFolderHidden(group.folderId!, v)
+										refresh()
+										bump()
+									}}
+								/>
+							) : null}
+							{group.guilds.map(guild => (
+								<TableSwitchRow
+									key={guild.id}
+									label={guild.name}
+									icon={<GuildIcon guild={guild} />}
+									value={isHidden(guild.id)}
+									onValueChange={(v: boolean) => {
+										setHidden(guild.id, v)
+										refresh()
+										bump()
+									}}
+								/>
+							))}
+						</TableRowGroup>
+					))
+				)}
+			</ScrollView>
+		</Page>
 	)
 }

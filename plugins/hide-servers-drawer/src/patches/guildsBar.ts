@@ -108,12 +108,12 @@ export default function patchGuildsBar(): () => void {
 	let unsubscribeNamed = () => {}
 	let unsubscribeMemo = () => {}
 	try {
-		unsubscribeNamed = revenge.modules.finders.getModules<any>(
+		unsubscribeNamed = revenge.modules.finders.getModules(
 			revenge.modules.finders.filters.withName("GuildsBar"),
 			patchBar,
 			{ max: 5 },
 		)
-		unsubscribeMemo = revenge.modules.finders.getModules<any>(withMemoName("GuildsBar"), patchBar, { max: 5 })
+		unsubscribeMemo = revenge.modules.finders.getModules(withMemoName("GuildsBar"), patchBar, { max: 5 })
 	} catch {
 		/* leave the bar unpatched */
 	}

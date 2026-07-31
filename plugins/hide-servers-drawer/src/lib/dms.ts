@@ -3,9 +3,9 @@
 // Read per call, never at module scope: the Stores proxy resolves via one-shot `lookupModule`,
 // and at preInit that caches a permanent miss on a key shared app-wide.
 // See docs/porting-rules.md rule 1.
-const channelStore = () => revenge.discord.flux.Stores.ChannelStore
-const userStore = () => revenge.discord.flux.Stores.UserStore
-const readStateStore = () => revenge.discord.flux.Stores.ReadStateStore
+const channelStore = (): any => (revenge.discord.flux.Stores as any).ChannelStore
+const userStore = (): any => (revenge.discord.flux.Stores as any).UserStore
+const readStateStore = (): any => (revenge.discord.flux.Stores as any).ReadStateStore
 
 export interface RecentDm {
 	channelId: string

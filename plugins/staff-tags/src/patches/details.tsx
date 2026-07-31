@@ -1,6 +1,6 @@
 import getTag, { isBuiltInTag } from "../lib/getTag"
 import { findInReactTree } from "../lib/findInReactTree"
-import type { StaffTagsStorage } from "../index"
+import { DEFAULTS, type StaffTagsStorage } from "../index"
 
 // instead, not after: after's hook only receives the return value, not the original
 // arguments (confirmed from revenge-bundle-next's own patcher source).
@@ -30,7 +30,7 @@ const rowPatch =
 		if (!nameContainer) return res
 
 		const guild = GuildStore.getGuild(guildId)
-		const tag = getTag(guild, undefined, user, !!jsonStorage.cache.useRoleColor)
+		const tag = getTag(guild, undefined, user, !!(jsonStorage.cache ?? DEFAULTS).useRoleColor)
 
 		if (tag) {
 			if (existingTag) {
@@ -107,14 +107,14 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 
 	let tagModule: any
 	const getTagModule = () => tagModule
-	getModules<any>(withProps("getBotLabel"), mod => {
+	getModules(withProps("getBotLabel"), (mod: any) => {
 		tagModule = mod
 	})
 
 	// Flux stores are looked up by name directly through the Stores proxy, not a module
 	// finder filter -- there is no `withStoreName` under modules.finders.filters. Confirmed
 	// reliable even on a cold restart, unlike the UI-component lookups above/below.
-	const { GuildStore } = revenge.discord.flux.Stores
+	const { GuildStore } = revenge.discord.flux.Stores as any
 
 	const patches: Array<() => void> = []
 	const patchedAlready = new Set<any>()
@@ -129,8 +129,8 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	// function/class export), withMemoName covers the memo-wrapped case that was confirmed
 	// to be what this build actually has. max: 10 since an unknown number of "UserRow"
 	// closures may exist and getModules defaults to stopping after the first.
-	const unsubscribeNamed = getModules<any>(withName("UserRow"), patchUserRow, { max: 10 })
-	const unsubscribeMemo = getModules<any>(withMemoName("UserRow"), patchUserRow, { max: 10 })
+	const unsubscribeNamed = getModules(withName("UserRow"), patchUserRow, { max: 10 })
+	const unsubscribeMemo = getModules(withMemoName("UserRow"), patchUserRow, { max: 10 })
 
 	return () => {
 		unsubscribeNamed()

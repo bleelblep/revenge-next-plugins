@@ -1,15 +1,11 @@
-import type { TimestampStorage } from "./lib/renderTimestamp"
+import { DEFAULTS, type TimestampStorage } from "./lib/renderTimestamp"
 import patchRowManager from "./patches/rowManager"
 import Settings from "./ui/pages/Settings"
 
-export default plugin<TimestampStorage>({
+export default plugin<{ jsonStorage: TimestampStorage }>({
 	jsonStorage: {
 		load: true,
-		default: {
-			selected: "calendar",
-			customFormat: "dddd, MMMM Do YYYY, h:mm:ss a",
-			separateMessages: false,
-		},
+		default: DEFAULTS,
 	},
 	start({ cleanup, jsonStorage }) {
 		try {

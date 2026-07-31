@@ -1,4 +1,4 @@
-import renderTimestamp, { type TimestampStorage } from "../lib/renderTimestamp"
+import renderTimestamp, { DEFAULTS, type TimestampStorage } from "../lib/renderTimestamp"
 
 // This runs inside RowManager.generate, i.e. on the chat render path. Anything that
 // escapes here crashes the entire ChatView, so the whole body is guarded.
@@ -15,7 +15,7 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<Times
 	let unpatchBefore: (() => void) | undefined
 	let unpatchAfter: (() => void) | undefined
 
-	const unsubscribe = getModules<any>(withName("RowManager"), RowManager => {
+	const unsubscribe = getModules(withName("RowManager"), (RowManager: any) => {
 		if (!RowManager?.prototype?.generate) {
 			console.error("[CustomTimestamps] RowManager.prototype.generate not found")
 			return
@@ -31,9 +31,10 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<Times
 		unpatchBefore = revenge.patcher.before(RowManager.prototype, "generate", (args: any[]) => {
 			const [row] = args
 			try {
-				const { selected, customFormat } = jsonStorage.cache
+				const settings = jsonStorage.cache ?? DEFAULTS
+				const { selected, customFormat } = settings
 				if (row?.rowType === 1) {
-					if (jsonStorage.cache.separateMessages) row.isFirst = true
+					if (settings.separateMessages) row.isFirst = true
 					if (row.message?.timestamp) {
 						row.message.__customTimestamp = renderTimestamp(row.message.timestamp, selected, customFormat)
 					}

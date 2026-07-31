@@ -1,6 +1,6 @@
 import getTag, { isBuiltInTag } from "../lib/getTag"
 import { findInReactTree } from "../lib/findInReactTree"
-import type { StaffTagsStorage } from "../index"
+import { DEFAULTS, type StaffTagsStorage } from "../index"
 
 // getModules, not lookupModule: confirmed on-device that a related lookup (getTagProperties
 // in chat.ts) isn't loaded yet on a cold app restart even from inside start() -- it's part
@@ -14,22 +14,22 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	// Read lazily (as `getTagModule()`) inside the DisplayName patch callback below, not
 	// captured eagerly -- it may still be resolving when that callback is first defined.
 	let tagModule: any
-	getModules<any>(withProps("getBotLabel"), mod => {
+	getModules(withProps("getBotLabel"), (mod: any) => {
 		tagModule = mod
 	})
 
 	// Flux stores are looked up by name directly through the Stores proxy, not a module
 	// finder filter -- there is no `withStoreName` under modules.finders.filters. Confirmed
 	// reliable even on a cold restart, unlike the UI-component lookups below.
-	const { GuildStore, ChannelStore } = revenge.discord.flux.Stores
+	const { GuildStore, ChannelStore } = revenge.discord.flux.Stores as any
 
 	const patches: Array<() => void> = []
 
 	// returnNamespace: true -- both patch `.default` below, so the wrapper object is needed
 	// back, not the unwrapped function `withName` hands back by default.
-	const unsubscribeHeader = getModules<any>(
+	const unsubscribeHeader = getModules(
 		withName("HeaderName"),
-		HeaderName => {
+		(HeaderName: any) => {
 			if (!HeaderName?.default) return
 			// instead, not after: after's hook only receives the return value, not the
 			// original arguments (confirmed from revenge-bundle-next's own patcher source).
@@ -49,9 +49,9 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 		{ returnNamespace: true },
 	)
 
-	const unsubscribeDisplay = getModules<any>(
+	const unsubscribeDisplay = getModules(
 		withName("DisplayName"),
-		DisplayName => {
+		(DisplayName: any) => {
 			if (!DisplayName?.default) return
 			// instead, not after: after's hook only receives the return value, not the
 			// original arguments (confirmed from revenge-bundle-next's own patcher source).
@@ -67,7 +67,7 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 					if (!tagComponent || !isBuiltInTag(tagComponent.props.type)) {
 						const guild = GuildStore.getGuild(guildId)
 						const channel = ChannelStore.getChannel(channelId)
-						const tag = getTag(guild, channel, user, !!jsonStorage.cache.useRoleColor)
+						const tag = getTag(guild, channel, user, !!(jsonStorage.cache ?? DEFAULTS).useRoleColor)
 
 						if (tag) {
 							if (tagComponent) {

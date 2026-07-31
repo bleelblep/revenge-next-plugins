@@ -11,7 +11,7 @@ export default () => {
 
 	let unpatch: (() => void) | undefined
 
-	const unsubscribe = getModules<any>(withProps("getBotLabel"), Tag => {
+	const unsubscribe = getModules(withProps("getBotLabel"), (Tag: any) => {
 		if (!Tag) return
 
 		// instead, not after: after's hook only receives the return value, not the original

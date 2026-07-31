@@ -5,10 +5,13 @@ export interface ShowTagStorage {
 	onlyUsername: boolean
 }
 
-export default plugin<ShowTagStorage>({
+/** Also the fallback for every read -- see the note in hide-call-buttons' DEFAULTS. */
+export const DEFAULTS: ShowTagStorage = { onlyUsername: false }
+
+export default plugin<{ jsonStorage: ShowTagStorage }>({
 	jsonStorage: {
 		load: true,
-		default: { onlyUsername: false },
+		default: DEFAULTS,
 	},
 	start({ cleanup, jsonStorage }) {
 		try {

@@ -9,7 +9,8 @@
 		"jsxImportSource": "revenge",
 		"baseUrl": ".",
 		"paths": {
-			"revenge/jsx-runtime": ["./types/jsx-runtime.d.ts"]
+			"revenge/jsx-runtime": ["./types/jsx-runtime.d.ts"],
+			"@revenge-mod/*": ["./types/next/lib/*"]
 		},
 		"strict": true,
 		"skipLibCheck": true,
