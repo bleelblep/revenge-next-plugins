@@ -46,6 +46,7 @@ const Constants = {
 		listenbrainzUsername: "",
 		listenbrainzToken: "",
 		showTimestamp: true,
+		expireAfterSeconds: 90,
 		listeningTo: true,
 		showLargeText: true,
 		showAlbumInTooltip: true,

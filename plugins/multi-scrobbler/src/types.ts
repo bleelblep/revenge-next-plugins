@@ -61,6 +61,11 @@ export interface LFMSettings {
 	listenbrainzToken: string
 	// Display
 	showTimestamp: boolean
+	/**
+	 * Seconds past a track's expected end before the activity is removed. Scrobble services never
+	 * report that playback stopped, so this is the only way the plugin can tell.
+	 */
+	expireAfterSeconds: number | string
 	listeningTo: boolean
 	showLargeText: boolean
 	showAlbumInTooltip: boolean

@@ -23,15 +23,31 @@ let reconnectTimer: any
 let consecutiveFailures = 0
 let isReconnecting = false
 
-/** Epoch seconds the current track is expected to finish, when its duration is known. */
+/** Epoch seconds the current track is expected to finish. */
 let expectedEnd: number | undefined
 let timestampsRetracted = false
+/** Set once a stale track has been pulled from the profile; reset when the track actually changes. */
+let trackExpired = false
+
+/** Past the expected end by this much, stop the progress bar advancing. */
+const STALE_GRACE_SECONDS = 15
+/** Default seconds past the expected end before the activity is removed; overridable in settings. */
+const DEFAULT_EXPIRE_AFTER_SECONDS = 90
 
 /**
- * How long past a track's expected end to wait before assuming the "now playing" is stale.
- * Covers clock skew and a slow next-scrobble.
+ * Never expire before the timestamps have been withdrawn, or the activity would vanish without
+ * the intermediate "paused" state ever being shown.
  */
-const STALE_GRACE_SECONDS = 15
+function expireAfterSeconds(): number {
+	const configured = Number(settings().expireAfterSeconds)
+	if (!Number.isFinite(configured) || configured <= 0) return DEFAULT_EXPIRE_AFTER_SECONDS
+	return Math.max(configured, STALE_GRACE_SECONDS + 1)
+}
+/**
+ * Cap for tracks whose length the service never reported. Without this they would sit on the
+ * profile forever, since there is nothing to compare elapsed time against.
+ */
+const ASSUMED_MAX_TRACK_SECONDS = 600
 
 /** True when another app the user asked us to defer to is already broadcasting an activity. */
 function ignoredActivityName(): string | undefined {
@@ -105,13 +121,14 @@ async function updateActivity() {
 		if (!track.nowPlaying) {
 			logVerbose("Nothing currently playing; clearing activity")
 			expectedEnd = undefined
+			trackExpired = false
 			clearActivity()
 			return
 		}
 
 		// URL is the cheapest stable identity for a scrobble.
 		if (pluginState.lastTrackUrl === track.url) {
-			retractStaleTimestamps()
+			handleStaleTrack()
 			logVerbose("Track unchanged; skipping update")
 			recordSuccessfulUpdate()
 			consecutiveFailures = 0
@@ -162,9 +179,12 @@ async function updateActivity() {
 		setDebugInfo("lastActivity", activity)
 		sendActivity(activity)
 
-		// Remember when this track should finish so a stale "now playing" can be detected.
-		expectedEnd = track.to ?? (track.duration ? track.from + track.duration : undefined)
+		// Remember when this track should finish so a stale "now playing" can be detected. Tracks
+		// with no reported duration fall back to a cap rather than never expiring.
+		expectedEnd =
+			track.to ?? (track.duration ? track.from + track.duration : track.from + ASSUMED_MAX_TRACK_SECONDS)
 		timestampsRetracted = false
+		trackExpired = false
 
 		pluginState.lastTrackUrl = track.url
 		consecutiveFailures = 0
@@ -178,27 +198,41 @@ async function updateActivity() {
 }
 
 /**
- * Scrobble APIs have no concept of "paused" -- they report a now-playing track and nothing else,
- * so a paused player looks identical to a playing one and Discord keeps animating the progress
- * bar client-side from the timestamps we set once.
+ * Scrobble APIs have no concept of "paused" or "stopped" -- they report a now-playing track and
+ * nothing else. Stop your music and Last.fm often leaves that flag set until something else gets
+ * scrobbled, so there is no event telling the plugin playback ended.
  *
- * The one thing we can be confident about: once a track has been "now playing" for longer than
- * its own duration, it is either paused or finished without the next scrobble landing yet. At
- * that point the elapsed time is definitely wrong, so the timestamps are withdrawn -- the track
- * stays on the profile, the bar stops advancing. Tracks whose duration the service never reported
- * can't be checked this way and are left alone.
+ * What can be inferred: a track still reported as playing well past its own length isn't actually
+ * playing. Handled in two steps, because the two cases look different to the user:
+ *
+ *  1. Just past the end — withdraw the timestamps. Covers a pause: the track stays visible, but
+ *     the progress bar stops climbing towards a nonsense number.
+ *  2. Well past the end — remove the activity. Covers a stop: nothing is playing, so nothing
+ *     should be on the profile.
+ *
+ * Once expired it stays gone until the reported track actually changes. Re-adding it while the
+ * service still claims it's playing would just make it flicker every poll.
  */
-function retractStaleTimestamps() {
-	if (timestampsRetracted || !expectedEnd) return
-	if (getCurrentTimestamp() <= expectedEnd + STALE_GRACE_SECONDS) return
+function handleStaleTrack() {
+	if (trackExpired || !expectedEnd) return
 
-	const last = pluginState.lastActivity
-	timestampsRetracted = true
-	if (!last?.timestamps) return
+	const now = getCurrentTimestamp()
 
-	const { timestamps, ...withoutTimestamps } = last
-	log("Track outlived its duration; withdrawing timestamps so the bar stops drifting")
-	sendActivity(withoutTimestamps as Activity)
+	if (!timestampsRetracted && now > expectedEnd + STALE_GRACE_SECONDS) {
+		timestampsRetracted = true
+		const last = pluginState.lastActivity
+		if (last?.timestamps) {
+			const { timestamps, ...withoutTimestamps } = last
+			log("Track outlived its duration; withdrawing timestamps")
+			sendActivity(withoutTimestamps as Activity)
+		}
+	}
+
+	if (now > expectedEnd + expireAfterSeconds()) {
+		trackExpired = true
+		log("Track still reported as playing long after it ended; assuming playback stopped")
+		clearActivity()
+	}
 }
 
 function handleFailure(error: Error) {
@@ -291,6 +325,7 @@ export async function switchService(next: ServiceType) {
 	clearServiceCache()
 	pluginState.lastTrackUrl = undefined
 	expectedEnd = undefined
+	trackExpired = false
 
 	if (wasRunning) {
 		pluginState.stopped = false
