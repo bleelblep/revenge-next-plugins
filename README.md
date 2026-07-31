@@ -1,12 +1,12 @@
 # revenge-next-plugins
 
 Plugins for [Revenge Next](https://github.com/revenge-mod/revenge-bundle-next), built for my own
-personal use. Mostly ports of existing Vendetta / classic-Revenge plugins — some of them mine
-from [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins), the rest other
-people's. Credit is given wherever it could be traced: every ported plugin carries a `NOTICE.md`
-naming the original author and license.
+personal use. Mostly ports of existing Vendetta / classic-Revenge plugins, several by way of my
+earlier classic port in [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins).
+Credit is given wherever it could be traced: every ported plugin carries a `NOTICE.md` naming the
+original author and licence.
 
-Six plugins: three of my own, three ports.
+Six plugins: one of my own, five ports.
 
 ## Install
 
@@ -26,33 +26,30 @@ https://bleelblep.github.io/revenge-next-plugins/index.json
 
 ### Mine
 
-Originally written for [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins)
-and rebuilt here for Revenge Next. CC0-1.0.
-
-| Plugin | What it does |
-| --- | --- |
-| **Staff Tags** | Extra tags for staff — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK — in chat and the member list. Settings: role-colour toggle. With Fiery. |
-| **Custom Timestamps** | Chat timestamps as calendar / relative / ISO 8601 / a custom format string. Settings: mode, separate messages. With Fiery. |
-| **Hide Servers (Drawer Fix)** | Locally hide servers or whole folders, without the scroll-jump bug. The replacement bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant apply, static icons. With blerp. One GPL-3.0 file — see [`NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md). |
+| Plugin | Licence | What it does |
+| --- | --- | --- |
+| **Hide Servers (Drawer Fix)** | CC0-1.0 | Locally hide servers or whole folders, without the scroll-jump bug. The replacement bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant apply, static icons. With blerp. One GPL-3.0 file, and design debts to kmmiio99o's ServerDrawer — see [`NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md). |
 
 ### Ports
 
-Other people's plugins, brought over to Revenge Next. Each keeps its upstream licence; see the
-`NOTICE.md` in its directory.
+Other people's plugins brought over to Revenge Next. Each keeps its upstream licence; every one
+has a `NOTICE.md` in its directory naming the original author and terms.
 
-| Plugin | Author | Licence | What it does |
+| Plugin | Original author | Licence | What it does |
 | --- | --- | --- | --- |
+| **Staff Tags** | Fiery, シグマ siguma | [CC0-1.0](./plugins/staff-tags/NOTICE.md) | Extra tags for staff — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK — in chat and the member list. Settings: role-colour toggle. |
+| **Custom Timestamps** | Fiery | [Unlicense](./plugins/custom-timestamps/NOTICE.md) | Chat timestamps as calendar / relative / ISO 8601 / a custom format string. Settings: mode, separate messages. |
 | **Show Tag** | [Cynosphere](https://github.com/Cynosphere) | ⚠️ [unresolved](./plugins/show-tag/NOTICE.md) | Username — or the full `name#0000` tag on legacy accounts — in the message header and reply previews. Settings: only show usernames. |
 | **Hide Call Buttons** | John ([janisslsm](https://github.com/janisslsm)) | [BSD-3-Clause](./plugins/hide-call-buttons/NOTICE.md) | Hides call and video buttons in DMs, user profiles and voice channels. Settings: five per-surface toggles. |
 
 ### In progress
 
-| Plugin | Author | Licence | State |
+| Plugin | Original author | Licence | State |
 | --- | --- | --- | --- |
 | **Multi Scrobbler** | [kmmiio99o](https://github.com/kmmiio99o) | [GPL-3.0](./plugins/multi-scrobbler/NOTICE.md) | Last.fm / Libre.fm / ListenBrainz listening status on your profile, with album art. Scrobbling, album art and all eight settings sub-pages work. Outstanding: the live RPC preview. |
 
-All six are confirmed working on-device, except Multi Scrobbler's settings sub-pages, which
-have only been typechecked so far.
+All six are confirmed working on-device, except Multi Scrobbler's settings sub-pages, which have
+only been typechecked so far.
 
 ### Notes
 
@@ -122,7 +119,8 @@ plugin's directory before copying anything out of it:
 
 | Plugin | License |
 | --- | --- |
-| Staff Tags, Custom Timestamps | CC0-1.0 |
+| Staff Tags | CC0-1.0 (Fiery, シグマ siguma) |
+| Custom Timestamps | Unlicense (Fiery) |
 | Hide Servers (Drawer Fix) | CC0-1.0, **except** `src/patches/createElementIntercept.ts` (GPL-3.0) |
 | Hide Call Buttons | BSD-3-Clause |
 | **Multi Scrobbler** | **GPL-3.0** — copyleft, applies to that whole directory |
