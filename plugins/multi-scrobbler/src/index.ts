@@ -3,6 +3,7 @@ import { initialize, stop, switchService } from "./manager"
 import { UserStore, initModules } from "./lib/modules"
 import { pluginState, setStorage, settings } from "./lib/state"
 import type { LFMSettings, ServiceType } from "./types"
+import { registerSubPages } from "./ui/routes"
 import Settings from "./ui/pages/Settings"
 
 export const DEFAULTS = Constants.DEFAULT_SETTINGS
@@ -81,6 +82,10 @@ export default plugin<{ jsonStorage: LFMSettings }>({
 		// Subscribe for the Discord internals up front so they're resolved before the first poll.
 		const unsubscribeModules = initModules()
 
+		// Settings sub-pages are real navigator routes, so they must be registered while the
+		// plugin is running and torn down when it stops.
+		const unregisterPages = registerSubPages()
+
 		const unsubscribeConnection = startIfConfigured()
 
 		// Replaces the original's `onSettingsUpdate` hook: restart when the chosen service changes,
@@ -108,6 +113,7 @@ export default plugin<{ jsonStorage: LFMSettings }>({
 		})
 
 		cleanup(
+			unregisterPages,
 			unsubscribeModules,
 			() => {
 				if (retryTimer) clearTimeout(retryTimer)

@@ -21,6 +21,16 @@ export function setSettings(patch: Partial<LFMSettings>) {
 	storage?.set(patch)
 }
 
+/**
+ * Reactive read for settings sub-pages. They're rendered by Discord's settings navigator as
+ * plain routes, so unlike the root page they never receive the plugin `api` object -- they read
+ * through the handle `start()` stashed here instead.
+ */
+export function useSettings(): LFMSettings {
+	const stored = storage?.use()
+	return { ...Constants.DEFAULT_SETTINGS, ...(stored ?? {}) }
+}
+
 export const pluginState: {
 	stopped: boolean
 	lastActivity?: Activity | null

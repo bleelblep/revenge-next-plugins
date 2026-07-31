@@ -23,6 +23,16 @@ let reconnectTimer: any
 let consecutiveFailures = 0
 let isReconnecting = false
 
+/** Epoch seconds the current track is expected to finish, when its duration is known. */
+let expectedEnd: number | undefined
+let timestampsRetracted = false
+
+/**
+ * How long past a track's expected end to wait before assuming the "now playing" is stale.
+ * Covers clock skew and a slow next-scrobble.
+ */
+const STALE_GRACE_SECONDS = 15
+
 /** True when another app the user asked us to defer to is already broadcasting an activity. */
 function ignoredActivityName(): string | undefined {
 	const { ignoreList } = settings()
@@ -94,12 +104,14 @@ async function updateActivity() {
 
 		if (!track.nowPlaying) {
 			logVerbose("Nothing currently playing; clearing activity")
+			expectedEnd = undefined
 			clearActivity()
 			return
 		}
 
 		// URL is the cheapest stable identity for a scrobble.
 		if (pluginState.lastTrackUrl === track.url) {
+			retractStaleTimestamps()
 			logVerbose("Track unchanged; skipping update")
 			recordSuccessfulUpdate()
 			consecutiveFailures = 0
@@ -150,6 +162,10 @@ async function updateActivity() {
 		setDebugInfo("lastActivity", activity)
 		sendActivity(activity)
 
+		// Remember when this track should finish so a stale "now playing" can be detected.
+		expectedEnd = track.to ?? (track.duration ? track.from + track.duration : undefined)
+		timestampsRetracted = false
+
 		pluginState.lastTrackUrl = track.url
 		consecutiveFailures = 0
 		recordSuccessfulUpdate()
@@ -159,6 +175,30 @@ async function updateActivity() {
 		recordServiceError(s.service as ServiceType | undefined, (error as Error).message)
 		handleFailure(error as Error)
 	}
+}
+
+/**
+ * Scrobble APIs have no concept of "paused" -- they report a now-playing track and nothing else,
+ * so a paused player looks identical to a playing one and Discord keeps animating the progress
+ * bar client-side from the timestamps we set once.
+ *
+ * The one thing we can be confident about: once a track has been "now playing" for longer than
+ * its own duration, it is either paused or finished without the next scrobble landing yet. At
+ * that point the elapsed time is definitely wrong, so the timestamps are withdrawn -- the track
+ * stays on the profile, the bar stops advancing. Tracks whose duration the service never reported
+ * can't be checked this way and are left alone.
+ */
+function retractStaleTimestamps() {
+	if (timestampsRetracted || !expectedEnd) return
+	if (getCurrentTimestamp() <= expectedEnd + STALE_GRACE_SECONDS) return
+
+	const last = pluginState.lastActivity
+	timestampsRetracted = true
+	if (!last?.timestamps) return
+
+	const { timestamps, ...withoutTimestamps } = last
+	log("Track outlived its duration; withdrawing timestamps so the bar stops drifting")
+	sendActivity(withoutTimestamps as Activity)
 }
 
 function handleFailure(error: Error) {
@@ -250,6 +290,7 @@ export async function switchService(next: ServiceType) {
 	stop()
 	clearServiceCache()
 	pluginState.lastTrackUrl = undefined
+	expectedEnd = undefined
 
 	if (wasRunning) {
 		pluginState.stopped = false
