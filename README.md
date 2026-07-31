@@ -1,30 +1,66 @@
 # revenge-next-plugins
 
-Revenge Next ports of plugins from [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins),
-targeting [Revenge Next](https://github.com/revenge-mod/revenge-bundle-next) instead of classic
-Revenge/Vendetta. Purge My Messages was dropped from this port.
+Plugins for [Revenge Next](https://github.com/revenge-mod/revenge-bundle-next), built for my own
+personal use. Mostly ports of existing Vendetta / classic-Revenge plugins — some of them mine
+from [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins), the rest other
+people's. Credit is given wherever it could be traced: every ported plugin carries a `NOTICE.md`
+naming the original author and license.
 
-All five plugins work. The repo is still **private and unpublished** (GitHub Pages disabled)
-because Show Tag's original license can't be determined — see
-[`plugins/show-tag/NOTICE.md`](./plugins/show-tag/NOTICE.md). That's the only thing left
-blocking a publish.
+Six plugins: three of my own, three ports.
+
+## Install
+
+Add this as a plugin repository in Revenge Next:
+
+```
+https://bleelblep.github.io/revenge-next-plugins/index.json
+```
+
+> ⚠️ **Show Tag's original license could not be determined.** Its upstream repository and site
+> are both gone, and the mirrored build carries no license header — see
+> [`plugins/show-tag/NOTICE.md`](./plugins/show-tag/NOTICE.md). It ships here regardless. If
+> you're Cynosphere, or you know the original terms, please open an issue and I'll relicense or
+> remove it.
 
 ## Plugins
 
-| Plugin | Status | What it does |
-| --- | --- | --- |
-| **Staff Tags** | Working | Extra tags for staff — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK. In chat and the member list. Settings: role-colour toggle. |
-| **Custom Timestamps** | Working | Chat timestamps in calendar / relative / ISO 8601 / a custom format string. Settings: mode + "separate messages". |
-| **Show Tag** | Working | Username (or full `name#0000` tag on legacy accounts) in the message header and reply previews. Settings: "only show usernames". Ported from [Cynosphere](https://github.com/Cynosphere)'s Vendetta plugin — see [`NOTICE.md`](./plugins/show-tag/NOTICE.md), the original's **license is unresolved**, don't publish it yet. |
-| **Hide Call Buttons** | Working | Hides call/video buttons in DMs, user profiles and voice channels. Settings: five per-surface toggles. Ported from John ([janisslsm](https://github.com/janisslsm))'s Vendetta plugin, BSD-3-Clause — see [`NOTICE.md`](./plugins/hide-call-buttons/NOTICE.md). |
-| **Hide Servers (Drawer Fix)** | Working | Locally hide servers or whole folders from the server list, without the scroll-jump bug. Custom bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant-apply, static icons. |
+### Mine
 
-Every settings page is confirmed working on-device. They were broken repo-wide until the
-module-scope bug in [porting rule 1](./docs/porting-rules.md#1-never-touch-revenge-at-module-scope)
-was found — the settings API itself was never at fault. Hide Servers additionally bootlooped the
-app until the same rule was applied across it; the specific killer was almost certainly
-`React.memo()` at module scope, which throws inside `optionsFactory()` and fails the plugin before
-`start()` ever runs.
+Originally written for [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins)
+and rebuilt here for Revenge Next. CC0-1.0.
+
+| Plugin | What it does |
+| --- | --- |
+| **Staff Tags** | Extra tags for staff — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK — in chat and the member list. Settings: role-colour toggle. With Fiery. |
+| **Custom Timestamps** | Chat timestamps as calendar / relative / ISO 8601 / a custom format string. Settings: mode, separate messages. With Fiery. |
+| **Hide Servers (Drawer Fix)** | Locally hide servers or whole folders, without the scroll-jump bug. The replacement bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant apply, static icons. With blerp. One GPL-3.0 file — see [`NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md). |
+
+### Ports
+
+Other people's plugins, brought over to Revenge Next. Each keeps its upstream licence; see the
+`NOTICE.md` in its directory.
+
+| Plugin | Author | Licence | What it does |
+| --- | --- | --- | --- |
+| **Show Tag** | [Cynosphere](https://github.com/Cynosphere) | ⚠️ [unresolved](./plugins/show-tag/NOTICE.md) | Username — or the full `name#0000` tag on legacy accounts — in the message header and reply previews. Settings: only show usernames. |
+| **Hide Call Buttons** | John ([janisslsm](https://github.com/janisslsm)) | [BSD-3-Clause](./plugins/hide-call-buttons/NOTICE.md) | Hides call and video buttons in DMs, user profiles and voice channels. Settings: five per-surface toggles. |
+
+### In progress
+
+| Plugin | Author | Licence | State |
+| --- | --- | --- | --- |
+| **[removed]** | [kmmiio99o](https://github.com/kmmiio99o) | [GPL-3.0](./plugins/[removed]/NOTICE.md) | Last.fm / Libre.fm / ListenBrainz listening status on your profile, with album art. Scrobbling, album art and all eight settings sub-pages work. Outstanding: the live RPC preview. |
+
+All six are confirmed working on-device, except [removed]'s settings sub-pages, which
+have only been typechecked so far.
+
+### Notes
+
+Every settings page was broken repo-wide until the module-scope bug in
+[porting rule 1](./docs/porting-rules.md#1-never-touch-revenge-at-module-scope) was found — the
+settings API itself was never at fault. Hide Servers additionally bootlooped the app until the
+same rule was applied across it; the specific killer was almost certainly `React.memo()` at module
+scope, which throws inside `optionsFactory()` and fails the plugin before `start()` ever runs.
 
 **Show Tag and Custom Timestamps both patch `RowManager.prototype.generate`.** They are confirmed
 to coexist, but only because Show Tag deliberately avoids `instead` — see
@@ -80,8 +116,14 @@ flow expects. Version history in `index.json` accumulates across builds; see
 
 ## License
 
-Same license as the source plugins in
-[bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins) — see that repo for
-full credits and per-file license notes, in particular
-[`plugins/hide-servers-drawer/NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md), carried over
-unchanged.
+**CC0-1.0 by default**, matching [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins).
+Ported plugins keep their upstream terms, so this repo is a mix — check the `NOTICE.md` in a
+plugin's directory before copying anything out of it:
+
+| Plugin | License |
+| --- | --- |
+| Staff Tags, Custom Timestamps | CC0-1.0 |
+| Hide Servers (Drawer Fix) | CC0-1.0, **except** `src/patches/createElementIntercept.ts` (GPL-3.0) |
+| Hide Call Buttons | BSD-3-Clause |
+| **[removed]** | **GPL-3.0** — copyleft, applies to that whole directory |
+| Show Tag | **Unknown** — upstream is gone; see its `NOTICE.md` |
