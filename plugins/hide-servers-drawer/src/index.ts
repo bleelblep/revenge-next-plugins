@@ -9,6 +9,13 @@ export interface HideServersDrawerStorage {
 	hidden?: Record<string, true>
 	instant?: boolean
 	staticIcons?: boolean
+	/**
+	 * Show the most recent DM's avatar on the Home button instead of a static icon.
+	 *
+	 * This plugin originally did that unconditionally, on the belief that it was mimicking
+	 * stock. It isn't what stock does here, so it is now off by default and opt-in.
+	 */
+	dmAvatarHome?: boolean
 }
 
 export default plugin<{ jsonStorage: HideServersDrawerStorage }>({

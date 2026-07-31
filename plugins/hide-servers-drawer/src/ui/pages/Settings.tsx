@@ -1,5 +1,5 @@
 import { clearHidden, hiddenFolderIds, hiddenIds, instant, isFolderHidden, isHidden, setFolderHidden, setHidden, setInstant } from "../../lib/hidden"
-import { setStaticIcons, staticIcons } from "../../lib/prefs"
+import { dmAvatarHome, setDmAvatarHome, setStaticIcons, staticIcons } from "../../lib/prefs"
 import { canReload, reloadDiscord } from "../../lib/reload"
 import { refresh, store, unfiltered } from "../../patches/sortedGuilds"
 import GuildIcon from "../components/GuildIcon"
@@ -129,6 +129,16 @@ export default function Settings() {
 						value={staticIcons()}
 						onValueChange={(v: boolean) => {
 							setStaticIcons(v)
+							refresh()
+							bump()
+						}}
+					/>
+					<TableSwitchRow
+						label="Recent DM avatar on Home"
+						subLabel="Show the most recent DM's avatar on the Home button instead of the stock icon. Off by default — this used to be forced on, which is not what stock does."
+						value={dmAvatarHome()}
+						onValueChange={(v: boolean) => {
+							setDmAvatarHome(v)
 							refresh()
 							bump()
 						}}

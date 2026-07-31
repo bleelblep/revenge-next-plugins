@@ -26,3 +26,20 @@ export function setStaticIcons(value: boolean) {
 		/* session-only, still works until restart */
 	}
 }
+
+/** Defaults to false: stock shows a static Home icon, not the latest DM's avatar. */
+export function dmAvatarHome(): boolean {
+	try {
+		return !!js?.cache?.dmAvatarHome
+	} catch {
+		return false
+	}
+}
+
+export function setDmAvatarHome(value: boolean) {
+	try {
+		js?.set({ dmAvatarHome: value })
+	} catch {
+		/* session-only, still works until restart */
+	}
+}

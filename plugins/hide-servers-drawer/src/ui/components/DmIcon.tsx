@@ -1,4 +1,5 @@
 import { type RecentDm, dmUnreadState, mostRecentDm, subscribeDmChanges } from "../../lib/dms"
+import { dmAvatarHome } from "../../lib/prefs"
 import { BAR_WIDTH, ICON_SIZE } from "../layout"
 import { avatarFallback, barBackground, mentionBadge, selectedFill, unreadDot } from "../theme"
 import MorphIcon from "./MorphIcon"
@@ -8,13 +9,18 @@ import Pill from "./Pill"
 // from revenge-bundle-next's own source. Resolved on first render rather than at module scope:
 // module-scope code runs at preInit, before the asset registry exists.
 // See docs/porting-rules.md rule 1.
-let chatIcon: number | undefined
-function chatIconAsset() {
-	if (chatIcon === undefined) {
+//
+// "ClydeIcon" (Discord's own name for their mascot glyph) is confirmed on device as what stock
+// actually shows on the Home button when there's no DM avatar to display -- found via
+// `revenge.assets.getAssets()`, see docs/porting-rules.md rule 5, rather than guessed.
+// "ChatIcon" stays as a fallback in case a future build renames or drops it.
+let homeIcon: number | undefined
+function homeIconAsset() {
+	if (homeIcon === undefined) {
 		const { getAssetIdByName } = revenge.assets
-		chatIcon = getAssetIdByName("ChatIcon") ?? getAssetIdByName("ic_message")
+		homeIcon = getAssetIdByName("ClydeIcon") ?? getAssetIdByName("ChatIcon")
 	}
-	return chatIcon
+	return homeIcon
 }
 
 const SIZE = ICON_SIZE
@@ -28,11 +34,14 @@ function avatarUrl(recipient: RecentDm["recipientAvatar"]): string | undefined {
 }
 
 /**
- * Stock Discord's Home button shows the most recent DM conversation's avatar (with unread
- * state) rather than a static icon, and morphs from a circle with a neutral fill to a
- * rounded square filled with the theme's accent color when selected, same as every other
- * icon in the bar. Falls back to the chat bubble glyph on its own background circle/square
- * for group DMs (no single avatar to show) or when there's no DM history at all.
+ * The Home button.
+ *
+ * This used to show the most recent DM's avatar unconditionally, on the belief that it was
+ * mimicking stock. That was wrong — stock keeps a static Home glyph — so the avatar is now
+ * behind the `dmAvatarHome` preference and off by default.
+ *
+ * It still morphs from a circle with a neutral fill to a rounded square in the theme's accent
+ * colour when selected, same as every other icon in the bar.
  */
 export default function DmIcon({ selected, onPress }: { selected: boolean; onPress: () => void }) {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
@@ -43,7 +52,9 @@ export default function DmIcon({ selected, onPress }: { selected: boolean; onPre
 	React.useEffect(() => subscribeDmChanges(bump), [])
 
 	const recent = mostRecentDm()
-	const url = recent?.type === 1 ? avatarUrl(recent.recipientAvatar) : undefined
+	// Unread state is still wanted on the static icon, so it's read either way -- only the
+	// avatar itself is behind the preference.
+	const url = dmAvatarHome() && recent?.type === 1 ? avatarUrl(recent.recipientAvatar) : undefined
 	const { hasUnread, mentionCount } = recent ? dmUnreadState(recent.channelId) : { hasUnread: false, mentionCount: 0 }
 
 	// Full bar-width row so the pill sits at left: 0 inside it -- see ui/layout.ts.
@@ -58,7 +69,7 @@ export default function DmIcon({ selected, onPress }: { selected: boolean; onPre
 					</MorphIcon>
 				) : (
 					<MorphIcon size={SIZE} selected={selected} background={avatarFallback()} selectedBackground={selectedFill()}>
-						<Image source={chatIconAsset() as any} style={{ width: GLYPH, height: GLYPH, tintColor: "#fff" }} />
+						<Image source={homeIconAsset() as any} style={{ width: GLYPH, height: GLYPH, tintColor: "#fff" }} />
 					</MorphIcon>
 				)}
 
