@@ -115,6 +115,12 @@ Check each one against `lib/patcher/src/` rather than assuming.
   several frames below ours.
 - **Never assume a captured `original` is callable.** A `getModules` match can fire on
   partially-populated exports; guard with `typeof original !== "function"`.
+- **`onFluxEventDispatched` is a patch, not a listener — return the payload.** Whatever the
+  handler returns *becomes* the dispatched payload, and a falsy return **cancels the event**.
+  Merely observing an event therefore requires `return payload`. [removed] shipped a
+  `CONNECTION_OPEN` handler that returned nothing, which silently swallowed the event and would
+  have broken Discord's own connection handling. Same shape as the `before` contract above: these
+  APIs are transformers that look like callbacks.
 - **Only one `instead` hook per method, repo-wide.** A second one can infinitely recurse
   depending on what else is patched — this is an upstream bug, see below.
 
