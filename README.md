@@ -51,6 +51,8 @@ to coexist, but only because Show Tag deliberately avoids `instead` — see
   rule cost an on-device crash to find.
 - **[Known issues](./docs/known-issues.md)** — environment and build-level problems that plugin
   code can't fix, plus when to clear the module cache.
+- **[Plugin ideas](./docs/plugin-ideas.md)** — shortlist of things to build here that don't exist
+  on mobile yet, ordered by how much of the required API is already proven.
 
 ### Types
 
