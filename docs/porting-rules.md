@@ -257,7 +257,29 @@ Worth building into a plugin while investigating:
   values. This is how Screenshot Redactor found the `clanTag` / `clanBadgeUrl` fields it had been
   leaking — nothing that checks only for fields you already know about can ever find those.
 
-## 6. Use the official types, not guesses
+## 6. `jsonStorage.set()` merges, and a merge can never delete a key
+
+`set(value: DeepPartial<T>)` recursively **merges** into storage; it does not replace it (there
+is a separate `replace: true` overload, but that requires the whole top-level shape and applies
+at the top level only, not to one nested key). A merge can add or overwrite a key. It cannot
+remove one — a key that's simply absent from a patch is indistinguishable from a key nobody
+touched, so omitting it is a silent no-op, not a deletion.
+
+This broke Hide Servers 1.3.2 in a way that looked like a *plausible* bug for a while: hiding a
+server persisted correctly, but un-hiding one didn't survive a relaunch. The code rebuilt its
+`hidden: Record<string, true>` object fresh from an in-memory `Set` on every write, and simply
+left an unhidden id out of that object. Under merge semantics that did nothing — the id's stale
+`true` entry sat untouched in storage and came back on every reload. Hiding worked, because
+adding a new key is exactly what a merge is good at; only removal was ever going to be broken,
+because removal is the one thing this API structurally cannot express through omission.
+
+The fix (`plugins/hide-servers-drawer/src/lib/hidden.ts`) is to never rely on omission: send an
+explicit `false` for a removed key instead of dropping it from the patch, and treat `false` as a
+tombstone on read (`=== true`, not "key present"). Any plugin storing a *removable* collection —
+a Set of ids, a list of entries — under `jsonStorage` needs the same treatment; a plain object
+keyed by presence will only ever grow.
+
+## 7. Use the official types, not guesses
 
 `types/next/` is the **generated** type surface from revenge-bundle-next (`bun types` ->
 `dist/types`), vendored. `types/globals.d.ts` declares the two globals an external plugin gets
