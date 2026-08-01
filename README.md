@@ -98,6 +98,13 @@ to look up. See [porting rule 4](./docs/porting-rules.md#4-apis-that-dont-exist)
 believed that was stock behaviour; it isn't — stock keeps a static glyph (`ClydeIcon`, confirmed
 via `revenge.assets.getAssets()`) — so the avatar is now an opt-in setting, off by default.
 
+**Hide Servers 1.3.3 fixed un-hiding a server not surviving a relaunch.** `jsonStorage.set()`
+recursively merges rather than replaces, so a merge can add or overwrite a key but never remove
+one — omitting an id from the persisted `hidden` object did nothing, and its stale `true` entry
+came back on every reload. Hiding worked (adding a key is what a merge is good at); only removal
+was ever going to be broken. Fixed by writing an explicit `false` tombstone instead of omitting
+the key. See [porting rule 6](./docs/porting-rules.md#6-jsonstorageset-merges-and-a-merge-can-never-delete-a-key).
+
 ## Documentation
 
 - **[Porting rules](./docs/porting-rules.md)** — read before writing or debugging plugin code.
@@ -117,7 +124,7 @@ These replaced a hand-written `types/revenge.d.ts` that had been reverse-enginee
 plugin output. Adopting the real ones immediately turned up three more non-existent APIs that had
 been sitting behind `?.` doing nothing (`design.RawColors`, `design.Tokens`, `discord.haptics`)
 and one genuine latent crash — `jsonStorage.cache` is possibly `undefined` because `load: true`
-starts the read without awaiting it. See [porting rule 6](./docs/porting-rules.md#6-use-the-official-types-not-guesses).
+starts the read without awaiting it. See [porting rule 7](./docs/porting-rules.md#7-use-the-official-types-not-guesses).
 
 Regenerate them from a revenge-bundle-next checkout when the API moves.
 
