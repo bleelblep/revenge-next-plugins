@@ -11,6 +11,7 @@ export const DEFAULTS: ScreenshotRedactorStorage = {
 	enabled: false,
 	style: "pseudonym",
 	redactAvatars: true,
+	redactBadges: false,
 	redactSelf: false,
 	resetNumberingOnEnable: true,
 	showSheetToggle: true,

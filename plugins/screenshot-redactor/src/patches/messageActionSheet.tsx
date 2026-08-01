@@ -1,7 +1,7 @@
 import { DEFAULTS } from "../defaults"
 import { findInReactTree } from "../lib/findInReactTree"
 import { noteInjectOutcome, noteSheetKey, noteSheetPatch, noteSheetType } from "../lib/diagnostics"
-import { refreshChat } from "../lib/nudge"
+import { refreshChat } from "../lib/chatRows"
 import { getStorage, onEnabledChanged, settings } from "../lib/state"
 
 /**

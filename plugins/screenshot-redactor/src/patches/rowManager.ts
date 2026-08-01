@@ -1,13 +1,14 @@
-import { redactedAvatarUrl, redactedName } from "../lib/alias"
 import {
 	count,
 	countRowManager,
-	noteAvatarKey,
 	noteDepth,
 	noteRowType,
 	noteSkippedRowTypeWithAuthor,
 } from "../lib/diagnostics"
+import { redactMessage } from "../lib/rowSchema"
 import { isEnabled, settings } from "../lib/state"
+import { ensureChatManagerPatched } from "./chatManager"
+import { ensureDmHeaderPatched } from "./dmHeader"
 
 /**
  * Chat redaction runs on the *data* a message row is built from, not on the rendered tree.
@@ -22,41 +23,6 @@ import { isEnabled, settings } from "../lib/state"
  * Inline @mentions and the member list go through `patches/displayName.ts`. The DM channel
  * header is not covered by anything — see the README's "The DM header" section.
  */
-
-/**
- * Fields on a generated row holding an identifying image URL.
- *
- * `avatarURL` is confirmed on device; the alternative spellings this once guessed at
- * (`avatarUrl`, `avatar`, `authorAvatarURL`) were never once seen and are gone. `roleIconURL`
- * and `roleIcon` likewise never appeared — kept out rather than carried as dead weight on a
- * path that runs a few hundred times per screenful.
- */
-const AVATAR_KEYS = ["avatarURL"]
-
-/**
- * Decorations say something about the account (Nitro) even once the avatar itself is anonymous,
- * so they're cleared rather than substituted. `avatarDecorationURL` is confirmed on device.
- *
- * ## The server-tag fields are NOT here, and that is a known leak
- *
- * A row dump showed `clanTag`, `clanTagGuildId` and a CDN `clanBadgeUrl` on every message —
- * Discord's server-tag badge, which renders next to the username and narrows down which server
- * someone belongs to. 0.16.0 added them here and **visibly broke the client**, so 0.17.1 took
- * them back out.
- *
- * The cause is confirmed (reverting fixed it) and it is the clearing strategy, not the idea:
- * `redactAvatars` assigns `""`, and an empty string is not "absent" — `clanBadgeUrl: ""` is an
- * image URI Discord will try to load. On the observed row, absent values were `null`
- * (`avatarDecorationURL`) or `undefined` (`roleIcon`, `lobbyTagIconUrl`), never `""`.
- *
- * That makes the one key left in this list suspect too: `avatarDecorationURL` only survives
- * because it is usually already `null`, so the `typeof === "string"` guard means the branch
- * almost never runs. The clan fields were simply the first ones that actually exercised it.
- *
- * Anyone revisiting this should switch the clearing to `undefined`/`null` first, confirm
- * `avatarDecorationURL` still behaves, then re-add the clan fields one at a time.
- */
-const ORNAMENT_KEYS = ["avatarDecorationURL"]
 
 let dumped = false
 
@@ -80,45 +46,6 @@ function dumpRowShape(generated: any) {
 	} catch (error) {
 		console.error("[ScreenshotRedactor] row dump failed:", error)
 	}
-}
-
-/** Rewrites every avatar-shaped field present on `target`. */
-function redactAvatars(target: any, userId: string) {
-	for (const key of AVATAR_KEYS) {
-		if (typeof target?.[key] === "string") {
-			target[key] = redactedAvatarUrl(userId)
-			noteAvatarKey(key)
-		}
-	}
-	for (const key of ORNAMENT_KEYS) {
-		if (typeof target?.[key] === "string") {
-			target[key] = ""
-			noteAvatarKey(key)
-		}
-	}
-}
-
-/**
- * The reply preview above a message ("replying to X") names a second person, who is just as
- * identifiable as the author and is missed entirely if only the header is redacted.
- *
- * The stored name is sometimes "@"-prefixed; the prefix is preserved so the row still looks
- * like a reply preview rather than a broken string.
- */
-function redactReplyPreview(generated: any, style: any, alsoAvatars: boolean) {
-	const ref = generated.referencedMessage?.message
-	if (!ref) return
-
-	const authorId = ref.authorId ?? ref.author?.id
-	if (!authorId) return
-
-	if (typeof ref.username === "string") {
-		const hadAt = ref.username.startsWith("@")
-		ref.username = redactedName(authorId, style)
-		if (hadAt) ref.username = `@${ref.username}`
-	}
-
-	if (alsoAvatars) redactAvatars(ref, authorId)
 }
 
 /**
@@ -178,6 +105,12 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 				// Every path returns `ret`. This is the chat render path: an exception or a
 				// missing return here takes down the entire message list.
 				try {
+					// Chat is rendering, so React Native is unambiguously up by now -- which is
+					// not true at start(), where the native module lookup comes back empty. After
+					// it succeeds this is a single boolean read.
+					ensureChatManagerPatched()
+					ensureDmHeaderPatched()
+
 					count("rowsSeen")
 					noteRowType(row?.rowType)
 
@@ -207,33 +140,27 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 						return ret
 					}
 
-					const { style, redactAvatars: doAvatars, redactSelf, verboseLogging } = settings()
+					const { style, redactAvatars, redactBadges, redactSelf, verboseLogging } = settings()
 
 					if (verboseLogging) dumpRowShape(generated)
 
-					const author = row.message?.author
-					const authorId = author?.id
-					if (!authorId) {
+					if (!generated.authorId) {
 						count("skippedNoAuthor")
 						return ret
 					}
 
-					if (!redactSelf) {
-						const { UserStore } = revenge.discord.flux.Stores as any
-						if (UserStore?.getCurrentUser?.()?.id === authorId) {
-							count("skippedSelf")
-							return ret
-						}
-					}
+					// Shared with the `updateRows` hook rather than reimplemented here: both
+					// rewrite the same `Message` shape, and the two drifting apart is how the
+					// reply preview ended up with its own slightly different avatar clearing.
+					const changed = redactMessage(generated, {
+						style,
+						avatars: redactAvatars,
+						badges: redactBadges,
+						self: redactSelf,
+					})
 
-					if (typeof generated.username === "string") {
-						generated.username = redactedName(authorId, style)
-					}
-
-					if (doAvatars) redactAvatars(generated, authorId)
-
-					redactReplyPreview(generated, style, doAvatars)
-					count("rowsRedacted")
+					if (changed) count("rowsRedacted")
+					else count("skippedSelf")
 				} catch (error) {
 					console.error("[ScreenshotRedactor] generate hook failed:", error)
 				}

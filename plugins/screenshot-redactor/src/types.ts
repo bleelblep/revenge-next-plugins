@@ -15,6 +15,17 @@ export interface ScreenshotRedactorStorage {
 	style: RedactionStyle
 	/** Swap avatars for Discord's own default avatars, which carry no identity. */
 	redactAvatars: boolean
+	/**
+	 * Also clear the server-tag badge and role tags beside usernames.
+	 *
+	 * Off by default, and that is not timidity: clearing this family is exactly what visibly
+	 * broke the client in 0.16.0. The cause is now understood — the old code cleared to `""`,
+	 * which for a badge URL is a real image URI Discord tries to load, where the wire format
+	 * uses `null` for absent — and the clearing has been fixed. But that was a confident
+	 * diagnosis last time too, so it ships as something to turn on rather than something to
+	 * discover the hard way.
+	 */
+	redactBadges: boolean
 	/** Redact your own messages too. Off by default: it's usually your screenshot. */
 	redactSelf: boolean
 	/** Restart placeholder numbering from 1 each time redaction is switched on. */

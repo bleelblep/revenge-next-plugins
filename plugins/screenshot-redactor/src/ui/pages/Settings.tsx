@@ -2,7 +2,7 @@ import { DEFAULTS } from "../../defaults"
 import { aliasCount, resetAliases } from "../../lib/alias"
 import { diagnostics, resetDiagnostics } from "../../lib/diagnostics"
 import { onEnabledChanged } from "../../lib/state"
-import { refreshChat } from "../../lib/nudge"
+import { mirroredRowCount, mirroredTagCount, refreshChat } from "../../lib/chatRows"
 import { probeNameModules } from "../../lib/probe"
 import type { RedactionStyle, ScreenshotRedactorStorage } from "../../types"
 
@@ -36,6 +36,10 @@ function diagnosticsSummary(): string {
 	].filter(Boolean)
 
 	return [
+		d.chatManagerPatch === "patched"
+			? `Native chat module hooked. ${d.batchesSeen} row batches seen, ${mirroredRowCount()} rows mirrored across ${mirroredTagCount()} list${mirroredTagCount() === 1 ? "" : "s"}.`
+			: `LEAK: native chat module ${d.chatManagerPatch ?? "not reached"} — redaction falls back to RowManager and the toggle needs a channel switch.`,
+		d.refreshOutcome ? `Last repaint: ${d.refreshOutcome}.` : "Chat not repainted yet.",
 		`${d.rowManagersPatched} RowManager${d.rowManagersPatched === 1 ? "" : "s"} patched.`,
 		`${d.rowsSeen} rows seen, ${d.rowsRedacted} redacted, ${skipped} skipped${reasons.length ? ` (${reasons.join(", ")})` : ""}.`,
 		d.rowTypes.size ? `Row types seen: ${[...d.rowTypes].sort().join(", ")}.` : "No rows seen yet.",
@@ -47,7 +51,9 @@ function diagnosticsSummary(): string {
 		d.namePatches.size
 			? `Name resolvers patched: ${[...d.namePatches].join(", ")}.`
 			: "No name resolver found — @mentions and the member list can't be redacted.",
-		"DM header: not redacted (known limitation).",
+		d.namePatches.has("getNickname (props)") || d.namePatches.has("getNickname (default)")
+			? "DM header: getNickname hooked — the header resolves through it, so check it visually."
+			: "DM header: LEAK — getNickname was never hooked, and that is what the header asks first.",
 		d.sheetHost ? `Sheet module patched: ${d.sheetHost}.` : "Sheet module not patched yet.",
 		d.injectOutcome ? `Row insertion: ${d.injectOutcome}.` : "Row insertion not attempted yet.",
 		d.sheetKeysSeen.size
@@ -94,9 +100,9 @@ export default function Settings({
 		api.jsonStorage.set({ enabled })
 		onEnabledChanged(enabled)
 
-		const nudged = refreshChat()
+		const repainted = refreshChat()
 		showToast(
-			nudged
+			repainted
 				? enabled
 					? "Redaction on."
 					: "Redaction off."
@@ -117,15 +123,18 @@ export default function Settings({
 						onValueChange={setEnabled}
 					/>
 					<TableRow
-						label="⚠️ The DM header is not redacted"
-						subLabel="In a DM or group DM the name at the top of the screen stays real. Messages, authors and avatars are redacted; the header is not. Crop it before sharing."
+						label="⚠️ Check the DM header before sharing"
+						subLabel="The name at the top of a DM should now be redacted too — that's new and unconfirmed, so look at it rather than trusting it. Group DMs use a different header and are still not covered."
 					/>
 				</TableRowGroup>
 
 				<TableRadioGroup
 					title="Placeholder style"
 					defaultValue={settings.style ?? DEFAULTS.style}
-					onChange={(style: RedactionStyle) => api.jsonStorage.set({ style })}
+					onChange={(style: RedactionStyle) => {
+						api.jsonStorage.set({ style })
+						refreshChat()
+					}}
 				>
 					{STYLE_LABELS.map(option => (
 						<TableRadioRow key={option.value} label={option.label} subLabel={option.subLabel} value={option.value} />
@@ -135,7 +144,7 @@ export default function Settings({
 				<TableRowGroup title="What gets covered">
 					<TableSwitchRow
 						label="Names everywhere, not just messages"
-						subLabel="Also covers inline @mentions and the member list. ⚠️ The DM and group-DM header is NOT covered — it keeps showing the real name. Crop it out."
+						subLabel="Also covers inline @mentions, the member list and the DM header. Group-DM headers use a different component and are still not covered."
 						value={!!settings.redactResolvedNames}
 						onValueChange={redactResolvedNames => {
 							api.jsonStorage.set({ redactResolvedNames })
@@ -146,13 +155,28 @@ export default function Settings({
 						label="Replace avatars"
 						subLabel="Swaps in Discord's default avatars and drops avatar decorations and role icons."
 						value={!!settings.redactAvatars}
-						onValueChange={redactAvatars => api.jsonStorage.set({ redactAvatars })}
+						onValueChange={redactAvatars => {
+							api.jsonStorage.set({ redactAvatars })
+							refreshChat()
+						}}
+					/>
+					<TableSwitchRow
+						label="Hide server tags (experimental)"
+						subLabel="Also clears the server-tag badge beside usernames, which narrows down which server someone belongs to. Off by default: an earlier attempt at this visibly broke the client. If chat looks wrong, turn it back off."
+						value={!!settings.redactBadges}
+						onValueChange={redactBadges => {
+							api.jsonStorage.set({ redactBadges })
+							refreshChat()
+						}}
 					/>
 					<TableSwitchRow
 						label="Redact me too"
 						subLabel="Off by default — it's usually your screenshot, and leaving yourself visible makes the thread easier to follow."
 						value={!!settings.redactSelf}
-						onValueChange={redactSelf => api.jsonStorage.set({ redactSelf })}
+						onValueChange={redactSelf => {
+							api.jsonStorage.set({ redactSelf })
+							refreshChat()
+						}}
 					/>
 				</TableRowGroup>
 

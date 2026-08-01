@@ -1,5 +1,5 @@
 import { DEFAULTS } from "../../defaults"
-import { refreshChat } from "../../lib/nudge"
+import { refreshChat } from "../../lib/chatRows"
 import { getStorage, onEnabledChanged } from "../../lib/state"
 
 /** How long the button stays out of sight after arming, so it isn't in the screenshot. */

@@ -55,6 +55,17 @@ export interface Diagnostics {
 	injectOutcome: string | undefined
 	/** Component names seen inside a rendered sheet, for finding the real row-group container. */
 	sheetTypesSeen: Set<string>
+	/** Row batches seen crossing into native through `DCDChatManager.updateRows`. */
+	batchesSeen: number
+	/** How many times the chat has been repainted from the mirror. */
+	repaints: number
+	/** Whether the native chat module was found and hooked. */
+	chatManagerPatch: string | undefined
+	/**
+	 * What the last repaint attempt did. The distinction that matters is "nothing mirrored yet"
+	 * (no channel opened since start — expected) versus a failure (a real bug).
+	 */
+	refreshOutcome: string | undefined
 }
 
 const counters: Diagnostics = {
@@ -77,6 +88,10 @@ const counters: Diagnostics = {
 	sheetKeysSeen: new Set(),
 	injectOutcome: undefined,
 	sheetTypesSeen: new Set(),
+	batchesSeen: 0,
+	repaints: 0,
+	chatManagerPatch: undefined,
+	refreshOutcome: undefined,
 }
 
 export function diagnostics(): Diagnostics {
@@ -99,10 +114,20 @@ type CountableKey = Exclude<
 	| "sheetTypesSeen"
 	| "maxDepth"
 	| "skippedRowTypeWithAuthor"
+	| "chatManagerPatch"
+	| "refreshOutcome"
 >
 
 export function count(key: CountableKey) {
 	counters[key]++
+}
+
+export function noteChatManagerPatch(outcome: string) {
+	counters.chatManagerPatch = outcome
+}
+
+export function noteRefreshOutcome(outcome: string) {
+	counters.refreshOutcome = outcome
 }
 
 export function noteSkippedRowTypeWithAuthor() {
@@ -162,6 +187,9 @@ export function resetDiagnostics() {
 	counters.skippedSelf = 0
 	counters.skippedRowTypeWithAuthor = 0
 	counters.maxDepth = 0
+	counters.batchesSeen = 0
+	counters.repaints = 0
+	counters.refreshOutcome = undefined
 	counters.rowTypes.clear()
 	counters.avatarKeysSeen.clear()
 	counters.sheetKeysSeen.clear()

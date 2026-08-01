@@ -5,11 +5,16 @@
  * from the device was a sentence in the settings page. `console.log` reaches `adb logcat` under
  * the `ReactNativeJS` tag, which is enough bandwidth to just *look*.
  *
- * This exists to answer one question: what does the DM channel header use to turn a channel
- * into a person's name? `useName` is hooked and the header plainly doesn't go through it.
- *
  * Debug-only, off by default, and it never logs a value — only module ids and export key names.
  * Nothing here can print a username.
+ *
+ * ## One line per hit, on purpose
+ *
+ * The previous version batched hits twenty to a `console.log`. Only the *first* line of a
+ * multi-line log carries the `ReactNativeJS` tag, so every continuation line is dropped by any
+ * tag or prefix filter — the sweep appeared to find 79 candidate modules and print none of them.
+ * That is porting rule 5's own warning, walked straight into by the tool written to satisfy it.
+ * Every line below is its own call.
  */
 
 /**
@@ -25,10 +30,20 @@ const INTERESTING = /^(get|use|render|format)?(channel|recipient|dm|group|user|d
 /** Keys that are certain noise at this scale. */
 const BORING = /^(displayName|name|fileName|typeName|constructor)$/
 
+/**
+ * The resolvers `patches/displayName.ts` tries to hook. Device logs show only `useUserTag` ever
+ * matching, so these get reported exactly — which module ids carry them, and whether the export
+ * is callable — rather than being left to the `INTERESTING` heuristic.
+ */
+const WANTED = ["getName", "useName", "getNickname", "getGlobalName", "getFormattedName", "getUserTag", "useUserTag"]
+
+const log = (line: string) => console.log(`[ScreenshotRedactor] ${line}`)
+
 export function probeNameModules(): string {
 	const { getInitializedModuleExports, isModuleInitialized } = revenge.modules.metro as any
 
 	const hits: string[] = []
+	const exact: string[] = []
 	let scanned = 0
 	let initialized = 0
 
@@ -46,12 +61,29 @@ export function probeNameModules(): string {
 
 		if (!exports || typeof exports !== "object") continue
 
+		// The exact question first: who exports the resolvers we care about, and in what shape?
+		// `typeof` is reported rather than filtered on, because "the key is there but is not a
+		// function" and "the key is not there" are different bugs and the hook silently skips
+		// both. Both the exports object and a `default` wrapper are checked — a resolver hiding
+		// one level down would look identical to an absent one.
+		try {
+			for (const key of WANTED) {
+				const direct = exports[key]
+				const nested = exports.default?.[key]
+				if (direct === undefined && nested === undefined) continue
+				exact.push(
+					`${id}.${key}: exports=${typeof direct}${nested !== undefined ? ` default.${key}=${typeof nested}` : ""}`,
+				)
+			}
+		} catch {
+			/* some namespaces throw on property access */
+		}
+
 		try {
 			const keys: string[] = []
 			for (const key of Object.keys(exports)) {
 				if (BORING.test(key)) continue
 				if (!INTERESTING.test(key)) continue
-				// Only functions: a resolver is callable, a string constant is not what we want.
 				if (typeof exports[key] !== "function") continue
 				keys.push(key)
 			}
@@ -62,12 +94,31 @@ export function probeNameModules(): string {
 		}
 	}
 
-	const summary = `[ScreenshotRedactor] probe: ${initialized} initialized of ${scanned} scanned, ${hits.length} candidate modules`
-	console.log(summary)
-	// Chunked: a single enormous line gets truncated in logcat.
-	for (let i = 0; i < hits.length; i += 20) {
-		console.log(`[ScreenshotRedactor] probe ${i}:\n` + hits.slice(i, i + 20).join("\n"))
+	log(`probe: ${initialized} initialized of ${scanned} scanned, ${hits.length} candidates, ${exact.length} exact`)
+
+	// The decisive list: every module carrying a resolver this plugin tries to hook.
+	log(`probe EXACT (${exact.length}) — modules exporting a wanted resolver:`)
+	for (const line of exact) log(`  exact ${line}`)
+
+	// And what the finder itself sees, which is the actual open question: the sweep can find a
+	// module by walking ids that `getModules(withProps(...))` never hands to the callback.
+	for (const key of WANTED) {
+		try {
+			const { lookupModules } = revenge.modules.finders as any
+			const { withProps } = revenge.modules.finders.filters
+			let found = 0
+			for (const _result of lookupModules(withProps(key))) {
+				found++
+				if (found > 25) break
+			}
+			log(`probe FINDER withProps(${key}) -> ${found} module(s)`)
+		} catch (error) {
+			log(`probe FINDER withProps(${key}) -> threw: ${String(error)}`)
+		}
 	}
 
-	return `${hits.length} candidates across ${initialized} modules — see adb logcat`
+	log(`probe CANDIDATES (${hits.length}) — heuristic name/title exports:`)
+	for (const line of hits) log(`  cand ${line}`)
+
+	return `${hits.length} candidates, ${exact.length} exact — see adb logcat`
 }
