@@ -28,11 +28,7 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **Relationship Notifier** 🆕 | CC0-1.0 | Tells you when someone removes you as a friend, when you leave a server, or when a group DM closes. Discord hides all three. Stores names only, no message content. |
 | **Hide Servers (Drawer Fix)** | CC0-1.0 | Locally hide servers or whole folders, without the scroll-jump bug. The replacement bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant apply, static icons, DM avatar on Home (off by default). With blerp. One GPL-3.0 file, and design debts to kmmiio99o's ServerDrawer — see [`NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md). |
 
-🧪 **Screenshot Redactor is usable but incomplete.** Message authors, avatars, reply previews, the
-DM and group-DM headers, and the server-tag badge all redact on device, confirmed. Two gaps
-remain: inline `@mentions` still show real names, and arming redaction needs a channel switch to
-repaint messages already on screen. Both have identified causes and are recorded in the plugin's
-README and settings page.
+🧪 **Screenshot Redactor is usable but incomplete.** Message authors, avatars, reply previews, the DM and group-DM headers, and the server-tag badge all redact on device, confirmed. A few gaps remain: inline @mentions still show real names, and arming redaction needs a channel switch to repaint messages already on screen — both have identified causes and are recorded in the plugin's README and settings page. A third: the DM header avatar doesn't redact even though the name next to it does, cause not yet found.
 
 🆕 **These two are new, and tested to very different degrees.** Anti Ghost Ping works end to end,
 but only against its own self-ping test toggle — a real ghost ping from someone else has never
