@@ -185,6 +185,57 @@ Worth reporting upstream; not fixed as of revenge-bundle-next `0f75551`.
   have no `.name` of their own. The member-list patch (`staff-tags/src/patches/details.tsx`)
   needed a hand-built filter to catch `UserRow` for this reason.
 
+### The export is usually on `default`, not on the exports object
+
+`withProps('getName')` matches a module, and then `mod.getName` is `undefined` — the function is at
+`mod.default.getName`. A device probe over Discord 340.9 shows the shape plainly:
+
+```
+1214.getName: exports=undefined default.getName=function
+```
+
+Always check both:
+
+```ts
+const host = typeof mod?.[key] === "function" ? mod : mod?.default
+if (typeof host?.[key] !== "function") return
+```
+
+This is the most expensive bug in this repo's history. `screenshot-redactor` has claimed to hook
+seven name resolvers since 0.3.0 and hooked exactly one — the only one that happens to be its own
+module, caught by a different finder that does look at `.default`. Six attempts at the DM header,
+plus `@mentions`, the member list and profile sheets, were all debugging a hook that never
+existed. The plugin's own Diagnostics page reported the resolvers as patched throughout, because it
+recorded intent rather than outcome.
+
+**Log the outcome of a hook, not the attempt.** One `console.log` on successful registration would
+have caught this years earlier than a settings page that says "patched".
+
+### `getModules` and `lookupModules` do not agree — unresolved
+
+On the same modules, in the same session:
+
+```
+lookupModules(withProps('getName'))  -> 26 modules
+getModules(withProps('getName'), cb) -> cb never fires
+```
+
+Not understood. It matters because rule 3 above recommends `getModules` for anything UI-related,
+and for this filter that recommendation currently produces a hook that silently never installs. If
+a `getModules` subscription appears not to fire, check with `lookupModules` before assuming the
+module is absent.
+
+### Native modules are not reachable through `revenge.react.ReactNative`
+
+`revenge.react.ReactNative.NativeModules.DCDChatManager` returns nothing, at `start()` and on
+every retry afterwards, even though Discord's own code calls plain
+`NativeModules.DCDChatManager`. `globalThis.nativeModuleProxy` and `__turboModuleProxy` are also
+empty, and `getModules(withProps('DCDChatManager'))` does not match. Still unsolved — it is why
+`screenshot-redactor`'s message-list repaint does not run.
+
+`hide-servers-drawer/src/lib/reload.ts` reaches `BundleUpdaterManager` through that same path, so
+the access pattern is not wrong in general.
+
 ## 4. APIs that don't exist
 
 Guessed by analogy with classic Revenge, and confirmed absent from revenge-bundle-next's source:
@@ -224,7 +275,61 @@ Found by logging one line to `adb logcat` — see the note on tooling below.
 The last three were found by adopting the official types (see below), not on-device — every one had
 been sitting behind `?.` and a fallback, silently doing nothing.
 
-## 5. Read the device instead of guessing
+## 5. Read the app instead of guessing
+
+### Offline first: the APK answers most "which module / what shape" questions
+
+Added after the DM header — six on-device attempts over as many releases, then answered in one
+sitting with no device attached. Reach for these *before* writing another probe:
+
+- **Native side.** [molangning/reversing-discord](https://github.com/molangning/reversing-discord)
+  is a jadx decompile of the APK, browsable with `gh api repos/…/contents/<path>` under
+  `apk/extracted/_base.apk/sources/`. Anything serialized across the JS/native bridge has a
+  kotlinx `$$serializer` whose `pluginGeneratedSerialDescriptor…("field", …)` calls list **every
+  JSON field name**. `com/discord/chat/bridge/Message$$serializer` gave Screenshot Redactor the
+  complete message schema at once, where its own row dumps had been finding fields one at a time
+  and silently missing the rest — a dump can only report fields that happened to be populated on
+  the row that got dumped.
+- **JS side.** Pull the APK off the device so the version matches what you are debugging —
+  the copy in `Documents/android` was three releases behind the installed build, which is enough
+  for function ids to move:
+
+  ```sh
+  adb shell pm path app.revenge          # Discord, repackaged by Revenge
+  adb pull <path>/base.apk
+  unzip -o base.apk assets/index.android.bundle
+  ```
+
+  That bundle is Hermes bytecode (v96), and `pip install hermes-dec` parses it:
+
+  ```py
+  r = HBCReader(); r.read_whole_file(open(bundle, "rb"))   # ~17s, 126k functions
+  r.strings.index("BaseChannelName")                        # does this name exist at all?
+  r.strings[fh.functionName] for fh in r.function_headers   # 69k named functions — a real index
+  parse_hbc_bytecode(r.function_headers[fid], r)            # disassembly, with strings resolved
+  ```
+
+  Keep the file handle open — the reader seeks lazily and a closed buffer throws.
+
+  The function-name index is the single most useful artifact: grepping it for `Header` found
+  `PrivateChannelHeader` and `DMChannelName` immediately. Disassembling `DMChannelName` then
+  showed the DM header resolves `RelationshipStore.getNickname(userId)` and renders it through
+  `LegacyText` — so it never touches a channel title, which is why four separate attempts at
+  `renderChannelTitle` and `computeChannelName` all "fired" and changed nothing.
+
+### The decompile and the device answer different questions
+
+The native `$$serializer` classes list every field the native side will **accept**. That is not the
+same as what JS actually **puts on the object**, and treating them as interchangeable produced a
+wrong fix: the schema named the server-tag fields `tagText`/`tagType`/`connectionsRoleTag` and
+invented an `avatarURLs` that no real row carries, while the fields actually populated were
+`clanTag`/`clanTagGuildId`/`clanBadgeUrl` — which a row dump had already found.
+
+Use the deserializer for the wire protocol and a `console.log` row dump for what carries an
+identity. The decompile is authoritative about the bridge and about component internals; it is not
+authoritative about the shape of a live JS object.
+
+### On-device, when you actually need runtime state
 
 `console.log` reaches `adb logcat` under the `ReactNativeJS` tag. This is by far the fastest way
 to answer "which module is it / what shape are these arguments / what is actually on this object",
