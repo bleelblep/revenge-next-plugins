@@ -23,12 +23,23 @@ https://bleelblep.github.io/revenge-next-plugins/
 
 | Plugin | Licence | What it does |
 | --- | --- | --- |
-| **Screenshot Redactor** 🧪 | CC0-1.0 | Replaces every author with a stable placeholder — "User 1", "User 2" — and swaps avatars for Discord's defaults, so a conversation can be screenshotted without doxxing anyone. Long-press any message to arm it. **Inline `@mentions` are not redacted** — see [its README](./plugins/screenshot-redactor/README.md). |
+| **Screenshot Redactor** 🧪 | CC0-1.0 | Replaces every author with a stable placeholder — "User 1", "User 2" — and swaps avatars for Discord's defaults, so a conversation can be screenshotted without doxxing anyone. Covers inline `@mentions`, reply previews and the DM header, name and avatar. Long-press any message to arm it. **Message text itself is never touched** — see [its README](./plugins/screenshot-redactor/README.md). |
 | **Anti Ghost Ping** 🆕 | CC0-1.0 | Catches messages that pinged you and were then deleted — who, where, and what they said. **This is a message logger**, see below. |
 | **Relationship Notifier** 🆕 | CC0-1.0 | Tells you when someone removes you as a friend, when you leave a server, or when a group DM closes. Discord hides all three. Stores names only, no message content. |
 | **Hide Servers (Drawer Fix)** | CC0-1.0 | Locally hide servers or whole folders, without the scroll-jump bug. The replacement bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant apply, static icons, DM avatar on Home (off by default). With blerp. One GPL-3.0 file, and design debts to kmmiio99o's ServerDrawer — see [`NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md). |
 
-🧪 **Screenshot Redactor is usable but incomplete.** Message authors, avatars, reply previews, the DM and group-DM headers, and the server-tag badge all redact on device, confirmed. A few gaps remain: inline @mentions still show real names, and arming redaction needs a channel switch to repaint messages already on screen — both have identified causes and are recorded in the plugin's README and settings page. A third: the DM header avatar doesn't redact even though the name next to it does, cause not yet found.
+🧪 **Screenshot Redactor is usable but incomplete.** Message authors, avatars, reply previews,
+inline `@mentions`, the DM and group-DM headers, the DM header avatar and the server-tag badge all
+redact on device, confirmed as of 0.19.1. The last two were the long-standing gaps, and neither was
+where fifteen releases of patching had been looking — mentions are row data rather than resolved
+names, and the header avatar comes from a method on the user record rather than from the name
+beside it.
+
+Two convenience gaps remain, both with identified causes recorded in the plugin's README and
+settings page: **arming** redaction still needs a channel switch to repaint messages already on
+screen, and **disarming** it can leave placeholders behind until Discord is reloaded — rows already
+handed to native, memoized resolvers and cached images, none of which are invalidatable from JS.
+Message text itself is deliberately untouched, so a name someone typed out still shows.
 
 🆕 **These two are new, and tested to very different degrees.** Anti Ghost Ping works end to end,
 but only against its own self-ping test toggle — a real ghost ping from someone else has never
@@ -71,13 +82,28 @@ settings API itself was never at fault. Hide Servers additionally bootlooped the
 same rule was applied across it; the specific killer was almost certainly `React.memo()` at module
 scope, which throws inside `optionsFactory()` and fails the plugin before `start()` ever runs.
 
-**Module exports usually live on `default`.** `withProps('getName')` matches a module and then
-`mod.getName` is `undefined`, because the function is at `mod.default.getName`. Screenshot Redactor
-claimed to hook seven name resolvers from 0.3.0 onward and hooked exactly one; six attempts at its
-DM header, plus `@mentions` and the member list, were all debugging a hook that never existed. The
-plugin's diagnostics reported the resolvers as patched throughout, because they recorded intent
-rather than outcome — log what a hook *did*, not that you tried it. See
-[porting rule 3](./docs/porting-rules.md#3-module-lookups).
+**Finding a module is three separate ways to be wrong, and Screenshot Redactor hit all of them
+chasing one bug.** Fifteen releases, and the write-up in
+[porting rule 3](./docs/porting-rules.md#3-module-lookups) is the most useful thing to come out of
+this repo:
+
+1. **Module exports usually live on `default`.** `withProps('getName')` matches a module and then
+   `mod.getName` is `undefined`, because the function is at `mod.default.getName`. The plugin
+   claimed to hook seven name resolvers from 0.3.0 onward and hooked exactly one.
+2. **`getModules`' `max` is spent by its lookup half.** It is a lookup over initialized modules
+   followed by `waitForModules`, sharing one counter — and `withProps('getName')` matched 26
+   already-loaded modules, so the budget was gone before the subscription was ever created. Fixing
+   (1) changed nothing because of this, which made the first fix look like a failure rather than
+   like it had revealed the next layer. **Prefer
+   `revenge.discord.utils.finders.getModuleWithImportedPath`** — no filter, no cache, no `max`, and
+   it unsubscribes itself.
+3. **A working finder is not a fix.** With both of those solved, `@mentions` *still* showed real
+   names — because a mention in a rendered message is row data and never calls a name resolver at
+   all. One grep of the native `$$serializer` would have settled that in a sitting.
+
+Throughout, the plugin's diagnostics reported the resolvers as patched, because they recorded
+intent rather than outcome. **Log what a hook did, not that you tried it** — and confirm the
+surface you care about actually goes through the thing you hooked, ideally before hooking it.
 
 **Show Tag, Custom Timestamps and Screenshot Redactor all patch `RowManager.prototype.generate`.**
 The first two are confirmed to coexist, and only because Show Tag deliberately avoids `instead` —
