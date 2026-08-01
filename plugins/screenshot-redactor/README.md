@@ -8,10 +8,11 @@ in a reply preview, and thirty messages further up. A screenshot of an argument 
 thread is only worth sharing if you can still tell who said what, so blanking everyone identically
 is offered but is not the default.
 
-**Status: working, with one known leak and one missing convenience.** Message authors, avatars,
-reply previews, the DM header, group-DM headers and the server-tag badge all redact on device,
-confirmed. **Inline `@mentions` do not** — see Known bugs. Arming redaction still needs a channel
-switch to repaint messages already on screen.
+**Status: working, with one missing convenience.** Message authors, avatars, reply previews,
+inline `@mentions`, the DM header name and avatar, group-DM headers and the server-tag badge all
+redact on device, confirmed. Arming redaction still needs a channel switch to repaint messages
+already on screen, and switching it *off* can leave placeholders behind until Discord is reloaded
+— see below.
 
 ## How it works
 
@@ -20,7 +21,9 @@ Redaction runs on the *data* a message row is built from, never on the rendered 
 `RowManager.prototype.generate` flattens a message into the flat object the native row renderer
 consumes — display name, avatar URL, reply preview — so rewriting fields on that object covers the
 whole message list at one point. Names outside the message list (the DM header, `@mentions`, the
-member list) have no equivalent choke point and go through the shared name resolvers instead.
+member list) have no equivalent choke point and go through the shared name resolvers instead;
+faces outside the message list go through the shared avatar resolvers, which are a different
+module and were the reason the DM header's name redacted while the face beside it didn't.
 
 Per porting rule 2 this plugin uses `before` + `after` and never `instead`: Custom Timestamps
 already owns the one permitted `instead` on `generate`.
@@ -37,53 +40,52 @@ Covered and confirmed on device:
   on its row type, so a row that names someone is covered whatever type it arrives under
 - a long-press toggle in the message menu
 
+Added in 0.19.0 and confirmed on device:
+
+- **inline `@mentions`**, rewritten as row content rather than as resolved names — see below
+- **the DM header avatar**, and every other avatar outside the message list, through
+  `utils/AvatarUtils.tsx`
+
+Added in 0.19.0, untested: the member list, profile sheets and the mention autocomplete, which
+resolve names through `utils/UserUtils.tsx` and should follow from the same hook.
+
 Not covered. These still identify people while redaction is on:
 
-- **inline `@mentions`** — a live leak, see Known bugs
-- the member list and profile sheets, which resolve names the same way `@mentions` do and are
-  assumed to be leaking for the same reason; untested
+- **avatar decorations outside the message list.** `UserAvatar` passes
+  `avatarDecoration={user.avatarDecoration}` — a plain property read on the record, with no
+  function anywhere to hook. Row decorations are cleared; the DM header's is not.
 - provisional (unclaimed) accounts in a group-DM header, which bypass every resolver
 - typing indicators and toasts
 - server names, channel names, and the guilds bar
 - message content, which names people constantly
 
+## Switching off may need an app reload
+
+Turning redaction off stops it immediately — the patches gate per call, so nothing is being
+rewritten from the moment the toggle flips. What can survive is everything the client already
+*computed* while it was armed:
+
+- **Rows already drawn.** They live in Kotlin once they cross `DCDChatManager.updateRows`, and JS
+  only pushes rows that changed — see "The chat bridge". Reopening the channel is the thing that
+  makes JS send a complete list.
+- **Memoized resolvers.** The DM header computes its name inside
+  `useStateFromStores([…], selector, [userId])`, and avatar sources go through Discord's own
+  `memoizedImageSource`. `lib/nudge.ts` pokes the stores the header subscribes to, which covers
+  the common case and is not a guarantee for every surface.
+- **Cached images.** The placeholder avatar is a real URL, which React Native has loaded and
+  cached like any other.
+- **The nickname workaround.** While armed, `getNickname` answers "yes, User 3" for everyone (see
+  below). Anything that read that and held onto it keeps holding it.
+
+None of that is redaction still running. It is a *picture* of redaction, sitting in caches this
+plugin does not own and cannot invalidate from JS — which is why the fix is a reload rather than
+another patch. Reopening the channel clears the message list; reloading Discord clears the rest.
+
+Stated in three places on purpose, because "some names are still placeholders" reads as a bug
+rather than as a cache: the toast on the off edge, a row in settings, and here. The wording lives
+in `lib/notices.ts` so the toggle surfaces can't drift apart.
+
 ## Known bugs
-
-### `@mentions` are not redacted — the name resolvers are never hooked
-
-`patches/displayName.ts` has claimed since 0.3.0 to hook seven name resolvers. It hooks one.
-Device logs show the entire result of that patch:
-
-```
-hooked name resolver: useUserTag (props, module 3970)
-```
-
-`getName` — the resolver `@mentions`, the member list and the header fallback all go through — has
-never been hooked in any release. Two separate causes have been found and only the first is fixed:
-
-1. **The resolvers live under `default`.** A device probe shows the shape unambiguously:
-
-   ```
-   1214.getName: exports=undefined default.getName=function
-   ```
-
-   Every one of the 26 modules `withProps('getName')` matches has the function at
-   `mod.default.getName`, and the callback tested `mod.getName`, found `undefined`, and dropped
-   all of them. `useUserTag` only ever landed because it happens to be its own module, caught by
-   the `withName` + `returnNamespace` finder which does look at `.default`. Fixed in 0.18.5.
-
-2. **`getModules` never calls back for these modules, though `lookupModules` finds them.** With
-   the `.default` handling in place the hook still does not register. The probe's
-   `lookupModules(withProps('getName'))` returns 26 modules; the equivalent `getModules`
-   subscription in `patches/displayName.ts` fires for none of them. This is unexplained.
-
-**Next step for whoever picks this up:** switch `patches/displayName.ts` from `getModules` to
-`lookupModules`, since the probe proves that path reaches the modules. That trades away the
-subscribe-on-load behaviour porting rule 3 recommends, so the resolvers would need to be looked up
-lazily — on first row render rather than at `start()` — to avoid caching a miss.
-
-Module 1214 is the target: it carries `getName`, `useName`, `getNickname`, `getGlobalName`,
-`getFormattedName`, `getUserTag` and `useUserTag` together.
 
 ### Arming redaction does not repaint messages already on screen
 
@@ -99,32 +101,94 @@ plugin cannot currently reach it. Until it can, the mirror in `lib/chatRows.ts` 
 
 See "The chat bridge" below for why a store nudge cannot substitute for this.
 
-### The DM header depends on a workaround
+### The DM header name still depends on a workaround
 
-The header resolves `getNickname(userId) ?? getName(user)`. Because `getName` is not hooked, the
-`getNickname` hook returns a placeholder even when the user has no nickname set, so the fallback is
-never reached. This is what makes the header work today.
+The header resolves `getNickname(userId) ?? getName(user)`. The `getNickname` hook returns a
+placeholder even when the user has *no* nickname set, so the fallback is never reached. That was
+written because `getName` was not hooked at all, and it is what makes the header work today.
 
 The cost: while redaction is armed, everything that asks whether a user has a nickname gets "yes".
 Surfaces that branch on a nickname existing will render as though one is set. It reverts when
 redaction is switched off, and it is gated behind **Names everywhere, not just messages**.
 
-Once `getName` is hooked properly this should be reverted — `src/patches/dmHeader.ts` documents the
-exact condition to restore.
+0.19.0 hooks `getName` properly, so the obvious move is to retire the workaround. **It was tried
+and reverted before shipping.** Knowing the hook *registered* is not the same as knowing the
+header's call site reaches it — if `DMChannelName`'s module captured `getName` in a closure at
+import time rather than reading it off the namespace per call, the patch is invisible to exactly
+that path and nothing would report it. The failure modes aren't symmetric either: keeping the
+workaround costs a cosmetic side effect, removing it wrongly puts a real name back on the surface
+most likely to be screenshotted.
+
+**To retire it:** open a DM with someone who has no friend nickname set, with the `ret == null`
+branch of `patches/dmHeader.ts` removed, and look. One line and five minutes — but on a device,
+not by reasoning.
 
 ## How names are redacted, by layer
 
 | Surface | Patch | Mechanism |
 | --- | --- | --- |
 | Message rows, reply previews, avatars, badges | `patches/rowManager.ts` | `RowManager.prototype.generate`, rewriting the flat row data |
-| The DM and group-DM header | `patches/dmHeader.ts` | `RelationshipStore.getNickname` |
-| `@mentions`, member list, profile sheets | `patches/displayName.ts` | the shared name resolvers — **currently hooks nothing useful** |
+| Inline `@mentions` | `lib/rowSchema.ts` | `message.content`'s `mention` nodes — row data, **not** a resolver |
+| The DM and group-DM header name | `patches/dmHeader.ts` | `RelationshipStore.getNickname` |
+| The DM header avatar, member-list and profile avatars | `patches/avatar.ts` | `utils/AvatarUtils.tsx` by imported path |
+| Member list, profile sheets, autocomplete names | `patches/displayName.ts` | `utils/UserUtils.tsx` by imported path |
 | Re-resolving headers after a toggle | `lib/nudge.ts` | a store emit, which un-memoizes `useStateFromStores` |
 | Message list repaint after a toggle | `patches/chatManager.ts` | `DCDChatManager.updateRows` — **currently never installs** |
+
+The first two rows and the last are the same object at three moments: `redactMessage` rewrites a
+`Message`, `rowManager` calls it as the row is generated, and `chatManager` calls it again as the
+row crosses into native. Mentions ride along for free because of that, which is most of the
+argument for putting them there.
 
 `patches/rowManager.ts` and `patches/chatManager.ts` share `lib/rowSchema.ts`, so they cannot
 disagree about what a `Message` is. Running both is safe: every replacement is derived from
 `authorId` rather than from the field's current value, which makes redaction idempotent.
+
+## Inline `@mentions` were never a name-resolver problem
+
+Fifteen releases were spent patching the wrong layer, and the reason is worth keeping: the
+diagnosis was arrived at by elimination from a plausible model, and the model was wrong.
+
+The model said: a mention shows a person's display name, display names come from Discord's shared
+resolvers, therefore hooking the resolvers redacts mentions. Everything after that was debugging
+why the resolver hook didn't install — which was a real bug, twice over (see the porting rules on
+`.default` and on `getModules`' `max`), and fixing both of them changed nothing on screen, because
+inline mentions never call a resolver at all.
+
+**A mention is row content.** By the time a message reaches the message list its mentions are
+already text, sitting on the row beside `username` and `avatarURL`. From
+`com/discord/chat/bridge/contentnode/UserOrRoleMentionContentNode$$serializer`:
+
+```
+PluginGeneratedSerialDescriptor("mention", …, 6)
+  channelId(opt)  userId(opt)  roleColor(opt)  guildId(opt)  roleId(opt)  content(required)
+```
+
+`content` is a `List<ContentNode>`, and the visible `@Name` is a child `text` node — a one-field
+node whose `content` is the string. So the name is baked in on the JS side during `generate` and
+then lives in Kotlin like every other row field. There is no resolver downstream of that to hook.
+
+`lib/rowSchema.ts` walks it, in the same pass that already rewrites `username` and `avatarURL`:
+
+- gated on `userId` rather than on the `type` discriminator, for the same reason `redactRows`
+  gates on `authorId` rather than `rowType` — a renamed discriminator fails silently, a user id is
+  what actually makes the node identifying
+- the existing child text nodes are **overwritten**, never replaced with a node this plugin
+  constructed. Building `{ type: "text", content: … }` would be guessing both that the
+  discriminator property is `type` and that its JS value is `"text"`, and 0.18.0 already shipped
+  one wrong fix from treating the native schema as authoritative about the JS object
+- role mentions (`roleId`, no `userId`) are left alone: a role names a group, not a person
+- idempotent, so `rowManager` and `chatManager` both running over the same object costs nothing
+
+Two things fell out of it. A mention of **you** inside someone else's message has no
+`isCurrentUserMessageAuthor` to gate on, so `redactMessage` now takes the current user's id
+explicitly. And mentions and reply previews are now handled *before* the "you wrote this" early
+return — previously a message you wrote skipped both, which meant a reply preview inside your own
+message kept the name of the person you replied to. That was a separate live leak, found by
+restructuring for the first fix.
+
+Diagnostics counts mentions rewritten as its own line, because zero is ambiguous in a useful way:
+either no mention has been on screen, or the nodes aren't shaped the way the walker expects.
 
 ## The DM header
 
@@ -202,6 +266,55 @@ accounts in a group-DM header are still uncovered.
 For reference, `BaseChannelName` — flagged by an early Metro sweep as the most promising candidate
 — is real but belongs to the channel *list*: its module sits alongside `UnreadSetting`, `SELECTED`,
 `LOCKED`, `MUTED` and `RELEVANT`.
+
+## The DM header avatar is not the DM header name
+
+They sit two millimetres apart and share nothing. Once the header *name* redacted, the face beside
+it still didn't, and the reason is that `Avatar` is handed the whole user record and derives the
+image itself — no name resolver, no store, no row. From the bundle:
+
+```
+PrivateChannelHeader                       fn 75860
+  → renderUserAvatar(user, status, …)      fn 75956, ChannelHeaderShared.tsx
+    → <UserAvatar user={user} … />         fn 75946
+      → <Avatar user={user} size={…} />    fn 92365
+        → user.getAvatarSource(guildId, animate, size)      ← UserRecord.prototype method
+          → getAnimatableSourceWithFallback(animate, cb)
+            → cb → AvatarUtils.getUserAvatarSource(user, animate, size)
+```
+
+Message-row avatars redacted all along because those arrive as an `avatarURL` **string** on the
+flat row object. The header never produces one, so there was nothing for `lib/rowSchema.ts` to
+rewrite.
+
+This is the third bug in this plugin with the same shape. `getNickname` was a store method,
+`getAvatarSource` is a record method, and both were being looked for as module exports. The
+generalisation worth keeping: **if a surface is handed a record rather than a string, the string is
+being computed somewhere this plugin isn't looking.**
+
+`patches/avatar.ts` hooks `utils/AvatarUtils.tsx`, not `UserRecord.prototype`. The record's methods
+reach the utils through a property read on the required namespace at call time —
+
+```
+GetById reg3, reg4, 'getUserAvatarSource'            // inside UserRecord.prototype.getAvatarSource
+GetById reg3, reg4, 'getGuildMemberAvatarURLSimple'
+```
+
+— so patching the export is visible to it, and to the member list, profile sheets, facepiles and
+the autocomplete at the same time. Patching the prototype would need an instance to reach it from
+and would cover strictly less.
+
+Three details:
+
+- **URL resolvers only rewrite a string return.** `getUserAvatarURLWithoutFallback` returns `null`
+  for a user with no avatar and callers branch on it; handing them a URL would claim an avatar
+  exists when none does.
+- **A bundled asset id becomes `{ uri }`.** A user with no avatar resolves to one of six `require`d
+  default images, picked from their id — a stable six-way narrowing of the account across unrelated
+  screenshots, which is exactly what `redactedAvatarUrl` exists to break.
+- **Avatar decorations outside the message list are still uncovered.** `UserAvatar` passes
+  `avatarDecoration={user.avatarDecoration}`, a plain property read with no function to hook. Row
+  decorations are cleared; the header's is not.
 
 ## The chat bridge
 
@@ -372,11 +485,10 @@ printed none of them.
 
 This reduces what a screenshot gives away. It does not make one safe to post.
 
-`@mentions` still show real names, and mentions are common in exactly the conversations worth
-screenshotting. Message content is untouched, and content names people constantly — "thanks Sarah",
-a pasted link with a username in it, a quoted email. Server and channel names are untouched.
-Timestamps are untouched, and a timestamp plus a public channel is often enough to find the
-original.
+Message *prose* is untouched, and prose names people constantly — "thanks Sarah", a pasted link
+with a username in it, a quoted email. Only the structured `mention` nodes are rewritten; a name
+someone typed out is still a name. Server and channel names are untouched. Timestamps are
+untouched, and a timestamp plus a public channel is often enough to find the original.
 
 Redaction is purely local and purely visual: nothing is stripped from the message data, so anything
 reading the underlying model rather than the rendered row still sees everything.

@@ -6,7 +6,7 @@ import {
 	noteSkippedRowTypeWithAuthor,
 } from "../lib/diagnostics"
 import { redactMessage } from "../lib/rowSchema"
-import { isEnabled, settings } from "../lib/state"
+import { currentUserId, isEnabled, settings } from "../lib/state"
 import { ensureChatManagerPatched } from "./chatManager"
 import { ensureDmHeaderPatched } from "./dmHeader"
 
@@ -157,6 +157,7 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 						avatars: redactAvatars,
 						badges: redactBadges,
 						self: redactSelf,
+						selfId: currentUserId(),
 					})
 
 					if (changed) count("rowsRedacted")

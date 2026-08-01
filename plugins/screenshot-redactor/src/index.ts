@@ -2,7 +2,8 @@ import { DEFAULTS } from "./defaults"
 import { resetAliases } from "./lib/alias"
 import { resetChatRows } from "./lib/chatRows"
 import { resetDiagnostics } from "./lib/diagnostics"
-import { setStorage } from "./lib/state"
+import { resetCurrentUserId, setStorage } from "./lib/state"
+import patchAvatar from "./patches/avatar"
 import patchChatManager from "./patches/chatManager"
 import patchDisplayName from "./patches/displayName"
 import patchDmHeader from "./patches/dmHeader"
@@ -47,7 +48,14 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 		apply("chatManager", patchChatManager)
 		apply("rowManager", patchRowManager)
 		apply("displayName", patchDisplayName)
+		// After displayName, because `dmHeader`'s workaround is decided by whether the `getName`
+		// hook registered. It reads that at call time rather than install time, so the order is
+		// for readability rather than correctness -- but the dependency is real either way.
 		apply("dmHeader", patchDmHeader)
+		// The face beside the name. Separate from `dmHeader` on purpose: the header's name and
+		// the header's avatar are resolved by two unrelated mechanisms, and treating them as one
+		// surface is what let the avatar leak while the name next to it redacted.
+		apply("avatar", patchAvatar)
 		apply("messageActionSheet", patchMessageActionSheet)
 		apply("overlay", patchOverlay)
 
@@ -59,6 +67,7 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 			resetAliases()
 			resetChatRows()
 			resetDiagnostics()
+			resetCurrentUserId()
 		})
 	},
 	SettingsComponent: Settings,

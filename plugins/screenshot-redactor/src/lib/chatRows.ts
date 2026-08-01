@@ -37,7 +37,7 @@
 import { ChangeType, redactRows } from "./rowSchema"
 import { count, noteRefreshOutcome } from "./diagnostics"
 import { nudgeStores } from "./nudge"
-import { isEnabled, settings } from "./state"
+import { currentUserId, isEnabled, settings } from "./state"
 
 interface TagState {
 	/** `undefined` mirrors native's `rows == null`, i.e. "the next batch is a full sync". */
@@ -225,6 +225,7 @@ export function refreshChat(): string | undefined {
 					avatars: redactAvatars,
 					badges: redactBadges,
 					self: redactSelf,
+					selfId: currentUserId(),
 				})
 			}
 

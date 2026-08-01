@@ -1,42 +1,75 @@
 import { redactedName } from "../lib/alias"
-import { noteNamePatch } from "../lib/diagnostics"
+import { noteNamePatch, noteResolverSkipped } from "../lib/diagnostics"
 import { isEnabled, settings } from "../lib/state"
+import { findUserObject } from "../lib/userArgs"
 
 /**
- * Redacting names *wherever the client resolves them*, rather than per-surface.
+ * Redacting names *wherever the client resolves them* — inline `@mentions`, the member list, the
+ * profile sheet, the mention autocomplete — rather than one patch per surface.
  *
- * The DM channel header was originally filed as stage 2 on the reasoning that a channel header
- * says "#general". In a DM it says a person's name — so for the surface people are most likely
- * to screenshot, the header is the single most identifying thing on screen and the RowManager
- * hook never touches it. Chasing the header component specifically would have fixed one surface;
- * inline @mentions, the member list, the profile sheet and the mention autocomplete would each
- * have needed their own patch after it.
+ * All of those go through one module, and after five releases of guessing we now know which one
+ * by name rather than by shape.
  *
- * Discord resolves a user's display name through a shared helper — the `getName(guildId,
- * channelId, user)` family — which nearly every one of those surfaces goes through. Patching
- * that redacts all of them at once, and is a string-in/string-out data patch rather than render
- * work.
+ * ## The module is `utils/UserUtils.tsx`
  *
- * Whether this build exposes such a module under a name we can find is UNVERIFIED. The candidate
- * list below is a guess; `Diagnostics` in settings reports which candidates actually matched, so
- * one device round-trip settles it.
+ * Read out of the shipped Hermes bundle (porting rule 5), not probed for. Its factory ends with a
+ * `fileFinishedImporting('utils/UserUtils.tsx')` followed by the export assignments:
+ *
+ * ```
+ * PutById exports, 'nameFromUser'      PutById exports, 'getUserTag'
+ * PutById exports, 'getName'           PutById exports, 'useUserTag'
+ * PutById exports, 'useName'           PutById exports, 'getGlobalName'
+ * PutById exports, 'getFormattedName'
+ * ```
+ *
+ * Two things follow, and between them they explain why 0.3.0–0.18.5 hooked exactly one resolver:
+ *
+ * 1. **There is one module that matters and it has a stable name.** `withProps('getName')`
+ *    matches 26 modules on device because `getName` is an unremarkable export name; 25 of them
+ *    are unrelated, and on most of those it isn't even a function. Filtering by property name was
+ *    always going to be a lottery.
+ * 2. **`getNickname` is not in it.** It never was — it is a Flux store method, which is what
+ *    `patches/dmHeader.ts` exists to handle. The old candidate list mixed the two families
+ *    together and reported "resolver not found" for something that was never a module export.
+ *
+ * ## Why `getModuleWithImportedPath` and not `getModules`
+ *
+ * `revenge.discord.utils.finders.getModuleWithImportedPath` looks the module up in the import
+ * tracker's `Map<path, id>` and, failing that, subscribes to `fileFinishedImporting`. No filter,
+ * no result cache, no `max`, and it unsubscribes itself once the path resolves — imported paths
+ * are unique, so there is nothing to disambiguate.
+ *
+ * That last point is the actual fix. `getModules(filter, cb, { max: 25 })` shares one `max`
+ * counter between its lookup half and its wait half: the lookup runs first over every
+ * already-initialized module and decrements `max` per match, and the counter it then hands to
+ * `waitForModules` is whatever is left — zero, if 25 unrelated modules matched first.
+ * `withProps('getName')` matches 26. So the subscription that was meant to catch
+ * `utils/UserUtils.tsx` when the chat screen initialized it had already been spent on modules
+ * whose `getName` isn't a function, and the callback returned silently on each. That is the
+ * "`getModules` and `lookupModules` do not agree" entry in docs/porting-rules.md: they agree
+ * fine, the subscription just never survived the lookup.
+ *
+ * `useUserTag` only ever landed because it is a rare enough export name that the 25 slots were
+ * not exhausted before the real module turned up.
  */
 
+/** Discord's own source path for the module. Read from the bundle, not guessed. */
+const MODULE_PATH = "utils/UserUtils.tsx"
+
 /**
- * The shared user-name resolvers.
+ * The exports worth hooking.
  *
- * Not guesses any more — a Metro sweep (`lib/probe.ts`, read over `adb logcat`) found two
- * modules exporting this family, and `useName` alone was covering less than assumed:
+ * `nameFromUser` is the primitive the rest are built on, but hooking it does **not** cover them:
+ * `getName` calls it through a closure binding rather than through the exports object, so a patch
+ * on the export is invisible to it. Every resolver reached from outside the module therefore has
+ * to be hooked individually; `nameFromUser` is listed for the callers that use it directly.
  *
- *   3970: getName, useName, getGlobalName, getFormattedName, getUserTag, useUserTag
- *   4320: getNickname, getName, useName
- *
- * `getUserDisplayName`, guessed at in 0.3.0, does not exist anywhere and has been dropped.
+ * `getNickname` is deliberately absent — see the note above.
  */
-const CANDIDATES = [
+const RESOLVERS = [
 	"getName",
 	"useName",
-	"getNickname",
+	"nameFromUser",
 	"getGlobalName",
 	"getFormattedName",
 	"getUserTag",
@@ -44,68 +77,33 @@ const CANDIDATES = [
 ]
 
 /**
- * Finds the argument that looks like a user object.
+ * Whether the `getName` hook actually registered this session.
  *
- * The resolver's signature differs between call sites and builds — `getName(user)`,
- * `getName(guildId, user)`, `getName(guildId, channelId, user)` — so the user is located by
- * shape rather than by position.
+ * `patches/dmHeader.ts` reads this to decide whether its "answer even when there is no nickname"
+ * workaround is still needed. Recording the *outcome* rather than the attempt is the lesson of
+ * the last five releases: the Diagnostics page reported seven resolvers as patched throughout the
+ * period when one was.
  */
-function findUser(args: any[]): any {
-	if (!Array.isArray(args)) return undefined
-	for (const arg of args) {
-		if (arg && typeof arg === "object" && typeof arg.id === "string") {
-			if ("username" in arg || "globalName" in arg || "global_name" in arg) return arg
-		}
-	}
-	return undefined
-}
+let getNameHooked = false
 
-/** A Discord snowflake: 17–19 digits, nothing else. */
-const SNOWFLAKE = /^\d{17,19}$/
+export function isGetNameHooked(): boolean {
+	return getNameHooked
+}
 
 /**
- * `getNickname` is the one resolver in this family that takes a bare **user id string** rather
- * than a user object, and that is the whole reason the DM header stayed unredacted through six
- * attempts to fix it.
+ * Hooks one resolver on one namespace.
  *
- * Disassembling `DMChannelName` out of the shipped bundle settles what the header actually does:
- *
- * ```js
- * const name = useStateFromStores([RelationshipStore, UserStore], () => {
- *     let n = RelationshipStore.getNickname(userId)          // string argument
- *     if (n == null) n = getName(UserStore.getUser(userId))  // object argument
- *     return n ?? ""
- * }, [userId])
- * ```
- *
- * So the header *does* go through this family — attempt 2's theory was right and was abandoned
- * too early — but `findUser` returns undefined for `getNickname(userId)`, the hook bails, and the
- * real nickname goes straight through. `getName` is only reached when no nickname is set, which
- * is why the header looked like it resolved a channel rather than a user: for anyone with a
- * nickname, the resolver the plugin *could* handle was never called at all.
- *
- * Deliberately narrow. `getName(guildId, channelId, user)` also takes snowflakes, and treating
- * one of those as a user id would hand a guild an alias number and quietly corrupt the numbering.
- * The fallback therefore applies only to the exact observed call: `getNickname` with one
- * snowflake argument.
+ * `before` + `after` rather than `instead`: `after` alone can't see which user a returned string
+ * belongs to, and `instead` is rationed repo-wide (porting rule 2). These resolvers are
+ * synchronous and not re-entrant, so one slot between the two is safe.
  */
-function findUserId(key: string, args: any[]): string | undefined {
-	if (key !== "getNickname") return undefined
-	if (!Array.isArray(args) || args.length !== 1) return undefined
-	const [id] = args
-	return typeof id === "string" && SNOWFLAKE.test(id) ? id : undefined
-}
-
 function patchOne(namespace: any, key: string, label: string, cleanups: Array<() => void>) {
-	// before + after rather than `instead`, matching show-tag: `after` alone can't see which
-	// user a returned string belongs to, and `instead` is rationed repo-wide (porting rule 2).
-	// The resolver is synchronous and not re-entrant, so one slot between the two is safe.
 	let pendingUserId: string | undefined
 
 	cleanups.push(
 		revenge.patcher.before(namespace, key, (args: any[]) => {
 			try {
-				pendingUserId = findUser(args)?.id ?? findUserId(key, args)
+				pendingUserId = findUserObject(args)?.id
 			} catch {
 				pendingUserId = undefined
 			}
@@ -121,6 +119,9 @@ function patchOne(namespace: any, key: string, label: string, cleanups: Array<()
 
 			try {
 				if (!isEnabled()) return ret
+				// Every resolver in this family returns a plain string -- `getUserTag` and
+				// `useUserTag` both end in `presentUserTag`, which returns `username`,
+				// `username#0001` or `@name`. Anything else belongs to some other overload.
 				if (typeof ret !== "string" || !userId) return ret
 
 				const { style, redactSelf, redactResolvedNames } = settings()
@@ -140,84 +141,117 @@ function patchOne(namespace: any, key: string, label: string, cleanups: Array<()
 		}),
 	)
 
+	if (key === "getName") getNameHooked = true
+
 	console.log(`[ScreenshotRedactor] hooked name resolver: ${label}`)
 	noteNamePatch(label)
 }
 
-export default function patchDisplayName(): () => void {
-	const { getModules } = revenge.modules.finders
-	const { withName, withProps } = revenge.modules.finders.filters
+/**
+ * Hooks every resolver present on a namespace, trying the exports object and then `default`.
+ *
+ * The `.default` fallback stays because it is load-bearing for the prop-sweep path below
+ * (porting rule 3), even though the module reached by path exports its resolvers on the namespace
+ * directly.
+ *
+ * @returns how many hooks were installed.
+ */
+function patchNamespace(
+	mod: any,
+	where: string,
+	seen: Set<any>,
+	cleanups: Array<() => void>,
+	only?: string,
+): number {
+	let hooked = 0
 
+	for (const key of RESOLVERS) {
+		if (only && key !== only) continue
+
+		try {
+			const host = typeof mod?.[key] === "function" ? mod : mod?.default
+
+			if (typeof host?.[key] !== "function") continue
+			if (seen.has(host[key])) continue
+			seen.add(host[key])
+
+			patchOne(host, key, `${key} (${where})`, cleanups)
+			hooked++
+		} catch (error) {
+			console.error(`[ScreenshotRedactor] failed to patch ${key}:`, error)
+		}
+	}
+
+	return hooked
+}
+
+/**
+ * The fallback, for a build where the source path has moved.
+ *
+ * Split into `lookupModules` (what is initialized now) plus `waitForModules` (what initializes
+ * later) rather than `getModules`, which is those two things sharing a `max` counter the first
+ * half can exhaust — the bug described at the top of this file. Neither half is capped here, and
+ * neither can poison the finder cache: `withProps` is scoped to initialized modules, so
+ * `lookupModules` takes the `mInitialized` branch and never reaches the `cacheFilterNotFound`
+ * call, which only runs for full-scope lookups.
+ *
+ * Every miss is counted. "The callback fired and found nothing callable" and "the callback never
+ * fired" look identical from a settings page, and telling them apart is what took five releases.
+ */
+function sweepFor(key: string, seen: Set<any>, cleanups: Array<() => void>): () => void {
+	const { lookupModules, waitForModules } = revenge.modules.finders
+	const { withProps } = revenge.modules.finders.filters
+
+	const onModule = (mod: any, id: unknown) => {
+		if (patchNamespace(mod, `props, module ${String(id)}`, seen, cleanups, key) === 0) {
+			noteResolverSkipped(key)
+		}
+	}
+
+	try {
+		for (const [exports, id] of lookupModules(withProps(key))) onModule(exports, id)
+	} catch (error) {
+		console.error(`[ScreenshotRedactor] lookup sweep for ${key} failed:`, error)
+	}
+
+	try {
+		return waitForModules(withProps(key), onModule)
+	} catch (error) {
+		console.error(`[ScreenshotRedactor] wait sweep for ${key} failed:`, error)
+		return () => {}
+	}
+}
+
+export default function patchDisplayName(): () => void {
 	const cleanups: Array<() => void> = []
 	const unsubscribes: Array<() => void> = []
+	// Two paths can reach the same function. Patching it twice would install two hook pairs whose
+	// `before` halves clobber each other's pending slot, so the function itself is the key.
 	const seen = new Set<any>()
 
-	for (const candidate of CANDIDATES) {
-		// withProps finds the module that *contains* the helper (the common case — these are
-		// utility bundles, not default exports); withName finds it when it is the export itself.
+	// The module by its own source path. Self-unsubscribing, uncapped, unambiguous, and on a
+	// current build it answers synchronously.
+	try {
 		unsubscribes.push(
-			getModules(
-				withProps(candidate),
-				(mod: any, id: unknown) => {
-					try {
-						// **The resolvers live on `default`, not on the exports object.**
-						//
-						// This is what defeated six attempts at the DM header, and @mentions and
-						// the member list with it. The finder was never the problem —
-						// `withProps('getName')` returns 26 modules on device — but the callback
-						// checked `mod.getName`, found `undefined`, and dropped every one of
-						// them. A device probe shows the shape unambiguously:
-						//
-						//     1214.getName: exports=undefined default.getName=function
-						//
-						// and module 1214 carries all seven resolvers together. `useUserTag` was
-						// the sole hook that ever landed, and only because it happens to be its
-						// own module, caught by the `withName` + `returnNamespace` finder below
-						// which does look at `.default`.
-						//
-						// Both shapes are tried rather than swapping one guess for another: the
-						// exports object is still the right place for a module that isn't wrapped.
-						const host = typeof mod?.[candidate] === "function" ? mod : mod?.default
-
-						if (typeof host?.[candidate] !== "function") return
-						if (seen.has(host[candidate])) return
-						seen.add(host[candidate])
-
-						const where = host === mod ? "props" : "default.props"
-						patchOne(host, candidate, `${candidate} (${where}, module ${String(id)})`, cleanups)
-					} catch (error) {
-						console.error(`[ScreenshotRedactor] failed to patch ${candidate}:`, error)
-					}
-				},
-				// Raised from 5. `getName` is a common enough export that the five nearest
-				// matches need not include the one the group-DM title actually calls, and a
-				// resolver that is merely *not reached* looks identical to one that is broken.
-				// Patching a wide net is safe here because the `after` hook only rewrites when
-				// `before` found a user-shaped argument -- an unrelated `getName(someConfig)`
-				// passes straight through.
-				{ max: 25 },
-			),
+			revenge.discord.utils.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any, id: unknown) => {
+				if (patchNamespace(mod, `path, module ${String(id)}`, seen, cleanups) === 0) {
+					console.error(`[ScreenshotRedactor] ${MODULE_PATH} found but carries no resolver`)
+					noteResolverSkipped(MODULE_PATH)
+				}
+			}),
 		)
+	} catch (error) {
+		console.error(`[ScreenshotRedactor] imported-path lookup for ${MODULE_PATH} failed:`, error)
+	}
 
-		unsubscribes.push(
-			getModules(
-				withName(candidate),
-				(mod: any) => {
-					try {
-						if (typeof mod?.default !== "function") return
-						if (seen.has(mod.default)) return
-						seen.add(mod.default)
-						patchOne(mod, "default", `${candidate} (default)`, cleanups)
-					} catch (error) {
-						console.error(`[ScreenshotRedactor] failed to patch ${candidate} default:`, error)
-					}
-				},
-				{ max: 25, returnNamespace: true },
-			),
-		)
+	// Fallback for a build that has moved the file. `seen` makes it a no-op for anything the path
+	// already caught, so this costs a sweep and nothing else on a current build.
+	for (const key of RESOLVERS) {
+		unsubscribes.push(sweepFor(key, seen, cleanups))
 	}
 
 	return () => {
+		getNameHooked = false
 		unsubscribes.forEach(unsubscribe => {
 			try {
 				unsubscribe()

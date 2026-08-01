@@ -36,8 +36,27 @@ export interface Diagnostics {
 	skippedRowTypeWithAuthor: number
 	/** Whichever avatar keys were actually found on a row, once known. */
 	avatarKeysSeen: Set<string>
+	/**
+	 * Inline `@mentions` rewritten in message content.
+	 *
+	 * Worth its own counter because zero is ambiguous in an interesting way: it means either
+	 * "no mention has been on screen" or "mentions are not shaped the way `redactContentNodes`
+	 * expects", and those need different fixes.
+	 */
+	mentionsRedacted: number
 	/** Which display-name resolver candidates were found and patched. */
 	namePatches: Set<string>
+	/** Which avatar resolvers were found and patched — the DM header's face comes from these. */
+	avatarPatches: Set<string>
+	/**
+	 * Resolver lookups that *found a module* and then found nothing callable on it.
+	 *
+	 * The distinction this exists for: for five releases the plugin could not tell "the finder
+	 * never called us back" from "it called us back 25 times with modules that happen to export
+	 * an unrelated `getName`". Both showed up as an empty resolver list. See
+	 * `patches/displayName.ts`.
+	 */
+	resolverSkips: Map<string, number>
 	/** Which component the floating toggle managed to mount itself into. */
 	overlayHost: string | undefined
 	/** Which message action sheet the quick toggle attached to. */
@@ -82,7 +101,10 @@ const counters: Diagnostics = {
 	maxDepth: 0,
 	rowTypes: new Set(),
 	avatarKeysSeen: new Set(),
+	mentionsRedacted: 0,
 	namePatches: new Set(),
+	avatarPatches: new Set(),
+	resolverSkips: new Map(),
 	overlayHost: undefined,
 	sheetHost: undefined,
 	sheetKeysSeen: new Set(),
@@ -107,6 +129,8 @@ type CountableKey = Exclude<
 	| "rowTypes"
 	| "avatarKeysSeen"
 	| "namePatches"
+	| "avatarPatches"
+	| "resolverSkips"
 	| "overlayHost"
 	| "sheetHost"
 	| "sheetKeysSeen"
@@ -142,6 +166,15 @@ export function noteNamePatch(label: string) {
 	counters.namePatches.add(label)
 }
 
+export function noteAvatarPatch(label: string) {
+	counters.avatarPatches.add(label)
+}
+
+/** A module was handed to a resolver callback and carried nothing callable under `key`. */
+export function noteResolverSkipped(key: string) {
+	counters.resolverSkips.set(key, (counters.resolverSkips.get(key) ?? 0) + 1)
+}
+
 export function noteOverlayHost(name: string) {
 	counters.overlayHost = name
 }
@@ -171,6 +204,10 @@ export function noteRowType(rowType: unknown) {
 	counters.rowTypes.add(typeof rowType === "number" ? String(rowType) : `${typeof rowType}:${String(rowType)}`)
 }
 
+export function noteMentionRedacted() {
+	counters.mentionsRedacted++
+}
+
 export function noteAvatarKey(key: string) {
 	counters.avatarKeysSeen.add(key)
 }
@@ -185,6 +222,7 @@ export function resetDiagnostics() {
 	counters.skippedNoMessage = 0
 	counters.skippedNoAuthor = 0
 	counters.skippedSelf = 0
+	counters.mentionsRedacted = 0
 	counters.skippedRowTypeWithAuthor = 0
 	counters.maxDepth = 0
 	counters.batchesSeen = 0
@@ -195,7 +233,7 @@ export function resetDiagnostics() {
 	counters.sheetKeysSeen.clear()
 	counters.sheetTypesSeen.clear()
 	counters.injectOutcome = undefined
-	// namePatches and overlayHost deliberately survive a reset: they record what the plugin
-	// managed to hook at start, not per-surface activity, and re-reading them is the whole
-	// point of the reset-then-reproduce loop.
+	// namePatches, avatarPatches, resolverSkips and overlayHost deliberately survive a reset:
+	// they record what the plugin managed to hook at start, not per-surface activity, and
+	// re-reading them is the whole point of the reset-then-reproduce loop.
 }

@@ -56,27 +56,34 @@ const STORE_CANDIDATES = ["RelationshipStore", "UserStore", "GuildMemberStore", 
  * user.isProvisional ? user.globalName : (getNickname(user.id) ?? getName(user)) ?? "???"
  * ```
  *
- * `getName` is **not hooked, and never has been.** Device logs from 0.18.2 show the resolver
- * search matching exactly one thing — `useUserTag` — out of seven candidates tried two ways. The
- * README's "all seven are hooked" and the Diagnostics page's resolver list were both reporting an
- * assumption rather than a fact, which is why six attempts at the DM header, plus @mentions and
- * the member list, were all debugging a hook that did not exist.
+ * Through 0.18.5 `getName` was **not hooked at all**, so this returned a placeholder for the
+ * `null` case as well, purely to stop the fallback being reached. The symptom that pinned the
+ * original bug: in a group DM exactly one name redacted — the recipient *with* a friend nickname
+ * went through `getNickname` and was caught, the one without fell through to `getName` and was
+ * not.
  *
- * The symptom that pinned it: in a group DM exactly one name redacted. The recipient *with* a
- * friend nickname went through `getNickname` and was caught; the one without fell through to
- * `getName` and was not.
+ * **0.19.0 hooks `getName` properly and this still answers for `null` anyway.** Retiring the
+ * workaround was tried and reverted before it shipped, because the two are not equivalent:
  *
- * So this returns a placeholder for the `null` case too, which stops the fallback being reached
- * at all. That is a workaround, not the correct fix — the correct fix is finding why
- * `withProps('getName')` matches nothing — but it closes a live privacy leak now rather than
- * after another round of module archaeology.
+ * - This hook is *confirmed working on device*. The `getName` hook is confirmed to **register**,
+ *   which is not the same claim — `isGetNameHooked()` reports that a patch was installed, not
+ *   that the header's call site reaches it. If `DMChannelName`'s module captured `getName` in a
+ *   closure at import time rather than reading it off the namespace per call, the patch is
+ *   invisible to exactly this path and nothing would say so.
+ * - The failure modes are not symmetric. Keeping the workaround costs a cosmetic side effect;
+ *   removing it wrongly puts a real name back on the most-screenshotted surface in the app.
  *
- * **The cost is real and worth stating.** `getNickname` is not the header's private helper;
- * while redaction is armed, everything that asks whether a user has a nickname now gets "yes,
- * User 3". Surfaces that branch on a nickname existing will render as though one is set. That is
- * acceptable for a tool whose entire job is "nothing identifying is on screen", and it reverts
- * the moment redaction is switched off — but it is why this is gated on `redactResolvedNames`,
- * so it can be turned off without touching anything else.
+ * So the two overlap deliberately, and the redaction is idempotent, so overlapping is free.
+ *
+ * **The cost is real and worth stating.** `getNickname` is not the header's private helper; while
+ * redaction is armed, everything that asks whether a user has a nickname gets "yes, User 3", and
+ * surfaces that branch on a nickname existing render as though one is set. It reverts the moment
+ * redaction is switched off, and it is gated on `redactResolvedNames` so it can be turned off
+ * without touching anything else.
+ *
+ * **To retire it**, confirm on device that a DM with someone who has *no* friend nickname still
+ * redacts with this hook's `null` branch removed. That is a one-line change and a five-minute
+ * check; it is not worth guessing at.
  */
 
 /** A Discord snowflake: 17–19 digits, nothing else. */

@@ -174,10 +174,14 @@ Worth reporting upstream; not fixed as of revenge-bundle-next `0f75551`.
 
 ## 3. Module lookups
 
-- `lookupModule`/`lookupModules` are one-shot and permanently cache a miss if the target
-  module hasn't loaded yet — very possible from `preInit`, and even from `start()` for
-  chat/member-list UI modules that only initialize once their screen renders. Use `getModules`
-  (subscribes, calls back whenever a match actually loads) for anything UI-related.
+- `lookupModule`/`lookupModules` are one-shot: they see only what is initialized when they run,
+  and a chat or member-list module often isn't, even from `start()`. Pair them with
+  `waitForModules`, or use `getModules` — but read the `max` note below before reaching for
+  `getModules`.
+  A miss is cached permanently only for **full-scope** filters (`cacheFilterNotFound` sits behind
+  `if (includeAll)` in `lib/modules/src/finders/lookup.ts`). `withProps`/`withName` default to
+  `FilterScopes.Initialized` and never reach it; `withDependencies` and the keyed lazy proxies in
+  rule 1 do, which is where the poisoning in rule 1 actually comes from.
 - A hand-built filter must implement a `.scope(...)` **method**, not just a `.scopes` property.
   `getModules`/`lookupModule` call it as a function internally, and a filter missing it throws
   immediately, silently, every time.
@@ -204,26 +208,97 @@ if (typeof host?.[key] !== "function") return
 This is the most expensive bug in this repo's history. `screenshot-redactor` has claimed to hook
 seven name resolvers since 0.3.0 and hooked exactly one — the only one that happens to be its own
 module, caught by a different finder that does look at `.default`. Six attempts at the DM header,
-plus `@mentions`, the member list and profile sheets, were all debugging a hook that never
-existed. The plugin's own Diagnostics page reported the resolvers as patched throughout, because it
-recorded intent rather than outcome.
+plus the member list and profile sheets, were all debugging a hook that never existed. The
+plugin's own Diagnostics page reported the resolvers as patched throughout, because it recorded
+intent rather than outcome.
+
+(`@mentions` were on that list too, for fifteen releases, and did **not** belong on it — they are
+row data, not resolved names. See the note at the end of this rule.)
 
 **Log the outcome of a hook, not the attempt.** One `console.log` on successful registration would
 have caught this years earlier than a settings page that says "patched".
 
-### `getModules` and `lookupModules` do not agree — unresolved
+This was cause one of two. Fixing it did not make the hook install, because the *finder* was also
+wrong — see the `max` note below. Both had the same signature from the outside ("the resolver list
+is empty"), which is why the first fix looked like it had failed rather than like it had revealed
+the next layer.
 
-On the same modules, in the same session:
+### `getModules`' `max` is shared between its lookup half and its subscription half
+
+This was filed as "`getModules` and `lookupModules` do not agree — unresolved" for two releases.
+They agree fine. What was observed was:
 
 ```
-lookupModules(withProps('getName'))  -> 26 modules
-getModules(withProps('getName'), cb) -> cb never fires
+lookupModules(withProps('getName'))            -> 26 modules
+getModules(withProps('getName'), cb, {max:25}) -> the module we wanted never arrives
 ```
 
-Not understood. It matters because rule 3 above recommends `getModules` for anything UI-related,
-and for this filter that recommendation currently produces a hook that silently never installs. If
-a `getModules` subscription appears not to fire, check with `lookupModules` before assuming the
-module is absent.
+`getModules` (`lib/modules/src/finders/get.ts`) is a lookup over already-initialized modules
+followed by `waitForModules` for the rest, and **one `max` counter runs through both**:
+
+```js
+for (const [exports, id] of lookupModules(lookupFilter, options)) {
+    handleModule(exports, id)
+    if (!--max) return noop          // ← subscription never created
+}
+const unsub = waitForModules(filter, (exports, id) => { … }, options)
+```
+
+`getName` is an unremarkable export name; 26 initialized modules already had one at `start()`, so
+the lookup spent all 25 slots and returned before subscribing. The callback *did* fire, 25 times,
+on modules whose `getName` is not a function — and the plugin's callback returned silently on each,
+so from the outside it was indistinguishable from a callback that never fired.
+
+Three rules follow:
+
+- **`max` is a budget for the whole call, not a cap on the subscription.** Raising it makes this
+  more likely, not less: a bigger budget means more junk consumed before the wait is set up.
+- **Log the outcome inside the callback, not just at registration.** "Called and skipped" and
+  "never called" are the same picture otherwise. See rule 3's note above — this is the same
+  lesson one level down, and it cost the same plugin another two releases.
+- **When you need every match, use `lookupModules` + `waitForModules` yourself.** That is what
+  `getModules` does, minus the shared counter:
+
+  ```ts
+  for (const [exports, id] of lookupModules(withProps(key))) onModule(exports, id)
+  const unsub = waitForModules(withProps(key), onModule)
+  ```
+
+  Safe from rule 3's miss-caching: `withProps`/`withName` default to `FilterScopes.Initialized`,
+  and `cacheFilterNotFound` only runs on the `FilterScopes.All` branch. The permanent-miss warning
+  applies to full-scope filters (and to the keyed lazy proxies in rule 1), not to these.
+
+### Better: ask for the module by its source path
+
+`revenge.discord.utils.finders.getModuleWithImportedPath(path, cb)` — and its `lookupModuleWith…`
+and `waitForModuleWith…` siblings — resolve a module by the path Discord's own bundle records:
+
+```ts
+revenge.discord.utils.finders.getModuleWithImportedPath('utils/UserUtils.tsx', (exports, id) => { … })
+```
+
+It is a `Map<path, id>` lookup plus a `fileFinishedImporting` subscription
+(`lib/discord/src/utils/modules/finders.ts`). No filter, no result cache, no `max`, no
+`cacheFilterNotFound`, it hands back the whole namespace rather than unwrapping `default`, and it
+unsubscribes itself — imported paths are unique, so there is nothing to disambiguate.
+
+Prefer it whenever the target is a Discord source file rather than a shape. The paths are visible
+in the Hermes bundle as the argument to `fileFinishedImporting` at the end of each module factory
+(see rule 5), so finding one is the same disassembly you were going to do anyway, and the result
+is an exact name instead of a property guess. `screenshot-redactor` reaches both
+`utils/UserUtils.tsx` (every display-name resolver) and `utils/AvatarUtils.tsx` (every avatar URL)
+this way; the second closed the DM-header avatar leak that five releases of `withProps` guessing
+had not.
+
+**A working finder is not a fix.** The same plugin spent fifteen releases hooking name resolvers
+to redact inline `@mentions`, hit both bugs above on the way, fixed both — and mentions still
+showed real names, because a mention in a rendered message is row data and never calls a resolver
+at all. Getting the module was the easy half. Confirm the surface you care about actually goes
+through the thing you hooked, ideally before hooking it: one grep of the native `$$serializer` for
+the field would have settled it in a sitting.
+
+Paths move less often than module ids and much less often than export shapes, but they do move —
+keep a prop sweep behind it as a fallback, and report which one answered.
 
 ### Native modules are not reachable through `revenge.react.ReactNative`
 

@@ -1,7 +1,7 @@
 import { applyBatch, isReplaying, noteCleared } from "../lib/chatRows"
 import { count, noteChatManagerPatch } from "../lib/diagnostics"
 import { redactRows } from "../lib/rowSchema"
-import { isEnabled, settings } from "../lib/state"
+import { currentUserId, isEnabled, settings } from "../lib/state"
 
 /**
  * Redaction at the JS/native boundary.
@@ -174,6 +174,7 @@ function install(manager: any) {
 									avatars: redactAvatars,
 									badges: redactBadges,
 									self: redactSelf,
+									selfId: currentUserId(),
 								})
 
 								if (redacted > 0) count("rowsRedacted")

@@ -21,7 +21,8 @@
  */
 
 import { redactedAvatarUrl, redactedName } from "./alias"
-import { noteAvatarKey } from "./diagnostics"
+import { noteAvatarKey, noteMentionRedacted } from "./diagnostics"
+import { isSnowflake } from "./userArgs"
 import type { RedactionStyle } from "../types"
 
 /**
@@ -118,11 +119,54 @@ export const KNOWN_IDENTITY_KEYS: readonly string[] = [
 	"shouldShowRoleOnName",
 ]
 
+/**
+ * Inline `@mentions`, which are **content nodes on the row** and not resolved names.
+ *
+ * This is the correct layer for them, and finding that out took fifteen releases of patching the
+ * wrong one. `patches/displayName.ts` hooks Discord's shared name resolvers, which covers the
+ * member list, profile sheets and the autocomplete — and does nothing at all for a mention inside
+ * a message, because by the time a message reaches the screen its mentions are already text.
+ *
+ * `com/discord/chat/bridge/contentnode/UserOrRoleMentionContentNode$$serializer` names the wire
+ * shape exactly:
+ *
+ * ```
+ * PluginGeneratedSerialDescriptor("mention", …, 6)
+ *   channelId(opt)  userId(opt)  roleColor(opt)  guildId(opt)  roleId(opt)  content(required)
+ * ```
+ *
+ * and `content` is a `List<ContentNode>` — the visible `@Name` is a child `text` node
+ * (`PluginGeneratedSerialDescriptor("text", …, 1)`, one `content` string). So the name is baked
+ * into the row JSON on the JS side and then lives in Kotlin like every other row field.
+ *
+ * Two consequences:
+ *
+ * - **It redacts here or nowhere.** There is no resolver left to hook downstream of this.
+ * - **It comes free with the repaint.** Mentions are rewritten by the same pass over the same
+ *   object as the username and avatar, so they follow the toggle exactly as those do.
+ *
+ * A role mention (`roleId`, no `userId`) is left alone: it names a group, not a person, and
+ * blanking it would make the message harder to read for no privacy gain.
+ */
+const MENTION_TYPE = "mention"
+
+/** Nesting guard. A mention inside bold inside a quote is three deep; 16 is far past real. */
+const MAX_CONTENT_DEPTH = 16
+
 export interface RedactOptions {
 	style: RedactionStyle
 	avatars: boolean
 	badges: boolean
 	self: boolean
+	/**
+	 * The current user's id, for mentions.
+	 *
+	 * A message knows whether *you wrote it* (`isCurrentUserMessageAuthor`), which is all the
+	 * `self` check needed until mentions — a mention of you inside someone else's message has no
+	 * such flag, so the id has to be passed in. Resolved and memoized by the callers rather than
+	 * read from the store here, so this file stays free of `revenge.*` and stays testable.
+	 */
+	selfId?: string
 }
 
 function clear(target: any, keys: readonly string[]) {
@@ -137,6 +181,109 @@ function clear(target: any, keys: readonly string[]) {
 }
 
 /**
+ * Rewrites every user mention in a content-node tree, in place.
+ *
+ * Gated on `userId` rather than on the node's `type` string, for the same reason `redactRows`
+ * gates on `authorId` rather than on `rowType`: a discriminator can be renamed between builds and
+ * the failure would be silent, whereas "this node carries a user id" is what actually makes it
+ * identifying. The `type` check is kept as a cheap first test, with the id check as the one that
+ * decides.
+ *
+ * Idempotent: the replacement is derived from `userId`, which is left untouched, so running over
+ * an already-redacted tree produces the same tree. That matters because `patches/rowManager.ts`
+ * and `patches/chatManager.ts` both call this on the same object.
+ *
+ * @returns how many mentions were rewritten.
+ */
+/**
+ * Overwrites the visible text inside a mention's children, in place.
+ *
+ * **Rewriting rather than replacing, deliberately.** The obvious implementation is
+ * `node.content = [{ type: "text", content: name }]`, and it would be a guess in two places at
+ * once: that the discriminator property is called `type`, and that `"text"` is the value it takes
+ * on the JS object. The native `$$serializer` names those in the *wire* format, and this plugin
+ * has already shipped one wrong fix from treating the deserializer as authoritative about the JS
+ * row (see the note on `BADGE_KEYS`). A node this function did not construct cannot be a node the
+ * native side refuses to deserialize.
+ *
+ * The first text child becomes the placeholder and the rest are emptied, which handles a mention
+ * whose name was split across nodes without changing how many children there are.
+ *
+ * @returns true if anything actually changed — false when it was already redacted, which is the
+ * normal case on the second pass, since `patches/rowManager.ts` and `patches/chatManager.ts` both
+ * run over the same object.
+ */
+function rewriteText(children: any, text: string, depth = 0): boolean {
+	if (!Array.isArray(children) || depth > MAX_CONTENT_DEPTH) return false
+
+	let changed = false
+	let first = true
+
+	for (const child of children) {
+		if (!child || typeof child !== "object") continue
+
+		if (typeof child.content === "string") {
+			const replacement = first ? text : ""
+			if (child.content !== replacement) {
+				child.content = replacement
+				changed = true
+			}
+			first = false
+		} else if (Array.isArray(child.content)) {
+			// A styled mention -- bold, for instance -- keeps its text one level further down.
+			if (rewriteText(child.content, first ? text : "", depth + 1)) changed = true
+			first = false
+		}
+	}
+
+	return changed
+}
+
+export function redactContentNodes(nodes: any, options: RedactOptions, depth = 0): number {
+	if (!Array.isArray(nodes) || depth > MAX_CONTENT_DEPTH) return 0
+
+	let redacted = 0
+
+	for (const node of nodes) {
+		if (!node || typeof node !== "object") continue
+
+		const userId = node.userId
+
+		// Two ways in, because only one of them is certain. The serial name `"mention"` comes
+		// from the deserializer and is solid; that it arrives on a property called `type` is an
+		// assumption about how the polymorphic serializer writes its discriminator, and this
+		// plugin has been burned before by treating the native schema as the JS object's shape.
+		// So a node that carries a user id *and* a child list counts as a mention whatever it
+		// calls itself — while `Array.isArray(node.content)` keeps this away from the various
+		// non-content payloads that also carry a `userId` (`UserNameOnClick`, and friends),
+		// none of which have children to replace.
+		const isMention = isSnowflake(userId) && (node.type === MENTION_TYPE || Array.isArray(node.content))
+
+		if (isMention) {
+			// A mention of yourself, in someone else's message. `isCurrentUserMessageAuthor`
+			// says nothing about this case, which is why the id is passed in.
+			if (options.self || userId !== options.selfId) {
+				// Discord renders the mention text with its own leading "@".
+				if (rewriteText(node.content, `@${redactedName(userId, options.style)}`)) {
+					noteMentionRedacted()
+					redacted++
+				}
+			}
+			// Deliberately no recursion into a mention we just handled: its children are the
+			// name, and `rewriteText` has already dealt with all of them.
+			continue
+		}
+
+		// Anything else that nests -- bold, italics, block quotes, headings, list items -- can
+		// contain a mention, so the whole tree is walked rather than just the top level.
+		if (Array.isArray(node.content)) redacted += redactContentNodes(node.content, options, depth + 1)
+		if (Array.isArray(node.items)) redacted += redactContentNodes(node.items, options, depth + 1)
+	}
+
+	return redacted
+}
+
+/**
  * Rewrites one `Message` in place. Returns true if anything was changed.
  *
  * Idempotent by construction — every replacement is derived from `authorId` rather than from the
@@ -146,13 +293,30 @@ function clear(target: any, keys: readonly string[]) {
 export function redactMessage(message: any, options: RedactOptions): boolean {
 	if (!message || typeof message !== "object") return false
 
+	// Mentions and the reply preview are handled **before** either early return below, and that
+	// ordering is load-bearing. Both name someone other than the author:
+	//
+	// - a message *you wrote* can @-mention someone else, and "redact me too" being off must not
+	//   mean "and everyone you talked to"
+	// - a row with no `authorId` at all can still carry a mention
+	//
+	// The old code returned early on both and skipped them, which also meant a reply preview
+	// inside one of your own messages kept the name of the person you replied to.
+	let changed = redactContentNodes(message.content, options) > 0
+
+	// The reply preview is a whole nested Message (LoadedReferencedMessage = {state, message,
+	// systemContent}), so it redacts through exactly the same path rather than a parallel
+	// implementation that can drift. `state` 0 is LOADED; a system reference carries no author.
+	const referenced = message.referencedMessage
+	if (referenced?.message && redactMessage(referenced.message, options)) changed = true
+
 	const authorId = message.authorId
-	if (typeof authorId !== "string" || !authorId) return false
+	if (typeof authorId !== "string" || !authorId) return changed
 
 	if (!options.self) {
 		// `isCurrentUserMessageAuthor` is on the wire already (Message$$serializer), so the
 		// common case needs no store lookup at all on a path that runs per row.
-		if (message.isCurrentUserMessageAuthor === true) return false
+		if (message.isCurrentUserMessageAuthor === true) return changed
 	}
 
 	if (typeof message.username === "string") {
@@ -174,12 +338,6 @@ export function redactMessage(message: any, options: RedactOptions): boolean {
 	}
 
 	if (options.badges) clear(message, BADGE_KEYS)
-
-	// The reply preview is a whole nested Message (LoadedReferencedMessage = {state, message,
-	// systemContent}), so it redacts through exactly the same path rather than a parallel
-	// implementation that can drift. `state` 0 is LOADED; a system reference carries no author.
-	const referenced = message.referencedMessage
-	if (referenced?.message) redactMessage(referenced.message, options)
 
 	return true
 }

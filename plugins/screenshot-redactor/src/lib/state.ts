@@ -36,6 +36,38 @@ export function isEnabled(): boolean {
 }
 
 /**
+ * The current user's id, memoized.
+ *
+ * Needed by the mention pass in `lib/rowSchema.ts`: a message carries
+ * `isCurrentUserMessageAuthor` for its author, but a mention of *you* inside someone else's
+ * message has no equivalent flag, so "redact me too = off" needs the id itself.
+ *
+ * Memoized because this runs once per content node on the chat render path, and the answer
+ * cannot change without the app restarting. `undefined` is not cached — the store may not be
+ * ready the first time a row is generated, and caching a miss would mean your own name gets
+ * redacted for the rest of the session.
+ */
+let cachedSelfId: string | undefined
+
+export function currentUserId(): string | undefined {
+	if (cachedSelfId) return cachedSelfId
+
+	try {
+		const { UserStore } = revenge.discord.flux.Stores as any
+		const id = UserStore?.getCurrentUser?.()?.id
+		if (typeof id === "string" && id) cachedSelfId = id
+	} catch {
+		/* store not ready; ask again next row */
+	}
+
+	return cachedSelfId
+}
+
+export function resetCurrentUserId() {
+	cachedSelfId = undefined
+}
+
+/**
  * Called when the master toggle flips. Clearing on the *off* edge as well as the on edge means
  * the mapping never outlives the screenshot session it was built for.
  */

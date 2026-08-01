@@ -2,6 +2,7 @@ import { DEFAULTS } from "../defaults"
 import { findInReactTree } from "../lib/findInReactTree"
 import { noteInjectOutcome, noteSheetKey, noteSheetPatch, noteSheetType } from "../lib/diagnostics"
 import { refreshChat } from "../lib/chatRows"
+import { RELOAD_NOTICE } from "../lib/notices"
 import { getStorage, onEnabledChanged, settings } from "../lib/state"
 
 /**
@@ -150,7 +151,10 @@ function buildToggleRow() {
 
 			revenge.discord.actions.ToastActionCreators.open({
 				key: "ScreenshotRedactorToast",
-				content: next ? "Names hidden." : "Names shown.",
+				// Shorter than the settings toast -- this one fires with the sheet closing and a
+				// screenshot about to be taken -- but the caveat still has to be on this path.
+				// See `lib/notices.ts` for why one sentence lives in one place.
+				content: next ? "Names hidden." : `Names shown. ${RELOAD_NOTICE}`,
 			})
 		} catch (error) {
 			console.error("[ScreenshotRedactor] sheet toggle failed:", error)

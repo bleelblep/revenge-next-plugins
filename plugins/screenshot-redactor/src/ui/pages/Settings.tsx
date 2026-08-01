@@ -3,6 +3,7 @@ import { aliasCount, resetAliases } from "../../lib/alias"
 import { diagnostics, resetDiagnostics } from "../../lib/diagnostics"
 import { onEnabledChanged } from "../../lib/state"
 import { mirroredRowCount, mirroredTagCount, refreshChat } from "../../lib/chatRows"
+import { RELOAD_NOTICE_LONG, toggleToast } from "../../lib/notices"
 import { probeNameModules } from "../../lib/probe"
 import type { RedactionStyle, ScreenshotRedactorStorage } from "../../types"
 
@@ -51,9 +52,21 @@ function diagnosticsSummary(): string {
 		d.namePatches.size
 			? `Name resolvers patched: ${[...d.namePatches].join(", ")}.`
 			: "No name resolver found — @mentions and the member list can't be redacted.",
-		d.namePatches.has("getNickname (props)") || d.namePatches.has("getNickname (default)")
-			? "DM header: getNickname hooked — the header resolves through it, so check it visually."
-			: "DM header: LEAK — getNickname was never hooked, and that is what the header asks first.",
+		// Inline mentions are row content, not resolved names, so the resolver list above says
+		// nothing about them. This counter is the only thing that does. Zero after scrolling past
+		// a message containing an @mention means the content nodes aren't the shape we expect.
+		`${d.mentionsRedacted} inline @mention${d.mentionsRedacted === 1 ? "" : "s"} redacted in message content.`,
+		d.avatarPatches.size
+			? `Avatar resolvers patched: ${[...d.avatarPatches].join(", ")}.`
+			: "DM header avatar: LEAK — no avatar resolver found, so the face beside the name is real.",
+		[...d.namePatches].some(label => label.includes("getNickname"))
+			? "DM header name: getNickname hooked — the header asks it first."
+			: "DM header name: LEAK — getNickname was never hooked, and that is what the header asks first.",
+		d.resolverSkips.size
+			? `Modules matched but carried nothing callable: ${[...d.resolverSkips]
+					.map(([key, n]) => `${key} ×${n}`)
+					.join(", ")}.`
+			: "",
 		d.sheetHost ? `Sheet module patched: ${d.sheetHost}.` : "Sheet module not patched yet.",
 		d.injectOutcome ? `Row insertion: ${d.injectOutcome}.` : "Row insertion not attempted yet.",
 		d.sheetKeysSeen.size
@@ -100,16 +113,7 @@ export default function Settings({
 		api.jsonStorage.set({ enabled })
 		onEnabledChanged(enabled)
 
-		const repainted = refreshChat()
-		showToast(
-			repainted
-				? enabled
-					? "Redaction on."
-					: "Redaction off."
-				: enabled
-					? "Redaction on — reopen the channel if names are still showing."
-					: "Redaction off — reopen the channel to restore names.",
-		)
+		showToast(toggleToast(enabled, refreshChat()))
 	}
 
 	return (
@@ -123,9 +127,10 @@ export default function Settings({
 						onValueChange={setEnabled}
 					/>
 					<TableRow
-						label="⚠️ Check the DM header before sharing"
-						subLabel="The name at the top of a DM should now be redacted too — that's new and unconfirmed, so look at it rather than trusting it. Group DMs use a different header and are still not covered."
+						label="⚠️ Message text is never touched"
+						subLabel="Inline @mentions, the DM header and its avatar are all covered. A name someone typed out in a message is not — nor are server names, channel names or timestamps."
 					/>
+					<TableRow label="Leftovers after switching off" subLabel={RELOAD_NOTICE_LONG} />
 				</TableRowGroup>
 
 				<TableRadioGroup
@@ -144,7 +149,7 @@ export default function Settings({
 				<TableRowGroup title="What gets covered">
 					<TableSwitchRow
 						label="Names everywhere, not just messages"
-						subLabel="Also covers inline @mentions, the member list and the DM header. Group-DM headers use a different component and are still not covered."
+						subLabel="Also covers inline @mentions, the member list, profile sheets and the DM header — including the header avatar, which is resolved separately from the name beside it."
 						value={!!settings.redactResolvedNames}
 						onValueChange={redactResolvedNames => {
 							api.jsonStorage.set({ redactResolvedNames })
@@ -153,7 +158,7 @@ export default function Settings({
 					/>
 					<TableSwitchRow
 						label="Replace avatars"
-						subLabel="Swaps in Discord's default avatars and drops avatar decorations and role icons."
+						subLabel="Swaps in Discord's default avatars and drops avatar decorations and role icons. Avatars outside the message list follow the switch above."
 						value={!!settings.redactAvatars}
 						onValueChange={redactAvatars => {
 							api.jsonStorage.set({ redactAvatars })

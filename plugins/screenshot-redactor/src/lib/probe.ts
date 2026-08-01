@@ -96,6 +96,23 @@ export function probeNameModules(): string {
 
 	log(`probe: ${initialized} initialized of ${scanned} scanned, ${hits.length} candidates, ${exact.length} exact`)
 
+	// The decisive question since 0.19.0, and the cheapest line in this file: are the two modules
+	// the plugin actually targets reachable by their own source path? If these report an id, the
+	// prop sweeps below are noise — they exist only for a build that has moved the files.
+	for (const path of ["utils/UserUtils.tsx", "utils/AvatarUtils.tsx"]) {
+		try {
+			const { lookupModuleWithImportedPath } = revenge.discord.utils.finders
+			const [exports, id] = lookupModuleWithImportedPath(path)
+			log(
+				id === undefined
+					? `probe PATH ${path} -> not imported yet`
+					: `probe PATH ${path} -> module ${id}, keys=${exports ? Object.keys(exports).length : 0}`,
+			)
+		} catch (error) {
+			log(`probe PATH ${path} -> threw: ${String(error)}`)
+		}
+	}
+
 	// The decisive list: every module carrying a resolver this plugin tries to hook.
 	log(`probe EXACT (${exact.length}) — modules exporting a wanted resolver:`)
 	for (const line of exact) log(`  exact ${line}`)
