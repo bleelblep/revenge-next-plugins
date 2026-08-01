@@ -1,26 +1,21 @@
 # revenge-next-plugins
 
 Plugins for [Revenge Next](https://github.com/revenge-mod/revenge-bundle-next), built for my own
-personal use. Mostly ports of existing Vendetta / classic-Revenge plugins, several by way of my
-earlier classic port in [bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins).
-Credit is given wherever it could be traced: every ported plugin carries a `NOTICE.md` naming the
-original author and licence.
+personal use. A mix of my own plugins and ports of existing Vendetta / classic-Revenge ones,
+several by way of my earlier classic port in
+[bleelblep/revengeplugins](https://github.com/bleelblep/revengeplugins). Credit is given wherever
+it could be traced: every ported plugin carries a `NOTICE.md` naming the original author and
+licence.
 
-Seven plugins: three of my own, four ports.
+Eight plugins: four of mine, four ports.
 
 ## Install
 
 Add this as a plugin repository in Revenge Next:
 
 ```
-https://bleelblep.github.io/revenge-next-plugins/index.json
+https://bleelblep.github.io/revenge-next-plugins/
 ```
-
-> ⚠️ **Show Tag's original license could not be determined.** Its upstream repository and site
-> are both gone, and the mirrored build carries no license header — see
-> [`plugins/show-tag/NOTICE.md`](./plugins/show-tag/NOTICE.md). It ships here regardless. If
-> you're Cynosphere, or you know the original terms, please open an issue and I'll relicense or
-> remove it.
 
 ## Plugins
 
@@ -28,22 +23,22 @@ https://bleelblep.github.io/revenge-next-plugins/index.json
 
 | Plugin | Licence | What it does |
 | --- | --- | --- |
-| **Screenshot Redactor** 🧪 | CC0-1.0 | Replaces every author with a stable placeholder — "User 1", "User 2" — swaps avatars for Discord's defaults, so a conversation can be screenshotted without doxxing anyone. Long-press any message to arm it. ⚠️ **The DM header and server-tag badge are not redacted** — see [its README](./plugins/screenshot-redactor/README.md). |
-| **Anti Ghost Ping** 🆕 | CC0-1.0 | Catches messages that pinged you and were then deleted — who, where, and what they said. ⚠️ **This is a message logger**, see below. |
+| **Screenshot Redactor** 🧪 | CC0-1.0 | Replaces every author with a stable placeholder — "User 1", "User 2" — and swaps avatars for Discord's defaults, so a conversation can be screenshotted without doxxing anyone. Long-press any message to arm it. **Inline `@mentions` are not redacted** — see [its README](./plugins/screenshot-redactor/README.md). |
+| **Anti Ghost Ping** 🆕 | CC0-1.0 | Catches messages that pinged you and were then deleted — who, where, and what they said. **This is a message logger**, see below. |
 | **Relationship Notifier** 🆕 | CC0-1.0 | Tells you when someone removes you as a friend, when you leave a server, or when a group DM closes. Discord hides all three. Stores names only, no message content. |
 | **Hide Servers (Drawer Fix)** | CC0-1.0 | Locally hide servers or whole folders, without the scroll-jump bug. The replacement bar mirrors stock: folders, real server icons, unread DMs. Settings: per-server and per-folder toggles, instant apply, static icons, DM avatar on Home (off by default). With blerp. One GPL-3.0 file, and design debts to kmmiio99o's ServerDrawer — see [`NOTICE.md`](./plugins/hide-servers-drawer/NOTICE.md). |
 
-🧪 Screenshot Redactor redacts message authors, avatars and reply previews on device, confirmed,
-and the long-press toggle works. **Two things it does not redact:** the DM/group-DM header
-(attempted six ways, abandoned) and the server-tag badge beside usernames (attempted once, broke
-the client, reverted). Both are called out in the plugin's own settings page, and its README
-records what was tried and where to pick each up. Crop the header before sharing.
+🧪 **Screenshot Redactor is usable but incomplete.** Message authors, avatars, reply previews, the
+DM and group-DM headers, and the server-tag badge all redact on device, confirmed. Two gaps
+remain: inline `@mentions` still show real names, and arming redaction needs a channel switch to
+repaint messages already on screen. Both have identified causes and are recorded in the plugin's
+README and settings page.
 
-🆕 Both are new and **lightly tested**. Anti Ghost Ping has been verified end to end, but only
-with its own self-ping test toggle — a genuine ghost ping from someone else hasn't been observed
-yet. Relationship Notifier has been built and typechecked but not run at all: each of its three
-events reads a payload shape I inferred rather than confirmed, so any one of them could be wrong
-independently of the others.
+🆕 **These two are new, and tested to very different degrees.** Anti Ghost Ping works end to end,
+but only against its own self-ping test toggle — a real ghost ping from someone else has never
+been observed. Relationship Notifier has never been run at all: it builds and typechecks, and
+that is the extent of it. Each of its three events reads a payload shape I inferred rather than
+confirmed, so any one of them could be wrong independently of the others.
 
 > ### ⚠️ Anti Ghost Ping is a message logger
 >
@@ -67,6 +62,11 @@ has a `NOTICE.md` in its directory naming the original author and terms.
 | **Show Tag** | [Cynosphere](https://github.com/Cynosphere) | [Unlicense](./plugins/show-tag/NOTICE.md) | Username — or the full `name#0000` tag on legacy accounts — in the message header and reply previews. Settings: only show usernames. |
 | **Hide Call Buttons** | John ([janisslsm](https://github.com/janisslsm)) | [BSD-3-Clause](./plugins/hide-call-buttons/NOTICE.md) | Hides call and video buttons in DMs, user profiles and voice channels. Settings: five per-surface toggles. |
 
+Show Tag's licence was unresolved for a while — upstream's repository and site are both gone, and
+the mirrored build carries no licence header. It is now settled as the **Unlicense**, recovered
+from a surviving clone whose history shows the licence in Cynosphere's own initial commit. The
+evidence is written up in [its `NOTICE.md`](./plugins/show-tag/NOTICE.md).
+
 ### Notes
 
 Every settings page was broken repo-wide until the module-scope bug in
@@ -74,6 +74,14 @@ Every settings page was broken repo-wide until the module-scope bug in
 settings API itself was never at fault. Hide Servers additionally bootlooped the app until the
 same rule was applied across it; the specific killer was almost certainly `React.memo()` at module
 scope, which throws inside `optionsFactory()` and fails the plugin before `start()` ever runs.
+
+**Module exports usually live on `default`.** `withProps('getName')` matches a module and then
+`mod.getName` is `undefined`, because the function is at `mod.default.getName`. Screenshot Redactor
+claimed to hook seven name resolvers from 0.3.0 onward and hooked exactly one; six attempts at its
+DM header, plus `@mentions` and the member list, were all debugging a hook that never existed. The
+plugin's diagnostics reported the resolvers as patched throughout, because they recorded intent
+rather than outcome — log what a hook *did*, not that you tried it. See
+[porting rule 3](./docs/porting-rules.md#3-module-lookups).
 
 **Show Tag, Custom Timestamps and Screenshot Redactor all patch `RowManager.prototype.generate`.**
 The first two are confirmed to coexist, and only because Show Tag deliberately avoids `instead` —
@@ -83,7 +91,7 @@ Custom Timestamps owns the one permitted `instead` on this method, and the other
 
 Screenshot Redactor and Show Tag additionally *fight over the same field* — one overwrites
 `generated.username`, the other appends the real handle to it — so the after-chain order decides
-which wins. That ordering is unverified; see the plugin's own README.
+which wins. That ordering is still unverified; see the plugin's own README.
 
 **Staff Tags 1.2.2 fixed every permission-based tag disappearing.** `getTag.ts` read
 `revenge.discord.common.Constants.Permissions`, which does not exist, behind a `?.` and a `?? {}`
@@ -108,8 +116,9 @@ the key. See [porting rule 6](./docs/porting-rules.md#6-jsonstorageset-merges-an
 ## Documentation
 
 - **[Porting rules](./docs/porting-rules.md)** — read before writing or debugging plugin code.
-  Module-scope hazards, patcher hook contracts, module lookups, APIs that don't exist. Every
-  rule cost an on-device crash to find.
+  Module-scope hazards, patcher hook contracts, module lookups, APIs that don't exist, and how to
+  read the shipped APK instead of guessing. Every rule cost an on-device crash or a wasted release
+  to find.
 - **[Known issues](./docs/known-issues.md)** — environment and build-level problems that plugin
   code can't fix, plus when to clear the module cache.
 
@@ -143,8 +152,19 @@ directly, and rebuilds on change. `devtools.mjs` is the same debug-websocket bri
 its output streams into your terminal. Running both is much faster than exporting a crash log
 per attempt.
 
+`adb logcat -s ReactNativeJS:V` is the other half of that loop, and often the faster one — see
+[porting rule 5](./docs/porting-rules.md#5-read-the-app-instead-of-guessing) for the traps
+(clear the buffer first, filter by tag rather than grepping for your prefix, and log one line per
+call).
+
 `ws` isn't a listed dependency (`npm i ws --no-save` / `pnpm add ws --no-save` first) so the CI
 lockfile stays in sync, since it's only needed for that local script.
+
+### Local-only plugins
+
+Some plugins in `plugins/` are deliberately not published. `build.mjs` still picks them up for
+local `dist/` builds and `serve.mjs`, but CI builds from a clean checkout so they never reach
+gh-pages or `index.json`. See [`.gitignore`](./.gitignore) for which and why.
 
 ### Build output
 
@@ -161,9 +181,9 @@ plugin's directory before copying anything out of it:
 
 | Plugin | License |
 | --- | --- |
-| Anti Ghost Ping, Relationship Notifier | CC0-1.0 |
+| Screenshot Redactor, Anti Ghost Ping, Relationship Notifier | CC0-1.0 |
+| Hide Servers (Drawer Fix) | CC0-1.0, **except** `src/patches/createElementIntercept.ts` (GPL-3.0) |
 | Staff Tags | CC0-1.0 (Fiery, シグマ siguma) |
 | Custom Timestamps | Unlicense (Fiery) |
-| Hide Servers (Drawer Fix) | CC0-1.0, **except** `src/patches/createElementIntercept.ts` (GPL-3.0) |
-| Hide Call Buttons | BSD-3-Clause |
 | Show Tag | Unlicense (Cynosphere) — upstream is gone, licence recovered from a clone; see its `NOTICE.md` |
+| Hide Call Buttons | BSD-3-Clause |
