@@ -6,7 +6,14 @@ import patchSortedGuilds, { refresh } from "./patches/sortedGuilds"
 import Settings from "./ui/pages/Settings"
 
 export interface HideServersDrawerStorage {
-	hidden?: Record<string, true>
+	/**
+	 * `true` for a hidden id; an explicit `false` is a tombstone marking a previously-hidden id
+	 * as no longer hidden. `jsonStorage.set()` merges rather than replaces, so removing an id
+	 * from this object entirely is silently a no-op -- an id that's merely absent from a write
+	 * is indistinguishable from one nobody touched, and the stale `true` would keep coming back
+	 * from storage. See the long comment on `persist()` in `lib/hidden.ts`.
+	 */
+	hidden?: Record<string, boolean>
 	instant?: boolean
 	staticIcons?: boolean
 	/**
