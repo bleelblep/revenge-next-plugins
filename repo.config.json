@@ -1,10 +1,5 @@
 {
 	"name": "Bleelblep's Revenge Next Plugins",
 	"description": "Revenge Next ports of bleelblep/revengeplugins, built from this repository.",
-	"channels": {
-		"bleelblep.screenshot-redactor": {
-			"latest": "0.19.1",
-			"beta": "0.25.2-beta1"
-		}
-	}
+	"channels": {}
 }

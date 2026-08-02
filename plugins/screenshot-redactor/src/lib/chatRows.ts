@@ -37,6 +37,7 @@
 import { ChangeType, redactRows } from "./rowSchema"
 import { count, noteRefreshOutcome } from "./diagnostics"
 import { nudgeStores } from "./nudge"
+import { rerenderViaFlux } from "./rerender"
 import { currentUserId, isEnabled, settings } from "./state"
 
 interface TagState {
@@ -184,10 +185,17 @@ export function refreshChat(): string | undefined {
 	// list. Done first and unconditionally: it is independent of whether any chat is mirrored.
 	const nudged = nudgeStores()
 
+	// On builds where the native chat module is unreachable (this one), asking Discord to
+	// regenerate the open channel's rows through its own pipeline is the only repaint path.
+	// Each cached message gets a MESSAGE_UPDATE dispatch; MessageStore re-emits and the row
+	// regenerates through RowManager.generate (our hook redacts or restores it per toggle).
+	const fluxOutcome = rerenderViaFlux()
+
 	const manager = chatManager()
 	if (typeof manager?.updateRows !== "function" || typeof manager?.clearRows !== "function") {
-		noteRefreshOutcome("DCDChatManager unavailable")
-		return undefined
+		const outcome = `DCDChatManager unavailable; ${fluxOutcome}`
+		noteRefreshOutcome(outcome)
+		return outcome
 	}
 
 	const enabled = isEnabled()
@@ -251,16 +259,16 @@ export function refreshChat(): string | undefined {
 	const nudgeNote = nudged.length ? `, nudged ${nudged.length} stores` : ", no store nudged"
 
 	if (repainted === 0) {
-		noteRefreshOutcome(
+		const outcome =
 			(untrusted > 0
-				? `${untrusted} list${untrusted === 1 ? "" : "s"} mirrored only partially — reopen the channel`
-				: "nothing mirrored yet") + nudgeNote,
-		)
-		return undefined
+				? `${untrusted} list${untrusted === 1 ? "" : "s"} mirrored only partially`
+				: "nothing mirrored yet") + `${nudgeNote}; ${fluxOutcome}`
+		noteRefreshOutcome(outcome)
+		return outcome
 	}
 
 	count("repaints")
-	const outcome = `repainted ${repainted} chat list${repainted === 1 ? "" : "s"}${nudgeNote}`
+	const outcome = `repainted ${repainted} chat list${repainted === 1 ? "" : "s"}${nudgeNote}; ${fluxOutcome}`
 	noteRefreshOutcome(outcome)
 	return outcome
 }

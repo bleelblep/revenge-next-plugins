@@ -9,8 +9,9 @@ export function setStorage(handle: RevengeJsonStorageApi<ScreenshotRedactorStora
 }
 
 /**
- * The overlay toggle is mounted by a patch rather than by the settings navigator, so it never
- * receives the plugin `api` object and reads the handle from here instead.
+ * The message-sheet toggle row and the sub-screen pages are rendered outside the plugin's
+ * settings component, so they never receive the plugin `api` object and read the handle from
+ * here instead.
  */
 export function getStorage() {
 	return storage
