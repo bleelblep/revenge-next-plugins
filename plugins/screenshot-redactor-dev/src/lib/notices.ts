@@ -1,10 +1,9 @@
 /**
  * The user-facing wording about stale placeholders, in one place.
  *
- * Three surfaces can flip the toggle — the settings switch, the message long-press row and the
- * floating button — and the two that toast had their own hand-written copy. That is exactly how a
- * caveat ends up stated on one path and quietly missing from the other. (The floating button
- * doesn't toast at all: it is a visual toggle whose whole point is not being in the screenshot.)
+ * Two surfaces can flip the toggle — the settings switch and the message long-press row — and
+ * they once had their own hand-written copy. That is exactly how a caveat ends up stated on one
+ * path and quietly missing from the other.
  *
  * Plain strings, no `revenge.*`, so module scope is safe.
  */

@@ -57,8 +57,6 @@ export interface Diagnostics {
 	 * `patches/displayName.ts`.
 	 */
 	resolverSkips: Map<string, number>
-	/** Which component the floating toggle managed to mount itself into. */
-	overlayHost: string | undefined
 	/** Which message action sheet the quick toggle attached to. */
 	sheetHost: string | undefined
 	/**
@@ -105,7 +103,6 @@ const counters: Diagnostics = {
 	namePatches: new Set(),
 	avatarPatches: new Set(),
 	resolverSkips: new Map(),
-	overlayHost: undefined,
 	sheetHost: undefined,
 	sheetKeysSeen: new Set(),
 	injectOutcome: undefined,
@@ -131,7 +128,6 @@ type CountableKey = Exclude<
 	| "namePatches"
 	| "avatarPatches"
 	| "resolverSkips"
-	| "overlayHost"
 	| "sheetHost"
 	| "sheetKeysSeen"
 	| "injectOutcome"
@@ -173,10 +169,6 @@ export function noteAvatarPatch(label: string) {
 /** A module was handed to a resolver callback and carried nothing callable under `key`. */
 export function noteResolverSkipped(key: string) {
 	counters.resolverSkips.set(key, (counters.resolverSkips.get(key) ?? 0) + 1)
-}
-
-export function noteOverlayHost(name: string) {
-	counters.overlayHost = name
 }
 
 export function noteSheetPatch(name: string) {
@@ -233,7 +225,7 @@ export function resetDiagnostics() {
 	counters.sheetKeysSeen.clear()
 	counters.sheetTypesSeen.clear()
 	counters.injectOutcome = undefined
-	// namePatches, avatarPatches, resolverSkips and overlayHost deliberately survive a reset:
+	// namePatches, avatarPatches and resolverSkips deliberately survive a reset:
 	// they record what the plugin managed to hook at start, not per-surface activity, and
 	// re-reading them is the whole point of the reset-then-reproduce loop.
 }

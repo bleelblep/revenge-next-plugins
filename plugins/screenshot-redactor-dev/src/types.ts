@@ -36,11 +36,6 @@ export interface ScreenshotRedactorStorage {
 	 */
 	showSheetToggle: boolean
 	/**
-	 * Show a floating toggle over the chat instead. Off by default — it sits in the corner of
-	 * every screenshot, which is the one place this plugin's control shouldn't be.
-	 */
-	showOverlayToggle: boolean
-	/**
 	 * Redact names wherever the client resolves them — the DM channel header, inline
 	 * @mentions, the member list — not just message rows.
 	 */

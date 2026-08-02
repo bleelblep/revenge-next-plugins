@@ -44,6 +44,11 @@ function findChatManager(): any {
 		() => (revenge.react.ReactNative as any)?.NativeModules?.DCDChatManager,
 		() => (globalThis as any)?.nativeModuleProxy?.DCDChatManager,
 		() => (globalThis as any)?.__turboModuleProxy?.("DCDChatManager"),
+		// Newer builds expose the chat module through the codegen TurboModule registry
+		// (`rtn-codegen/js/NativeChatModule.tsx`) rather than `NativeModules`. `get`
+		// returns null for a missing module; `getEnforcing` throws -- both are handled.
+		() => (revenge.react.ReactNative as any)?.TurboModuleRegistry?.get?.("DCDChatManager"),
+		() => (revenge.react.ReactNative as any)?.TurboModuleRegistry?.getEnforcing?.("DCDChatManager"),
 	]
 
 	for (const get of candidates) {

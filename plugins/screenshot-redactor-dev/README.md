@@ -8,11 +8,11 @@ in a reply preview, and thirty messages further up. A screenshot of an argument 
 thread is only worth sharing if you can still tell who said what, so blanking everyone identically
 is offered but is not the default.
 
-**Status: working, with one missing convenience.** Message authors, avatars, reply previews,
-inline `@mentions`, the DM header name and avatar, group-DM headers and the server-tag badge all
-redact on device, confirmed. Arming redaction still needs a channel switch to repaint messages
-already on screen, and switching it *off* can leave placeholders behind until Discord is reloaded
-— see below.
+**Status: working, with refresh limitations.** Message authors, avatars, reply previews, inline
+`@mentions`, the DM header name and avatar, group-DM headers and the server-tag badge redact on
+device. Group-DM headers require a channel refresh or switch before the redacted names appear.
+Arming redaction can also require a channel switch to repaint messages already on screen, and
+switching it *off* can leave placeholders behind until Discord is reloaded — see below.
 
 ## How it works
 
@@ -34,7 +34,7 @@ Covered and confirmed on device:
 
 - message author display names, avatars and avatar decorations
 - reply-preview names and avatars ("replying to X")
-- the DM header and group-DM headers
+- the DM header; group-DM headers are covered after a channel refresh or switch
 - the server-tag badge, behind an off-by-default switch
 - system messages and join notices — redaction gates on a row carrying an `authorId` rather than
   on its row type, so a row that names someone is covered whatever type it arrives under
