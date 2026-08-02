@@ -8,7 +8,7 @@
 			"description": "Catches messages that pinged you and were then deleted. Stores their text locally, so it is a message logger — see the warning in its settings.",
 			"author": "bleelblep",
 			"channels": {
-				"latest": "1.3.0"
+				"latest": "1.4.0"
 			},
 			"versions": {
 				"1.3.0": {
@@ -18,6 +18,19 @@
 					"dependencies": {
 						"revenge.api": {
 							"version": ">=1"
+						},
+						"discord": {
+							"version": "*"
+						}
+					}
+				},
+				"1.4.0": {
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.anti-ghost-ping-1.4.0.zip",
+					"sha256": "48afdb78fc1705fb12b63a00a999ac221d56c524c54a3082d8225a519a731bbb",
+					"size": 4305,
+					"dependencies": {
+						"revenge.api": {
+							"version": ">=1 <2"
 						},
 						"discord": {
 							"version": "*"
@@ -48,12 +61,35 @@
 					}
 				},
 				"1.2.0": {
-					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.custom-timestamps.zip",
-					"sha256": "d19534df3a332cd9a7c24157ed5abc7f2d220cc528e12b56b3a8c752c5224596",
-					"size": 2746,
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.custom-timestamps-1.2.0.zip",
+					"sha256": "082b11925cfead19b5259b2615639046b379bf4e705a587e2e3fd44f001d633e",
+					"size": 2749,
 					"dependencies": {
 						"revenge.api": {
-							"version": ">=1"
+							"version": ">=1 <2"
+						},
+						"discord": {
+							"version": "*"
+						}
+					}
+				}
+			}
+		},
+		"bleelblep.ghost-log": {
+			"name": "Ghost Log",
+			"description": "Logs deleted messages and optionally keeps them visible in chat. Stores message text locally — see the warning in its settings.",
+			"author": "bleelblep",
+			"channels": {
+				"latest": "1.1.8"
+			},
+			"versions": {
+				"1.1.8": {
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.ghost-log-1.1.8.zip",
+					"sha256": "12e96ea84be51c391c47fafd4d1dfd93c6491093c19d5bf0c68dfb5193980024",
+					"size": 6005,
+					"dependencies": {
+						"revenge.api": {
+							"version": ">=1 <2"
 						},
 						"discord": {
 							"version": "*"
@@ -84,12 +120,12 @@
 					}
 				},
 				"1.2.0": {
-					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.hide-call-buttons.zip",
-					"sha256": "25852a18538398b61b28bcdcad788665d65105054664759be78ed1dbced96c85",
-					"size": 1964,
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.hide-call-buttons-1.2.0.zip",
+					"sha256": "c3771209aae15b9775709f4aa98c0c220a7ed07ca436717a1f65a9d2c80c9db6",
+					"size": 1968,
 					"dependencies": {
 						"revenge.api": {
-							"version": ">=1"
+							"version": ">=1 <2"
 						},
 						"discord": {
 							"version": "*"
@@ -99,12 +135,12 @@
 			}
 		},
 		"bleelblep.hide-servers-drawer": {
-			"name": "Hide Servers (Drawer Fix)",
-			"description": "Locally hide servers — or entire folders — from your server list, without the scroll-jump bug. Custom bar mirrors stock: your folders, real server icons, unread DMs.",
+			"name": "Hide Servers",
+			"description": "Locally hide servers — or entire folders — from your server list. The stock bar does the hiding itself, so folders, unread badges and drag-to-reorder all behave exactly as stock.",
 			"author": "bleelblep, blerp",
 			"icon": "EyeSlashIcon",
 			"channels": {
-				"latest": "1.3.3"
+				"latest": "1.6.0"
 			},
 			"versions": {
 				"1.0.0": {
@@ -158,6 +194,19 @@
 							"version": "*"
 						}
 					}
+				},
+				"1.6.0": {
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.hide-servers-drawer-1.6.0.zip",
+					"sha256": "0b225c156c7e9c087e6237dbe13b6ca66a6fa9aba16515caf9ce4416a1e75a69",
+					"size": 13269,
+					"dependencies": {
+						"revenge.api": {
+							"version": ">=1 <2"
+						},
+						"discord": {
+							"version": "*"
+						}
+					}
 				}
 			}
 		},
@@ -166,7 +215,7 @@
 			"description": "Tells you when someone removes you as a friend, when you lose a mutual server, or when a group DM closes. Discord does none of these silently on purpose.",
 			"author": "bleelblep",
 			"channels": {
-				"latest": "1.0.1"
+				"latest": "1.1.0"
 			},
 			"versions": {
 				"1.0.1": {
@@ -181,6 +230,19 @@
 							"version": "*"
 						}
 					}
+				},
+				"1.1.0": {
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.relationship-notifier-1.1.0.zip",
+					"sha256": "5969c9c6e70aef21dba790b5c9aa0aebc9168b38d3131c19e0f476116ef22f3b",
+					"size": 3678,
+					"dependencies": {
+						"revenge.api": {
+							"version": ">=1 <2"
+						},
+						"discord": {
+							"version": "*"
+						}
+					}
 				}
 			}
 		},
@@ -190,7 +252,8 @@
 			"author": "bleelblep",
 			"icon": "EyeSlashIcon",
 			"channels": {
-				"latest": "0.19.1"
+				"latest": "0.19.1",
+				"beta": "0.25.2-beta1"
 			},
 			"versions": {
 				"0.17.1": {
@@ -220,12 +283,25 @@
 					}
 				},
 				"0.19.1": {
-					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.screenshot-redactor.zip",
-					"sha256": "5ab9b52cf136a202b9d530c9783a3521bb78adca962cbb19a15196c2129efca5",
-					"size": 11368,
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.screenshot-redactor-0.19.1.zip",
+					"sha256": "574d376a6320a885ac095fca8e98cb15485fa1c71c88a5d9f4c6cc76678bbdca",
+					"size": 11371,
 					"dependencies": {
 						"revenge.api": {
-							"version": ">=1"
+							"version": ">=1 <2"
+						},
+						"discord": {
+							"version": "*"
+						}
+					}
+				},
+				"0.25.2-beta1": {
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.screenshot-redactor-0.25.2-beta1.zip",
+					"sha256": "db121afa1dbe33443c3b8497b22143ff1db428c5c3e5381b764d084474aac819",
+					"size": 12207,
+					"dependencies": {
+						"revenge.api": {
+							"version": ">=1 <2"
 						},
 						"discord": {
 							"version": "*"
@@ -256,12 +332,12 @@
 					}
 				},
 				"1.2.0": {
-					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.show-tag.zip",
-					"sha256": "ad314fd117b265929e423a11d171481678269cd9d4bdbad30fb827fafee12e3b",
-					"size": 1533,
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.show-tag-1.2.0.zip",
+					"sha256": "46d6466b92c7fa0d60c0fa44ea23825e3345e4c4de9728b08e5135a32ec99ec8",
+					"size": 1535,
 					"dependencies": {
 						"revenge.api": {
-							"version": ">=1"
+							"version": ">=1 <2"
 						},
 						"discord": {
 							"version": "*"
@@ -305,12 +381,12 @@
 					}
 				},
 				"1.2.2": {
-					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.staff-tags.zip",
-					"sha256": "8ce9ed52f42359803b8c8ebef10c17efa58153a0692dd54e2272a43272090394",
-					"size": 3433,
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.staff-tags-1.2.2.zip",
+					"sha256": "cf4936981e8c8c54cec1a5e06a487870bc98bcd6b60372aef209872226dcd822",
+					"size": 3436,
 					"dependencies": {
 						"revenge.api": {
-							"version": ">=1"
+							"version": ">=1 <2"
 						},
 						"discord": {
 							"version": "*"
