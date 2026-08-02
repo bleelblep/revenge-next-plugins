@@ -59,27 +59,6 @@ function filterIds(ids: unknown): unknown {
 	return ids.filter(id => typeof id !== "string" || (!isHidden(id) && !hiddenInFolders.has(id)))
 }
 
-function filterFolders(folders: unknown): unknown {
-	if (!Array.isArray(folders)) return folders
-
-	return folders
-		// Whole folder hidden: drop it outright, guildIds included.
-		.filter(folder => !(folder?.folderId != null && isFolderHidden(folder.folderId)))
-		.map(folder => {
-			if (!folder || !Array.isArray(folder.guildIds)) return folder
-
-			const guildIds = folder.guildIds.filter((id: string) => !isHidden(id))
-			if (guildIds.length === folder.guildIds.length) return folder
-
-			const next = clone(folder)
-			next.guildIds = guildIds
-			return next
-		})
-		// Drop folders that are now empty, but keep real (named) folders so the user's
-		// organisation survives round-tripping.
-		.filter(folder => !folder || !Array.isArray(folder.guildIds) || folder.guildIds.length > 0 || folder.folderId)
-}
-
 // getGuildsTree() returns:
 //   { root: { type: "root", children: [...] },
 //     nodes: { [id]: { type: "guild" | "folder", id, children: [...] } },
@@ -138,10 +117,135 @@ function filterTree(tree: any): any {
 	return out
 }
 
+/**
+ * Tolerant filter for the flat list shapes the newer store methods return. Confirmed
+ * on-device (1.4.1 probe) to exist and be unpatched while the stock bar kept showing hidden
+ * servers: the bar does not read getGuildsTree, it reads these.
+ *
+ * Entry shapes are inferred, not confirmed, so this accepts several: bare string ids,
+ * tree-ish nodes ({type, id} -- folder ids are numbers, guild ids strings), and folder-ish
+ * rows ({folderId, guildIds}). Emptied folders are dropped outright -- unlike the tree's
+ * `nodes` map, flat lists carry no dangling parentId references, so the emptied-folder shell
+ * that filterChildren has to keep would just be an empty row here.
+ */
+/**
+ * Recursive core of filterGeneric: one pass over a list of bar entries, dropping hidden
+ * guilds/folders and cleaning hidden ids out of any guildIds/children arrays an entry
+ * carries.
+ *
+ * Folders that end up empty are deliberately KEPT as shells, same as filterChildren's
+ * policy for the tree: dropping them crashed consumers (dangling references in the tree,
+ * and on-device in 1.4.3 an emptied-drop keyed on `children: []` wiped every guild entry
+ * that merely carried an empty children array -- the whole bar rendered empty and the app
+ * died on the next stock render). An empty folder renders as an empty folder; that's the
+ * user's cue to hide the folder itself.
+ */
+function filterListEntries(entries: any[]): any[] {
+	const hiddenInFolders = hiddenFolderGuildIds()
+	const guildGone = (id: unknown) => typeof id === "string" && (isHidden(id) || hiddenInFolders.has(id))
+	const folderGone = (id: unknown) => id != null && isFolderHidden(id as any)
+
+	const out: any[] = []
+	for (const entry of entries) {
+		if (typeof entry === "string") {
+			if (!guildGone(entry)) out.push(entry)
+			continue
+		}
+		if (!entry || typeof entry !== "object") {
+			out.push(entry)
+			continue
+		}
+
+		if (folderGone(entry.folderId)) continue
+		if (entry.type === "folder" && folderGone(entry.id)) continue
+		if (entry.type === "guild" && guildGone(String(entry.id))) continue
+		if (entry.type == null) {
+			// No type tag: string id = guild, number id = folder (folder ids are numbers).
+			if (typeof entry.id === "string" && guildGone(entry.id)) continue
+			if (entry.id != null && entry.guildIds == null && entry.children == null && folderGone(entry.id)) continue
+		}
+
+		let next = entry
+		if (Array.isArray(entry.guildIds)) {
+			const kept = entry.guildIds.filter((id: string) => !guildGone(id))
+			if (kept.length !== entry.guildIds.length) {
+				next = clone(entry)
+				next.guildIds = kept
+			}
+		}
+		if (Array.isArray(entry.children)) {
+			const kept = filterListEntries(entry.children)
+			if (kept.length !== entry.children.length) {
+				if (next === entry) next = clone(entry)
+				next.children = kept
+			}
+		}
+
+		out.push(next)
+	}
+	return out
+}
+
+function filterGeneric(value: unknown): unknown {
+	if (!Array.isArray(value)) return value
+	return filterListEntries(value as any[])
+}
+
+/**
+ * A single folder object (getGuildFolderById): filter its contents in place (on a clone),
+ * never dropping the folder itself regardless of how empty it ends up -- callers
+ * dereference the result. If every server inside ends up hidden the folder renders empty;
+ * that's the user's cue to hide the folder instead.
+ */
+function filterSingleFolder(value: unknown): unknown {
+	if (!value || typeof value !== "object") return value
+	const entry = value as any
+	if (!Array.isArray(entry.guildIds) && !Array.isArray(entry.children)) return value
+
+	const hiddenInFolders = hiddenFolderGuildIds()
+	const guildGone = (id: unknown) => typeof id === "string" && (isHidden(id) || hiddenInFolders.has(id))
+
+	let next = entry
+	if (Array.isArray(entry.guildIds)) {
+		const kept = entry.guildIds.filter((id: string) => !guildGone(id))
+		if (kept.length !== entry.guildIds.length) {
+			next = clone(entry)
+			next.guildIds = kept
+		}
+	}
+	if (Array.isArray(entry.children)) {
+		const kept = filterListEntries(entry.children)
+		if (kept.length !== entry.children.length) {
+			if (next === entry) next = clone(entry)
+			next.children = kept
+		}
+	}
+	return next
+}
+
+// `getGuildFolders` and `getCompatibleGuildFolders` are deliberately NOT patched. They were
+// until 1.5.1, and that was the cause of "reordering servers scrambles the order account-wide":
+// neither getter feeds the bar's render path (useGuildsBarProps reads getFastListGuildFolders
+// + getGuildsTree only), but BOTH feed Discord's *persist* path. On drop, performMove dispatches
+// GUILD_MOVE_BY_ID (id-based, mutates the store's complete internal tree -- safe), then
+// persistAndAnnounce snapshots getCompatibleGuildFolders() and hands it to saveGuildFolders,
+// which writes it into the synced user-settings proto ("guildFolders") via
+// PreloadedUserSettingsActionCreators.updateAsync. updateFolder (rename/recolor) does the same
+// through getGuildFolders().map(...). With those getters filtered, the persisted snapshot was
+// missing every hidden guild/folder, so hidden servers fell out of the proto's ordering and
+// were re-inserted as unsorted on every client -- desktop and web included.
+// (All traced by disassembly of Discord 337.10; see patches/saveGuildFolders.ts, which adds a
+// guard on the saveGuildFolders choke point itself.)
 const TARGETS: Array<[string, (value: unknown) => unknown]> = [
 	["getFlattenedGuildIds", filterIds],
-	["getGuildFolders", filterFolders],
 	["getGuildsTree", filterTree],
+	// Confirmed present on-device (1.4.1 store probe) -- these are what the stock bar
+	// actually reads (337.10 disassembly: useGuildsBarProps' selector), which is why
+	// filtering only getGuildsTree changed nothing in the bar.
+	["getFastListGuildFolders", filterGeneric],
+	["getFlattenedGuildFolderList", filterGeneric],
+	// What an expanded folder row resolves its own contents through.
+	["getGuildFolderById", filterSingleFolder],
 	// Present on some builds; patched only if they exist.
 	["getFlattenedGuilds", filterIds],
 	["getGuildIds", filterIds],

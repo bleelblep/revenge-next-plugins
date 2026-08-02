@@ -112,20 +112,20 @@ export function hiddenFolderIds(): string[] {
 }
 
 /**
- * Suppress hidden servers in the bar by swapping in the non-virtualized bar.
+ * Whether to swap the stock bar for the legacy custom bar while anything is hidden.
  *
- * On by default, because it is the only thing that actually hides anything -- filtering
- * SortedGuildStore alone has no visible effect on the real bar. The cost is that a hidden
- * row stays in the virtualized list's geometry, leaving a gap and jumping the scroll
- * position when a server is tapped. Turn it off to get an untouched bar and no hiding.
+ * OFF by default since 1.5: the SortedGuildStore filter hides servers in the untouched
+ * stock bar (1.4 confirmed the bar reads getFastListGuildFolders/getFlattenedGuildFolderList,
+ * which are patched), so the custom bar is only a fallback for a future Discord build that
+ * breaks that filtering. Before 1.5 this defaulted to true -- filtering alone used to have
+ * no visible effect on the bar, so swapping was the only thing that hid anything.
  */
 export function instant(): boolean {
 	load()
 	try {
-		if (js?.cache?.instant === undefined) js?.set({ instant: true })
-		return js?.cache?.instant ?? true
+		return js?.cache?.instant ?? false
 	} catch {
-		return true
+		return false
 	}
 }
 

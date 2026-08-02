@@ -473,3 +473,35 @@ falls back to that plugin's exported `DEFAULTS`.
 Some surfaces are legitimately untyped and need `as any` — Discord's own Flux store methods
 (`Stores.GuildStore.getGuild`), and finder results where `returnNamespace` isn't inferred. Cast at
 the destructure point, not at each use.
+
+## 8. A filtered store getter can feed Discord's *write* path, not just rendering
+
+Hide Servers corrupted the account's server order account-wide (desktop and web included)
+without ever writing to a Discord store. The mechanism, traced through the 337.10 bundle
+with hermes-dec (rule 5):
+
+- Drag-to-reorder ends in `performMove` → `GuildActionCreators.moveById(sourceId, targetId, …)`
+  → `GUILD_MOVE_BY_ID` → `SortedGuildStore.handleMoveById`, which resolves both ids against
+  the store's **internal** tree (`tree.getNode`) and calls `moveNextTo`/`convertToFolder`/
+  `moveInto`. Id-based, on complete data — an `after` filter on the public getters never
+  touches this. The optimistic reorder itself was never the problem.
+- The persist that follows is: `persistAndAnnounce()` →
+  `saveGuildFolders(SortedGuildStore.getCompatibleGuildFolders())` →
+  `PreloadedUserSettingsActionCreators.updateAsync("guildFolders", …)`. The plugin filtered
+  `getCompatibleGuildFolders`, so the snapshot that got persisted was missing every hidden
+  guild and folder. `guildFolders` is authoritative for folder membership *and* order, so
+  hidden servers fell out of the proto and were re-inserted as unsorted everywhere.
+  `updateFolder` (folder rename/recolor) does the same via `getGuildFolders().map(...)`.
+
+So before patching a store getter, map **all** its consumers — a getter whose result flows
+into a persist action must stay stock. For the guild bar specifically, the render path reads
+`getFastListGuildFolders`/`getFlattenedGuildFolderList`/`getGuildsTree` (safe to filter);
+the persist path reads `getCompatibleGuildFolders`/`getGuildFolders` (never filter those two).
+
+If a persist choke point is a single exported function, it can be guarded directly: the
+plugin now also `before`-hooks `saveGuildFolders`
+(`plugins/hide-servers-drawer/src/patches/saveGuildFolders.ts`) and splices hidden entries
+back into the outgoing array, so an incomplete order can never reach the wire even if a
+future build reroutes a persist caller through a filtered getter. Bail out (return the
+original args) whenever anything *non-hidden* is missing from the payload — a deliberately
+partial caller is not yours to repair.

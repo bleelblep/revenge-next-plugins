@@ -1,6 +1,19 @@
 {
+	"format": 1,
+	"id": "bleelblep.anti-ghost-ping",
 	"name": "Anti Ghost Ping",
 	"description": "Catches messages that pinged you and were then deleted. Stores their text locally, so it is a message logger — see the warning in its settings.",
 	"author": "bleelblep",
-	"version": "1.3.0"
+	"version": "1.4.0",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
 }

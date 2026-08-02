@@ -1,8 +1,11 @@
 import { init as initHidden } from "./lib/hidden"
 import { initPrefs } from "./lib/prefs"
+import { armDump, onDumpDone, probeDmNavigation, probeSortedGuildStore } from "./lib/probe"
 import { patchCreateElement } from "./patches/createElementIntercept"
 import patchGuildsBar from "./patches/guildsBar"
+import patchSaveGuildFolders from "./patches/saveGuildFolders"
 import patchSortedGuilds, { refresh } from "./patches/sortedGuilds"
+import { registerPages } from "./ui/routes"
 import Settings from "./ui/pages/Settings"
 
 export interface HideServersDrawerStorage {
@@ -16,6 +19,13 @@ export interface HideServersDrawerStorage {
 	hidden?: Record<string, boolean>
 	instant?: boolean
 	staticIcons?: boolean
+	/**
+	 * Dev-only crash-guard for the auto-probe: persisted before arming a stock-bar dump,
+	 * cleared when the dump fires. If a launch finds this set, the armed stock render never
+	 * completed -- the stock bar almost certainly took the app down -- so the probe is
+	 * skipped that session instead of bootlooping.
+	 */
+	probeArmed?: boolean
 	/**
 	 * Show the most recent DM's avatar on the Home button instead of a static icon.
 	 *
@@ -53,12 +63,65 @@ export default plugin<{ jsonStorage: HideServersDrawerStorage }>({
 			console.error("[HideServersDrawer] failed to apply createElement intercept:", error)
 		}
 
-		// Two layers: the store filter keeps derived data consistent (used by the custom bar
-		// and by anything else that reads SortedGuildStore), and the guildsBar patch is what
-		// actually swaps in the non-virtualized bar when something is hidden.
+		// The Servers/Legacy/Debug settings sub-screens are their own navigator routes,
+		// leaving the root page as a short index -- same split as screenshot-redactor-dev.
+		try {
+			cleanup(registerPages())
+		} catch (error) {
+			console.error("[HideServersDrawer] failed to register settings pages:", error)
+		}
+
+		// Two layers: the store filter keeps derived data consistent (and is what hides
+		// servers in the untouched stock bar), and the guildsBar patch swaps in the legacy
+		// non-virtualized bar when the user has opted into it. The store filter only ever
+		// wraps RENDER-path getters -- the two getters Discord's order-persist path reads
+		// are deliberately left unpatched (see the TARGETS comment in sortedGuilds.ts) --
+		// and the saveGuildFolders guard is the checkgate that keeps it that way even if a
+		// future Discord build reroutes a persist caller through a filtered getter.
 		apply("sortedGuilds", patchSortedGuilds)
+		apply("saveGuildFolders", patchSaveGuildFolders)
 		apply("guildsBar", patchGuildsBar)
 		refresh()
+
+		// Dev auto-probe: a few seconds after start, dump the navigation actions and the
+		// store's method list, then arm a one-shot stock-bar render + tree dump -- so a
+		// device round needs no settings navigation at all. Crash-guard: `probeArmed` is
+		// persisted before arming and cleared by onDumpDone when the dump fires; a launch
+		// that finds it set means the armed stock render never completed (it took the app
+		// down), so the probe skips itself instead of bootlooping.
+		onDumpDone(() => {
+			try {
+				jsonStorage.set?.({ probeArmed: false })
+			} catch {
+				/* ignore */
+			}
+		})
+
+		const autoProbe = setTimeout(() => {
+			;(async () => {
+				try {
+					const state = (await jsonStorage.get?.()) as HideServersDrawerStorage | undefined
+					if (state?.probeArmed) {
+						console.log(
+							"[HideServersDrawer] auto-probe SKIPPED: crash-guard tripped -- the armed stock render never finished, so the stock bar likely crashed. Clearing the guard; unhide everything before probing again.",
+						)
+						await jsonStorage.set?.({ probeArmed: false })
+						return
+					}
+
+					console.log("[HideServersDrawer] auto-probe begin")
+					probeDmNavigation()
+					probeSortedGuildStore()
+					await jsonStorage.set?.({ probeArmed: true })
+					armDump()
+					refresh()
+					console.log("[HideServersDrawer] auto-probe armed -- stock bar dumps on next render")
+				} catch (error) {
+					console.error("[HideServersDrawer] auto-probe failed:", error)
+				}
+			})()
+		}, 6000)
+		cleanup(() => clearTimeout(autoProbe))
 
 		cleanup(() => refresh())
 	},

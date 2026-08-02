@@ -1,5 +1,7 @@
 import { DEFAULTS } from "../../defaults"
 import { getStorage } from "../../lib/state"
+import { rowIcon } from "../icon"
+import { useBottomPadding } from "../safeArea"
 import type { EventKind, RelationshipEvent, RelationshipNotifierStorage } from "../../types"
 import Avatar from "../components/Avatar"
 
@@ -32,11 +34,13 @@ export default function Log() {
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const entries = s.log ?? []
+	// Hook-based, so called unconditionally above either return branch.
+	const bottomPadding = useBottomPadding()
 
 	if (!entries.length) {
 		return (
 			<Page>
-				<ScrollView>
+				<ScrollView contentContainerStyle={{ paddingBottom: bottomPadding }}>
 					<TableRowGroup title="Nothing yet">
 						<TableRow
 							label="No changes recorded"
@@ -57,7 +61,7 @@ export default function Log() {
 
 	return (
 		<Page>
-			<ScrollView>
+			<ScrollView contentContainerStyle={{ paddingBottom: bottomPadding }}>
 				<Stack spacing={24}>
 					{grouped.map(([kind, items]) => (
 						<TableRowGroup key={kind} title={`${HEADING[kind]} (${items.length})`}>
@@ -79,10 +83,11 @@ export default function Log() {
 						</TableRowGroup>
 					))}
 
-					<TableRowGroup title="Manage">
+					<TableRowGroup title="Manage" hasIcons>
 						<TableRow
 							label="Clear history"
 							subLabel={`Removes all ${entries.length} entries.`}
+							icon={rowIcon("TrashIcon", "ic_trash")}
 							onPress={() => storage?.set({ log: [] } as Partial<RelationshipNotifierStorage>)}
 						/>
 					</TableRowGroup>

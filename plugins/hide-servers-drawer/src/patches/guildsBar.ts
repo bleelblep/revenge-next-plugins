@@ -1,4 +1,5 @@
 import { isEmpty, instant } from "../lib/hidden"
+import { consumeDumpArmed, dumpElementTree, dumpIncomingProps, noteBranch, notifyDumpDone, stockBar } from "../lib/probe"
 import CustomGuildsBar from "../ui/components/CustomGuildsBar"
 import { registerIntercept, unregisterIntercept } from "./createElementIntercept"
 
@@ -63,12 +64,32 @@ export default function patchGuildsBar(): () => void {
 		try {
 			patches.push(
 				revenge.patcher.instead(bar, "type", (args: any[], callOriginal: any) => {
-					if (isEmpty() || !instant()) {
+					// Dev probes (lib/probe.ts): stockBar() leaves the stock bar alone even
+					// while servers are hidden, and an armed dump renders stock once while
+					// capturing its props and element tree.
+					const dump = consumeDumpArmed()
+					const useStock = isEmpty() || !instant() || stockBar() || dump
+					noteBranch(dump ? "dump" : useStock ? `stock (empty=${isEmpty()} instant=${instant()} probe=${stockBar()})` : "custom")
+					if (useStock) {
 						// Confirmed on-device crash elsewhere (staff-tags): "undefined is not
 						// a function" when a captured original wasn't actually a function yet
 						// at patch time. Never assume it's callable.
 						if (typeof callOriginal !== "function") return null
-						return callOriginal.apply(bar, args)
+						const out = callOriginal.apply(bar, args)
+						if (dump) {
+							try {
+								dumpIncomingProps(args?.[0])
+							} catch {
+								/* ignore */
+							}
+							try {
+								dumpElementTree(out)
+							} catch {
+								/* ignore */
+							}
+							notifyDumpDone()
+						}
+						return out
 					}
 					return revenge.react.React.createElement(CustomGuildsBar, null)
 				}),
@@ -83,7 +104,7 @@ export default function patchGuildsBar(): () => void {
 		if (typeof original === "function") {
 			try {
 				const fallback = (props: any) =>
-					isEmpty() || !instant()
+					isEmpty() || !instant() || stockBar()
 						? revenge.react.React.createElement(original, props)
 						: revenge.react.React.createElement(CustomGuildsBar, null)
 

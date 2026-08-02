@@ -1,212 +1,105 @@
-import { clearHidden, hiddenFolderIds, hiddenIds, instant, isFolderHidden, isHidden, setFolderHidden, setHidden, setInstant } from "../../lib/hidden"
-import { dmAvatarHome, setDmAvatarHome, setStaticIcons, staticIcons } from "../../lib/prefs"
-import { canReload, reloadDiscord } from "../../lib/reload"
-import { refresh, store, unfiltered } from "../../patches/sortedGuilds"
-import GuildIcon from "../components/GuildIcon"
-import { textMuted, textNormal } from "../theme"
+import { hiddenFolderIds, hiddenIds } from "../../lib/hidden"
+import { rowIcon } from "../icon"
+import { useBottomPadding } from "../safeArea"
+import { DEBUG_ROUTE, SERVERS_ROUTE } from "../routes"
+import type { HideServersDrawerStorage } from "../../index"
 
-// Flux stores are looked up by name directly through the Stores proxy, not a module finder
-// filter -- there is no `withStoreName` under modules.finders.filters. Read per call, never at
-// module scope: `revenge.discord.design.Design` in particular is a lazy proxy whose miss is
-// cached against a key shared with Revenge's own settings UI, which took out the entire
-// Settings screen. See docs/porting-rules.md rule 1.
-const guildStore = (): any => (revenge.discord.flux.Stores as any).GuildStore
-
-type Guild = { id: string; name: string; icon?: string }
-type Group = { title: string; guilds: Guild[]; folderId?: string | number }
-
-function guildById(id: string): Guild | undefined {
-	try {
-		const guild = guildStore()?.getGuild?.(id)
-		if (guild) return { id: guild.id, name: guild.name ?? "Unnamed", icon: guild.icon }
-	} catch {
-		/* fall through */
-	}
-	return undefined
+// Same ToastActionCreators pattern as GuildRow/FolderRow -- revenge.utils.toast.show
+// doesn't exist.
+function showToast(content: string) {
+	revenge.discord.actions.ToastActionCreators.open({ key: "HideServersDrawerToast", content })
 }
 
 /**
- * Build the list in the same order the server bar shows it, folders included.
+ * The root page, on the shared base layout (see ghost-log): what the plugin does as a
+ * notice card first, then the Servers toggles (the point of the plugin) in a group of
+ * their own, then the Advanced index, and the Reload escape hatch last. The server list
+ * itself, the legacy custom bar and the debug probes each live on their own route --
+ * inline, the list swamped everything else on the page.
  *
- * Read through `unfiltered` so hidden servers still appear here -- otherwise hiding one
- * would remove it from this page and there would be no way to bring it back.
+ * The notice is a plain secondary card rather than the yellow warning card ghost-log and
+ * anti-ghost-ping use: hiding servers is local and harmless, so it gets information
+ * styling, not warning styling.
  */
-function groups(): Group[] {
-	const out: Group[] = []
-	let loose: Guild[] = []
-
-	const flush = () => {
-		if (loose.length) {
-			out.push({ title: "Servers", guilds: loose })
-			loose = []
-		}
-	}
-
-	let children: any[] | undefined
-	try {
-		children = unfiltered(() => store()?.getGuildsTree?.())?.root?.children
-	} catch {
-		/* fall back below */
-	}
-
-	if (Array.isArray(children)) {
-		for (const node of children) {
-			if (node?.type === "folder") {
-				const guilds = (node.children ?? [])
-					.map((child: any) => guildById(String(child?.id)))
-					.filter(Boolean) as Guild[]
-
-				if (!guilds.length) continue
-
-				flush()
-				out.push({ title: node.name || "Folder", guilds, folderId: node.id })
-			} else if (node?.id != null) {
-				const guild = guildById(String(node.id))
-				if (guild) loose.push(guild)
-			}
-		}
-
-		flush()
-		if (out.length) return out
-	}
-
-	// Fallback: the tree was unavailable, so list everything alphabetically.
-	let all: Record<string, any> = {}
-	try {
-		all = guildStore()?.getGuilds?.() ?? {}
-	} catch {
-		/* none */
-	}
-
-	const guilds = Object.values(all)
-		.filter((g: any) => g?.id)
-		.map((g: any) => ({ id: g.id, name: g.name ?? "Unnamed", icon: g.icon }))
-		.sort((a: Guild, b: Guild) => a.name.localeCompare(b.name))
-
-	return guilds.length ? [{ title: "Servers", guilds }] : []
-}
-
-export default function Settings() {
+export default function Settings({
+	api,
+}: {
+	api: RevengePluginStartApi<HideServersDrawerStorage>
+}) {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
-	const { React } = revenge.react
-	const { Alert, ScrollView, Text, View } = revenge.react.ReactNative
-	const { TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
+	const { ScrollView, View } = revenge.react.ReactNative
+	const { Stack, Text, Card, TableRowGroup, TableRow } = revenge.discord.design.Design
+	const { useNavigation } = revenge.externals.ReactNavigation.ReactNavigationNative
 
-	// The switches are controlled by isHidden(), so the page has to re-render itself after a
-	// toggle or the switch springs straight back to its old position.
-	const [, bump] = React.useReducer((n: number) => n + 1, 0)
+	const navigation = useNavigation() as { navigate: (route: string) => void }
 
-	const list = groups()
-	const hidden = hiddenIds()
-	const hiddenFolders = hiddenFolderIds()
-	const hiddenCount = hidden.length + hiddenFolders.length
+	// Subscribed for the re-render, not the value: hiddenIds()/hiddenFolderIds() below stay
+	// current as toggles flip on the Servers page and persist() writes through.
+	api.jsonStorage.use()
 
-	// Native Alert.alert, not a JS confirmation dialog -- a real OS dialog never touches
-	// Discord's own React tree, so it can't be affected if that dialog API is broken/missing.
-	const confirmReload = () =>
-		Alert.alert("Reload Discord?", "Discord will close and reopen. Anything unsent will be lost.", [
-			{ text: "Cancel", style: "cancel" },
-			{ text: "Reload", style: "destructive", onPress: () => reloadDiscord() },
-		])
+	const servers = hiddenIds().length
+	const folders = hiddenFolderIds().length
+	const hiddenCount = servers + folders
 
 	return (
 		<Page>
-			<ScrollView>
-				<View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
-					<Text style={{ color: textMuted(), fontSize: 12, lineHeight: 16 }}>
-						Hiding is local to this device and never leaves Discord. While anything is hidden, the server bar
-						is replaced with a plain rebuilt version so there's no empty gap and no scroll jump -- the
-						trade-off is that drag-to-reorder isn't available in that state. Turn off "Hide servers in the
-						bar" (or unhide everything) to get the untouched native bar back, reorder included.
-					</Text>
-				</View>
+			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
+				<Stack spacing={24}>
+					{/* Direct Stack child with no wrapper -- Page already pads horizontally by 16. */}
+					<Card variant="secondary">
+						<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+							<Text variant="text-md/semibold" style={{ textAlign: "center" }}>
+								Hiding is local to this device
+							</Text>
+							<Text color="text-muted" variant="text-sm/normal" style={{ marginTop: 8 }}>
+								Nobody else sees any of this. The stock server bar does the hiding itself, so
+								folders, unread badges and drag-to-reorder all behave exactly as stock.
+							</Text>
+						</View>
+					</Card>
 
-				<TableRowGroup title="Display">
-					<TableSwitchRow
-						label="Disable animated server icons"
-						subLabel="Show the still frame of animated (GIF) server icons instead."
-						value={staticIcons()}
-						onValueChange={(v: boolean) => {
-							setStaticIcons(v)
-							refresh()
-							bump()
-						}}
-					/>
-					<TableSwitchRow
-						label="Recent DM avatar on Home"
-						subLabel="Show the most recent DM's avatar on the Home button instead of the stock icon. Off by default — this used to be forced on, which is not what stock does."
-						value={dmAvatarHome()}
-						onValueChange={(v: boolean) => {
-							setDmAvatarHome(v)
-							refresh()
-							bump()
-						}}
-					/>
-				</TableRowGroup>
+					<TableRowGroup hasIcons>
+						<TableRow
+							label="Servers"
+							subLabel={
+								hiddenCount
+									? `${servers} server${servers === 1 ? "" : "s"}, ${folders} folder${folders === 1 ? "" : "s"} hidden`
+									: "Per-server and per-folder toggles — nothing hidden"
+							}
+							icon={rowIcon("FolderIcon", "ServerIcon", "ic_folder")}
+							arrow
+							onPress={() => navigation.navigate(SERVERS_ROUTE)}
+						/>
+					</TableRowGroup>
 
-				{hiddenCount > 0 || canReload() ? (
-					<TableRowGroup title="Hidden">
-						{hiddenCount > 0 ? (
-							<TableRow
-								label={`${hidden.length} server${hidden.length === 1 ? "" : "s"}, ${hiddenFolders.length} folder${hiddenFolders.length === 1 ? "" : "s"} hidden`}
-								subLabel="Tap to show all again"
-								onPress={() => {
-									clearHidden()
-									refresh()
-									bump()
-								}}
-							/>
-						) : null}
-						{canReload() ? <TableRow label="Reload Discord" subLabel="Apply changes everywhere" onPress={confirmReload} /> : null}
-						<TableSwitchRow
-							label="Hide servers in the bar"
-							subLabel="Turn off to leave the server bar completely untouched."
-							value={instant()}
-							onValueChange={(v: boolean) => {
-								setInstant(v)
-								refresh()
-								bump()
+					<TableRowGroup hasIcons>
+						<TableRow
+							label="Debug"
+							subLabel="Legacy custom bar, stock-bar probes and module dumps"
+							icon={rowIcon("BugIcon")}
+							arrow
+							onPress={() => navigation.navigate(DEBUG_ROUTE)}
+						/>
+					</TableRowGroup>
+
+					<TableRowGroup hasIcons>
+						<TableRow
+							label="Reload Discord"
+							subLabel="Marks the plugin as needing a reload, then reload when it suits you."
+							icon={rowIcon("RefreshIcon", "ic_refresh")}
+							onPress={() => {
+								try {
+									api.plugin.requireReload()
+									showToast("Reload marked — reload Discord from the plugin list to finish.")
+								} catch (error) {
+									console.error("[HideServersDrawer] requireReload failed:", error)
+									showToast("Couldn't mark for reload — see the log.")
+								}
 							}}
 						/>
 					</TableRowGroup>
-				) : null}
-
-				{list.length === 0 ? (
-					<View style={{ padding: 16 }}>
-						<Text style={{ color: textNormal() }}>No servers found.</Text>
-					</View>
-				) : (
-					list.map((group, index) => (
-						<TableRowGroup key={`${group.title}-${index}`} title={group.title}>
-							{group.folderId != null ? (
-								<TableSwitchRow
-									label={`Hide entire "${group.title}" folder`}
-									subLabel="Overrides the per-server switches below while it's hidden."
-									value={isFolderHidden(group.folderId)}
-									onValueChange={(v: boolean) => {
-										setFolderHidden(group.folderId!, v)
-										refresh()
-										bump()
-									}}
-								/>
-							) : null}
-							{group.guilds.map(guild => (
-								<TableSwitchRow
-									key={guild.id}
-									label={guild.name}
-									icon={<GuildIcon guild={guild} />}
-									value={isHidden(guild.id)}
-									onValueChange={(v: boolean) => {
-										setHidden(guild.id, v)
-										refresh()
-										bump()
-									}}
-								/>
-							))}
-						</TableRowGroup>
-					))
-				)}
+				</Stack>
 			</ScrollView>
 		</Page>
 	)

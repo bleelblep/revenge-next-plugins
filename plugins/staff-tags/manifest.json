@@ -1,6 +1,19 @@
 {
+	"format": 1,
+	"id": "bleelblep.staff-tags",
 	"name": "Staff Tags",
 	"description": "Shows extra tags for staff members — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK.",
 	"author": "bleelblep, Fiery",
-	"version": "1.2.2"
+	"version": "1.2.2",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
 }

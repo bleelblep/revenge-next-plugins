@@ -1,5 +1,7 @@
 import { DEFAULTS } from "../../defaults"
 import { getStorage } from "../../lib/state"
+import { rowIcon } from "../icon"
+import { useBottomPadding } from "../safeArea"
 import type { AntiGhostPingStorage, GhostPing } from "../../types"
 import Avatar from "../components/Avatar"
 
@@ -54,11 +56,13 @@ export default function Log() {
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const entries = s.log ?? []
+	// Hook-based, so called unconditionally above either return branch.
+	const bottomPadding = useBottomPadding()
 
 	if (!entries.length) {
 		return (
 			<Page>
-				<ScrollView>
+				<ScrollView contentContainerStyle={{ paddingBottom: bottomPadding }}>
 					<TableRowGroup title="Nothing caught yet">
 						<TableRow
 							label="No ghost pings"
@@ -72,7 +76,7 @@ export default function Log() {
 
 	return (
 		<Page>
-			<ScrollView>
+			<ScrollView contentContainerStyle={{ paddingBottom: bottomPadding }}>
 				<Stack spacing={24}>
 					{groupByOrigin(entries).map(group => (
 						<View key={group.id ?? "@me"}>
@@ -114,10 +118,11 @@ export default function Log() {
 						</View>
 					))}
 
-					<TableRowGroup title="Manage">
+					<TableRowGroup title="Manage" hasIcons>
 						<TableRow
 							label="Clear log"
 							subLabel={`Removes all ${entries.length} entries.`}
+							icon={rowIcon("TrashIcon", "ic_trash")}
 							onPress={() => storage?.set({ log: [] } as Partial<AntiGhostPingStorage>)}
 						/>
 					</TableRowGroup>
