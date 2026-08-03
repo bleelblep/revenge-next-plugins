@@ -1,4 +1,5 @@
 import { DEFAULTS } from "../../defaults"
+import { decryptMessageText } from "../../lib/backup"
 import { getStorage } from "../../lib/state"
 import { rowIcon } from "../icon"
 import { useBottomPadding } from "../safeArea"
@@ -35,14 +36,31 @@ function groupByOrigin(entries: DeletedMessage[]) {
 
 export default function Log() {
 	const { Page } = revenge.components
-	const { ScrollView, View, Text } = revenge.react.ReactNative
-	const { Stack, TableRowGroup, TableRow } = revenge.discord.design.Design
+	const { React } = revenge.react
+	const { ScrollView, View, Text, Alert, Pressable } = revenge.react.ReactNative
+	const { Stack, TableRowGroup, TableRow, Card } = revenge.discord.design.Design
 
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const entries = s.log ?? []
+	const pageSize = 50
+	const totalPages = Math.max(1, Math.ceil(entries.length / pageSize))
+	const [page, setPage] = React.useState(1)
+	const safePage = Math.min(Math.max(1, page), totalPages)
+	const start = (safePage - 1) * pageSize
+	const end = start + pageSize
+	const pagedEntries = entries.slice(start, end)
+	const grouped = groupByOrigin(pagedEntries)
 	// Hook-based, so called unconditionally above either return branch.
 	const bottomPadding = useBottomPadding()
+
+	const clearLog = () => {
+		if (!storage) return
+		Alert.alert("Clear log", `Remove all ${entries.length} deleted-message entries?`, [
+			{ text: "Cancel", style: "cancel" },
+			{ text: "Clear", style: "destructive", onPress: () => storage?.set({ log: [] } as Partial<GhostLogStorage>) },
+		])
+	}
 
 	if (!entries.length) {
 		return (
@@ -63,7 +81,62 @@ export default function Log() {
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: bottomPadding }}>
 				<Stack spacing={24}>
-					{groupByOrigin(entries).map(group => (
+					{totalPages > 1 ? (
+						<Card variant="secondary" border="none">
+							<View style={{ flexDirection: "row", padding: 10, gap: 8 }}>
+								<Pressable
+									onPress={() => safePage > 1 && setPage(safePage - 1)}
+									disabled={safePage <= 1}
+									style={{
+										flex: 1,
+										minHeight: 38,
+										borderRadius: 12,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: safePage <= 1 ? "#23262b" : "#2b2f36",
+									}}
+								>
+									<Text style={{ color: safePage <= 1 ? "#6b7280" : "#d7dce2", fontWeight: "700" }}>
+										Prev
+									</Text>
+								</Pressable>
+
+								<View
+									style={{
+										flex: 1,
+										minHeight: 38,
+										borderRadius: 12,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: "#2b2f36",
+										borderWidth: 1,
+										borderColor: "#3a3f47",
+									}}
+								>
+									<Text style={{ color: "#d7dce2", fontWeight: "700" }}>{`Page ${safePage}/${totalPages}`}</Text>
+								</View>
+
+								<Pressable
+									onPress={() => safePage < totalPages && setPage(safePage + 1)}
+									disabled={safePage >= totalPages}
+									style={{
+										flex: 1,
+										minHeight: 38,
+										borderRadius: 12,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: safePage >= totalPages ? "#23262b" : "#2b2f36",
+									}}
+								>
+									<Text style={{ color: safePage >= totalPages ? "#6b7280" : "#d7dce2", fontWeight: "700" }}>
+										Next
+									</Text>
+								</Pressable>
+							</View>
+						</Card>
+					) : null}
+
+					{grouped.map(group => (
 						<View key={group.id ?? "@me"}>
 							<View
 								style={{
@@ -81,21 +154,29 @@ export default function Log() {
 							</View>
 
 							<TableRowGroup>
-								{group.items.map(entry => (
-									<TableRow
-										key={entry.id}
-										icon={
-											<Avatar
-												kind="user"
-												id={entry.authorId}
-												hash={entry.authorAvatar}
-												name={entry.authorName}
-											/>
-										}
-										label={entry.authorName}
-										subLabel={`${entry.content || "(no text)"}${entry.attachments?.length ? ` [${entry.attachments.length} attachment${entry.attachments.length > 1 ? "s" : ""}]` : ""}\n${entry.channelName} · ${ago(entry.deletedAt)}`}
-									/>
-								))}
+								{group.items.map(entry => {
+									const body = decryptMessageText(entry.content)
+									const attachments = entry.attachments?.length
+										? ` [${entry.attachments.length} attachment${entry.attachments.length > 1 ? "s" : ""}]`
+										: ""
+									const preview = (body || "(no text)").slice(0, 280)
+
+									return (
+										<TableRow
+											key={entry.id}
+											icon={
+												<Avatar
+													kind="user"
+													id={entry.authorId}
+													hash={entry.authorAvatar}
+													name={entry.authorName}
+												/>
+											}
+											label={entry.authorName}
+											subLabel={`${preview}${attachments}\n${entry.channelName} · ${ago(entry.deletedAt)}`}
+										/>
+									)
+								})}
 							</TableRowGroup>
 						</View>
 					))}
@@ -105,7 +186,7 @@ export default function Log() {
 							label="Clear log"
 							subLabel={`Removes all ${entries.length} entries.`}
 							icon={rowIcon("TrashIcon", "ic_trash")}
-							onPress={() => storage?.set({ log: [] } as Partial<GhostLogStorage>)}
+							onPress={clearLog}
 						/>
 					</TableRowGroup>
 				</Stack>

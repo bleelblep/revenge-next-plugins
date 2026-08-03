@@ -2,6 +2,8 @@ import Log from "./pages/Log"
 import Options from "./pages/Options"
 import Visuals from "./pages/Visuals"
 import License from "./pages/License"
+import Backup from "./pages/Backup"
+import Debug from "./pages/Debug"
 
 const PREFIX = "bleelblep.ghost-log"
 
@@ -9,6 +11,8 @@ export const LOG_ROUTE = `${PREFIX}.log`
 export const OPTIONS_ROUTE = `${PREFIX}.options`
 export const VISUALS_ROUTE = `${PREFIX}.visuals`
 export const LICENSE_ROUTE = `${PREFIX}.license`
+export const BACKUP_ROUTE = `${PREFIX}.backup`
+export const DEBUG_ROUTE = `${PREFIX}.debug`
 
 function refreshSettingsUI() {
 	const settings = revenge.discord.modules.settings as any
@@ -47,6 +51,18 @@ export function registerPages(): () => void {
 			type: "route",
 			useTitle: () => "Licence",
 			screen: { route: LICENSE_ROUTE, getComponent: () => License },
+		}),
+		registerSettingsItem(BACKUP_ROUTE, {
+			parent: null,
+			type: "route",
+			useTitle: () => "Backup",
+			screen: { route: BACKUP_ROUTE, getComponent: () => Backup },
+		}),
+		registerSettingsItem(DEBUG_ROUTE, {
+			parent: null,
+			type: "route",
+			useTitle: () => "Debug",
+			screen: { route: DEBUG_ROUTE, getComponent: () => Debug },
 		}),
 	]
 

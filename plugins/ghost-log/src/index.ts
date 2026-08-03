@@ -1,4 +1,5 @@
 import { DEFAULTS } from "./defaults"
+import { restoreBackupIntoStorage, saveBackupFromStorage } from "./lib/backup"
 import { setStorage } from "./lib/state"
 import { watchForDeletions } from "./lib/watch"
 import { patchVisuals } from "./lib/visuals"
@@ -16,6 +17,12 @@ export default plugin<{ jsonStorage: GhostLogStorage }>({
 	},
 	start({ cleanup, jsonStorage }) {
 		setStorage(jsonStorage)
+
+		void restoreBackupIntoStorage(jsonStorage, "if-empty")
+
+		if ((jsonStorage.cache?.backupEnabled ?? DEFAULTS.backupEnabled) && (jsonStorage.cache?.log?.length ?? 0) > 0) {
+			void saveBackupFromStorage(jsonStorage, jsonStorage.cache?.log ?? [])
+		}
 
 		try {
 			cleanup(registerPages())

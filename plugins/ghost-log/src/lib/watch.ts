@@ -1,5 +1,6 @@
 import { shouldIgnore } from "./detect"
 import { DEFAULTS } from "../defaults"
+import { encryptMessageText, saveBackupFromStorage } from "./backup"
 import type { GhostLogStorage, DeletedMessage } from "../types"
 
 const log = (...m: any[]) => console.log("[GhostLog]", ...m)
@@ -54,11 +55,9 @@ function appendCapped(log: DeletedMessage[], entry: DeletedMessage, maxEntries: 
 export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogStorage>): () => void {
 	const { onFluxEventDispatched } = revenge.discord.flux
 
-	const handle = (channelId: string, messageId: string) => {
+	const handleMessage = (channelId: string, message: any, messageId?: string) => {
 		const settings = { ...DEFAULTS, ...(jsonStorage.cache ?? {}) }
 		const s = stores()
-
-		const message = s.MessageStore?.getMessage?.(channelId, messageId)
 		if (!message) return
 
 		const meta = describe(message, channelId)
@@ -71,8 +70,11 @@ export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogSto
 		if (shouldIgnore(message, channelId, meta.guildId, settings)) return
 
 		if (settings.logDeletions) {
+			const id = String(messageId ?? message.id ?? "")
+			if (!id) return
+
 			const entry: DeletedMessage = {
-				id: messageId,
+				id,
 				channelId,
 				guildId: meta.guildId,
 				authorId: message.author?.id ?? "",
@@ -81,7 +83,7 @@ export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogSto
 				guildName: meta.guildName,
 				authorAvatar: message.author?.avatar,
 				guildIcon: meta.guildIcon,
-				content: String(message.content ?? "").slice(0, 2000),
+				content: encryptMessageText(String(message.content ?? "")),
 				attachments: extractAttachments(message),
 				sentAt: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
 				deletedAt: Date.now(),
@@ -89,9 +91,16 @@ export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogSto
 
 			log(`Caught deletion from ${entry.authorName} in ${entry.channelName}`)
 			const cap = settings.unlimitedEntries ? Infinity : settings.maxEntries
-			jsonStorage.set({ log: appendCapped(settings.log ?? [], entry, cap) })
+			const nextLog = appendCapped(settings.log ?? [], entry, cap)
+			jsonStorage.set({ log: nextLog })
+			void saveBackupFromStorage(jsonStorage, nextLog)
 			if (settings.toastOnCatch) toast(entry)
 		}
+	}
+
+	const handle = (channelId: string, messageId: string) => {
+		const message = stores().MessageStore?.getMessage?.(channelId, messageId)
+		handleMessage(channelId, message, messageId)
 	}
 
 	const unsubscribeSingle = onFluxEventDispatched("MESSAGE_DELETE", (payload: any) => {
@@ -112,8 +121,22 @@ export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogSto
 		return payload
 	})
 
+	const unsubscribeUpdate = onFluxEventDispatched("MESSAGE_UPDATE", (payload: any) => {
+		try {
+			const message = payload?.message
+			if (!message?.__vml_deleted) return payload
+			const channelId = message.channel_id ?? payload.channelId
+			if (!channelId) return payload
+			handleMessage(String(channelId), message, String(message.id ?? ""))
+		} catch (error) {
+			console.error("[GhostLog] MESSAGE_UPDATE handler failed:", error)
+		}
+		return payload
+	})
+
 	return () => {
 		unsubscribeSingle()
 		unsubscribeBulk()
+		unsubscribeUpdate()
 	}
 }

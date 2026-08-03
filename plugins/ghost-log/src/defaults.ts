@@ -4,6 +4,8 @@ export const DEFAULTS: GhostLogStorage = {
 	log: [],
 	maxEntries: 100,
 	unlimitedEntries: false,
+	backupEnabled: true,
+	backupFilePath: "",
 	toastOnCatch: false,
 	deleteStyle: "overlay",
 	logDeletions: true,

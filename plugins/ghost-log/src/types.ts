@@ -20,6 +20,9 @@ export interface GhostLogStorage {
 	log: DeletedMessage[]
 	maxEntries: number
 	unlimitedEntries: boolean
+	backupEnabled: boolean
+	backupFilePath?: string
+	lastBackupAt?: number
 	toastOnCatch: boolean
 	deleteStyle: DeleteStyle
 	logDeletions: boolean

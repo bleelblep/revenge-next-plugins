@@ -1,7 +1,7 @@
 import { DEFAULTS } from "../../defaults"
 import { rowIcon } from "../icon"
 import { useBottomPadding } from "../safeArea"
-import { LOG_ROUTE, OPTIONS_ROUTE, VISUALS_ROUTE, LICENSE_ROUTE } from "../routes"
+import { LOG_ROUTE, OPTIONS_ROUTE, VISUALS_ROUTE, LICENSE_ROUTE, BACKUP_ROUTE, DEBUG_ROUTE } from "../routes"
 import type { GhostLogStorage } from "../../types"
 
 /**
@@ -58,10 +58,10 @@ export default function Settings({
 								⚠️ This is a message logger
 							</Text>
 							<Text color="text-muted" variant="text-sm/normal" style={{ marginTop: 8 }}>
-								It stores the text of deleted messages unencrypted on this device until you
-								clear it. Client mods already break Discord's Terms of Service, and message
-								loggers are the kind most associated with accounts being actioned. Only you
-								can see the log, but the risk is yours.
+								Deleted message text is stored in plugin storage and mirrored to an encrypted
+								backup file by default. Client mods already break Discord's Terms of Service,
+								and message loggers are the kind most associated with accounts being actioned.
+								Only you can see the log, but the risk is yours.
 							</Text>
 						</View>
 					</Card>
@@ -97,6 +97,13 @@ export default function Settings({
 							onPress={() => navigation.navigate(OPTIONS_ROUTE)}
 						/>
 						<TableRow
+							label="Backup"
+							subLabel="Encrypted backup location and behavior"
+							icon={rowIcon("FolderIcon", "ic_folder")}
+							arrow
+							onPress={() => navigation.navigate(BACKUP_ROUTE)}
+						/>
+						<TableRow
 							label="Visual style"
 							subLabel="How deleted messages appear in chat"
 							icon={rowIcon("PaintPaletteIcon", "PaintbrushThinIcon")}
@@ -109,6 +116,16 @@ export default function Settings({
 							icon={rowIcon("BookCheckIcon", "InformationIcon", "ic_info")}
 							arrow
 							onPress={() => navigation.navigate(LICENSE_ROUTE)}
+						/>
+					</TableRowGroup>
+
+					<TableRowGroup title="Developer" hasIcons>
+						<TableRow
+							label="Debug"
+							subLabel="Testing tools and backup path diagnostics"
+							icon={rowIcon("BugIcon", "ic_debug")}
+							arrow
+							onPress={() => navigation.navigate(DEBUG_ROUTE)}
 						/>
 					</TableRowGroup>
 				</Stack>

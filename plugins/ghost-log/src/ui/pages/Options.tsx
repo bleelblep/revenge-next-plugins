@@ -37,17 +37,18 @@ export default function Options() {
 						/>
 					</TableRowGroup>
 
-					<TableRowGroup title="Testing" hasIcons>
-						<TableSwitchRow
-							label="Count my own messages"
-							subLabel="Lets you verify the plugin by deleting your own message. Leave off once confirmed."
-							icon={rowIcon("UserIcon")}
-							value={!!s.countOwnMessages}
-							onValueChange={v => set({ countOwnMessages: v })}
-						/>
-					</TableRowGroup>
-
 					<TableRowGroup title="Limits" hasIcons>
+						<TableSwitchRow
+							label="Encrypted auto backup"
+							subLabel={
+								s.backupEnabled
+									? "On - each new catch also updates an encrypted backup file."
+									: "Off - deleted messages stay in plugin storage only."
+							}
+							icon={rowIcon("LockIcon", "ic_lock")}
+							value={!!s.backupEnabled}
+							onValueChange={v => set({ backupEnabled: v })}
+						/>
 						<TableSwitchRow
 							label="Unlimited entries"
 							subLabel={
