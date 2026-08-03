@@ -78,7 +78,7 @@ function iconName(icon: any): string | undefined {
  * `<PressableOpacity><PhoneCallIcon /></PressableOpacity>` on DM headers); older builds passed an
  * asset id on `props.icon` or `props.source`.
  */
-function classify(node: any, assets: Assets): ButtonKind | undefined {
+function classifyIcon(node: any, assets: Assets): ButtonKind | undefined {
 	const props = node?.props
 
 	for (const id of [props?.icon, props?.source]) {
@@ -92,6 +92,47 @@ function classify(node: any, assets: Assets): ButtonKind | undefined {
 		if (VOICE_ICONS.has(name)) return "voice"
 		if (VIDEO_ICONS.has(name)) return "video"
 	}
+
+	return undefined
+}
+
+/**
+ * Bounded, read-only search for a call/video icon anywhere just below `node` -- used to tell
+ * whether a *pressable* (not the icon itself) is a hidden button, without walking the whole tree.
+ */
+function findIconKind(node: any, assets: Assets, depth = 0, maxDepth = 4): ButtonKind | undefined {
+	if (node === null || typeof node !== "object" || depth > maxDepth) return undefined
+
+	const direct = classifyIcon(node, assets)
+	if (direct !== undefined) return direct
+
+	const children = node.props?.children
+	if (Array.isArray(children)) {
+		for (const child of children) {
+			const kind = findIconKind(child, assets, depth + 1, maxDepth)
+			if (kind !== undefined) return kind
+		}
+		return undefined
+	}
+	if (children !== null && typeof children === "object") {
+		return findIconKind(children, assets, depth + 1, maxDepth)
+	}
+	return undefined
+}
+
+/**
+ * A node is a hidden button either because it *is* the icon, or because it's the pressable that
+ * draws one. The pressable case matters: DM header buttons wrap the icon alongside a ripple layer
+ * or other always-present sibling, so "remove the icon, collapse the wrapper if everything inside
+ * it was removed" never collapses -- the wrapper survives with `onPress` intact and renders as a
+ * blank, still-tappable button. Classifying the pressable itself means the *whole* thing is
+ * dropped in one shot, regardless of what else lives inside it.
+ */
+function classify(node: any, assets: Assets): ButtonKind | undefined {
+	const direct = classifyIcon(node, assets)
+	if (direct !== undefined) return direct
+
+	if (typeof node?.props?.onPress === "function") return findIconKind(node, assets)
 
 	return undefined
 }
