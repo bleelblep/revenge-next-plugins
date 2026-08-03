@@ -49,7 +49,7 @@ function groupByOrigin(entries: GhostPing[]) {
 export default function Log() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
-	const { ScrollView, View, Text } = revenge.react.ReactNative
+	const { ScrollView, View, Text, Alert } = revenge.react.ReactNative
 	const { Stack, TableRowGroup, TableRow } = revenge.discord.design.Design
 
 	// Rendered as a plain navigator route, so there's no plugin `api` prop here.
@@ -58,6 +58,13 @@ export default function Log() {
 	const entries = s.log ?? []
 	// Hook-based, so called unconditionally above either return branch.
 	const bottomPadding = useBottomPadding()
+
+	const clearLog = () => {
+		Alert.alert("Clear log", `Remove all ${entries.length} ghost ping entries?`, [
+			{ text: "Cancel", style: "cancel" },
+			{ text: "Clear", style: "destructive", onPress: () => storage?.set({ log: [] } as Partial<AntiGhostPingStorage>) },
+		])
+	}
 
 	if (!entries.length) {
 		return (
@@ -123,7 +130,7 @@ export default function Log() {
 							label="Clear log"
 							subLabel={`Removes all ${entries.length} entries.`}
 							icon={rowIcon("TrashIcon", "ic_trash")}
-							onPress={() => storage?.set({ log: [] } as Partial<AntiGhostPingStorage>)}
+							onPress={clearLog}
 						/>
 					</TableRowGroup>
 				</Stack>

@@ -88,7 +88,7 @@ function diagnosticsSummary(): string {
 export default function Debug() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
-	const { ScrollView } = revenge.react.ReactNative
+	const { ScrollView, Alert } = revenge.react.ReactNative
 	const { Stack, TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
 
 	const storage = getStorage()
@@ -134,14 +134,24 @@ export default function Debug() {
 							label="Summary"
 							subLabel={diagnosticsSummary()}
 							icon={rowIcon("ChatIcon")}
+							subLabelLineClamp={10}
 						/>
 						<TableRow
 							label="Reset diagnostics"
 							subLabel="Zero the counters, then open the surface that isn't working and come back."
 							icon={rowIcon("TrashIcon", "ic_delete")}
 							onPress={() => {
-								resetDiagnostics()
-								showToast("Diagnostics reset.")
+								Alert.alert("Reset diagnostics", "Clear all diagnostics counters now?", [
+									{ text: "Cancel", style: "cancel" },
+									{
+										text: "Reset",
+										style: "destructive",
+										onPress: () => {
+											resetDiagnostics()
+											showToast("Diagnostics reset.")
+										},
+									},
+								])
 							}}
 						/>
 					</TableRowGroup>

@@ -1,7 +1,7 @@
 import { DEFAULTS } from "../../defaults"
 import { rowIcon } from "../icon"
 import { useBottomPadding } from "../safeArea"
-import { LOG_ROUTE, OPTIONS_ROUTE } from "../routes"
+import { LOG_ROUTE, OPTIONS_ROUTE, DEBUG_ROUTE } from "../routes"
 import type { AntiGhostPingStorage } from "../../types"
 
 /**
@@ -79,10 +79,20 @@ export default function Settings({
 					<TableRowGroup hasIcons>
 						<TableRow
 							label="Settings"
-							subLabel="What counts as a ping, notifications, testing"
+							subLabel="What counts as a ping, notifications"
 							icon={rowIcon("SettingsIcon", "ic_settings")}
 							arrow
 							onPress={() => navigation.navigate(OPTIONS_ROUTE)}
+						/>
+					</TableRowGroup>
+
+					<TableRowGroup title="Developer" hasIcons>
+						<TableRow
+							label="Debug"
+							subLabel="Testing tools"
+							icon={rowIcon("BugIcon", "ic_debug")}
+							arrow
+							onPress={() => navigation.navigate(DEBUG_ROUTE)}
 						/>
 					</TableRowGroup>
 				</Stack>

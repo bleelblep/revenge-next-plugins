@@ -61,15 +61,6 @@ export default function Options() {
 						/>
 					</TableRowGroup>
 
-					<TableRowGroup title="Testing" hasIcons>
-						<TableSwitchRow
-							label="Count my own messages"
-							subLabel="Lets you verify the plugin by pinging yourself and deleting it. Not a real ghost ping — leave this off once you've confirmed it works."
-							icon={rowIcon("UserIcon")}
-							value={!!s.countOwnMessages}
-							onValueChange={v => set({ countOwnMessages: v })}
-						/>
-					</TableRowGroup>
 				</Stack>
 			</ScrollView>
 		</Page>

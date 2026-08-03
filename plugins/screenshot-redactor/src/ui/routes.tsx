@@ -1,7 +1,7 @@
 import Debug from "./pages/Debug"
 import Visuals from "./pages/Visuals"
 
-const PREFIX = "bleelblep.screenshot-redactor-dev"
+const PREFIX = "bleelblep.screenshot-redactor"
 
 export const VISUALS_ROUTE = `${PREFIX}.visuals`
 export const DEBUG_ROUTE = `${PREFIX}.debug`
@@ -33,7 +33,7 @@ export function registerPages(): () => void {
 		registerSettingsItem(VISUALS_ROUTE, {
 			parent: null,
 			type: "route",
-			useTitle: () => "Visuals",
+			useTitle: () => "Visual style",
 			screen: { route: VISUALS_ROUTE, getComponent: () => Visuals },
 		}),
 		registerSettingsItem(DEBUG_ROUTE, {

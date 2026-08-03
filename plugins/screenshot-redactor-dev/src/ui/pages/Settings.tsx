@@ -47,27 +47,10 @@ export default function Settings({
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
 				<Stack spacing={24}>
-					{/*
-					 * Yellow-tinted warning card, same as ghost-log's: no warning variant exists on
-					 * Card, so the tint comes from `style`. Direct Stack child with no wrapper --
-					 * Page already pads everything horizontally by 16.
-					 */}
-					<Card
-						variant="secondary"
-						border="none"
-						style={{
-							backgroundColor: "#f0b2321f",
-							borderColor: "#f0b23266",
-							borderWidth: 1,
-						}}
-					>
+					<Card variant="secondary" border="none">
 						<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-							<Text
-								color="text-feedback-warning"
-								variant="text-md/semibold"
-								style={{ textAlign: "center" }}
-							>
-								⚠️ Message text is never touched
+							<Text variant="text-md/semibold" style={{ textAlign: "center" }}>
+								What this covers
 							</Text>
 							<Text color="text-muted" variant="text-sm/normal" style={{ marginTop: 8 }}>
 								Inline @mentions and the individual (1:1) DM header — name and avatar — are
@@ -94,12 +77,15 @@ export default function Settings({
 
 					<TableRowGroup hasIcons>
 						<TableRow
-							label="Visuals"
+							label="Visual style"
 							subLabel="Placeholder style, avatars, badges, numbering, whether to redact yourself"
 							icon={rowIcon("PaintPaletteIcon", "PaintbrushThinIcon")}
 							arrow
 							onPress={() => navigation.navigate(VISUALS_ROUTE)}
 						/>
+					</TableRowGroup>
+
+					<TableRowGroup title="Developer" hasIcons>
 						<TableRow
 							label="Debug"
 							subLabel="Verbose logging, module probe, diagnostics"
@@ -107,9 +93,6 @@ export default function Settings({
 							arrow
 							onPress={() => navigation.navigate(DEBUG_ROUTE)}
 						/>
-					</TableRowGroup>
-
-					<TableRowGroup hasIcons>
 						<TableRow
 							label="Reload Discord"
 							subLabel="Marks the plugin as needing a reload, then reload when it suits you — the sure way to clear every leftover placeholder at once."

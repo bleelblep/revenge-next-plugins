@@ -28,7 +28,7 @@ function ago(timestamp: number): string {
 export default function Log() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
-	const { ScrollView } = revenge.react.ReactNative
+	const { ScrollView, Alert } = revenge.react.ReactNative
 	const { Stack, TableRowGroup, TableRow } = revenge.discord.design.Design
 
 	const storage = getStorage()
@@ -36,6 +36,13 @@ export default function Log() {
 	const entries = s.log ?? []
 	// Hook-based, so called unconditionally above either return branch.
 	const bottomPadding = useBottomPadding()
+
+	const clearLog = () => {
+		Alert.alert("Clear history", `Remove all ${entries.length} history entries?`, [
+			{ text: "Cancel", style: "cancel" },
+			{ text: "Clear", style: "destructive", onPress: () => storage?.set({ log: [] } as Partial<RelationshipNotifierStorage>) },
+		])
+	}
 
 	if (!entries.length) {
 		return (
@@ -88,7 +95,7 @@ export default function Log() {
 							label="Clear history"
 							subLabel={`Removes all ${entries.length} entries.`}
 							icon={rowIcon("TrashIcon", "ic_trash")}
-							onPress={() => storage?.set({ log: [] } as Partial<RelationshipNotifierStorage>)}
+							onPress={clearLog}
 						/>
 					</TableRowGroup>
 				</Stack>

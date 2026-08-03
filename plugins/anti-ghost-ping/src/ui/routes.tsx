@@ -1,10 +1,12 @@
 import Log from "./pages/Log"
 import Options from "./pages/Options"
+import Debug from "./pages/Debug"
 
 const PREFIX = "bleelblep.anti-ghost-ping"
 
 export const LOG_ROUTE = `${PREFIX}.log`
 export const OPTIONS_ROUTE = `${PREFIX}.options`
+export const DEBUG_ROUTE = `${PREFIX}.debug`
 
 /**
  * Upstream commit 10371ff merged `refreshSettingsNavigator` + `refreshSettingsOverviewScreen`
@@ -40,6 +42,12 @@ export function registerPages(): () => void {
 			type: "route",
 			useTitle: () => "Settings",
 			screen: { route: OPTIONS_ROUTE, getComponent: () => Options },
+		}),
+		registerSettingsItem(DEBUG_ROUTE, {
+			parent: null,
+			type: "route",
+			useTitle: () => "Debug",
+			screen: { route: DEBUG_ROUTE, getComponent: () => Debug },
 		}),
 	]
 

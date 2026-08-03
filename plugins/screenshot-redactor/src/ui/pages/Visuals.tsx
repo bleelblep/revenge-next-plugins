@@ -45,7 +45,7 @@ const STYLE_OPTIONS: Array<{
 export default function Visuals() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
-	const { ScrollView } = revenge.react.ReactNative
+	const { ScrollView, Alert } = revenge.react.ReactNative
 	const { Stack, TableRowGroup, TableSwitchRow, TableRow, TableRadioGroup, TableRadioRow } =
 		revenge.discord.design.Design
 
@@ -133,9 +133,18 @@ export default function Visuals() {
 							subLabel={`${aliasCount()} ${aliasCount() === 1 ? "person has" : "people have"} been assigned a placeholder.`}
 							icon={rowIcon("RefreshIcon", "ic_refresh")}
 							onPress={() => {
-								resetAliases()
-								refreshChat()
-								showToast("Numbering reset.")
+								Alert.alert("Reset numbering", "Clear all placeholder assignments now?", [
+									{ text: "Cancel", style: "cancel" },
+									{
+										text: "Reset",
+										style: "destructive",
+										onPress: () => {
+											resetAliases()
+											refreshChat()
+											showToast("Numbering reset.")
+										},
+									},
+								])
 							}}
 						/>
 					</TableRowGroup>

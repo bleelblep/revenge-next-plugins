@@ -73,7 +73,7 @@ export default function Settings({
 						/>
 					</TableRowGroup>
 
-					<TableRowGroup hasIcons>
+					<TableRowGroup title="Developer" hasIcons>
 						<TableRow
 							label="Debug"
 							subLabel="Legacy custom bar, stock-bar probes and module dumps"
@@ -81,9 +81,6 @@ export default function Settings({
 							arrow
 							onPress={() => navigation.navigate(DEBUG_ROUTE)}
 						/>
-					</TableRowGroup>
-
-					<TableRowGroup hasIcons>
 						<TableRow
 							label="Reload Discord"
 							subLabel="Marks the plugin as needing a reload, then reload when it suits you."

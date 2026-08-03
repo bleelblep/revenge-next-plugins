@@ -33,7 +33,7 @@ export function registerPages(): () => void {
 		registerSettingsItem(VISUALS_ROUTE, {
 			parent: null,
 			type: "route",
-			useTitle: () => "Visuals",
+			useTitle: () => "Visual style",
 			screen: { route: VISUALS_ROUTE, getComponent: () => Visuals },
 		}),
 		registerSettingsItem(DEBUG_ROUTE, {
