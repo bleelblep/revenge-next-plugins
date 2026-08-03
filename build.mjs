@@ -200,6 +200,19 @@ async function buildPlugin(dir) {
     const zip = new AdmZip();
     zip.addLocalFile(outScript);
     zip.addLocalFile(`${outDir}/manifest.json`);
+    // Native plugins (manifest.dist.android) also ship a prebuilt DEX jar from the plugin folder.
+    // The jar is built separately (Gradle) and committed; we just package it alongside the JS.
+    const androidPath = manifest.dist?.android?.path;
+    if (typeof androidPath === "string" && androidPath.length > 0) {
+        const jarFile = `./plugins/${dir}/${androidPath}`;
+        if (!existsSync(jarFile)) {
+            throw new Error(
+                `plugins/${dir}/manifest.json: dist.android.path "${androidPath}" not found ` +
+                    `(build the native jar first and place it at ${jarFile})`,
+            );
+        }
+        zip.addLocalFile(jarFile, "", androidPath);
+    }
     const zipBuffer = zip.toBuffer();
     const artifactFile = `${id}-${manifest.version}.zip`;
     const zipPath = `./dist/${artifactFile}`;
