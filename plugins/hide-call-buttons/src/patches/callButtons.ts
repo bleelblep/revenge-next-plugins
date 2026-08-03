@@ -24,20 +24,119 @@ function withTypeName(name: string) {
 	return filter
 }
 
-/** Resolves the asset ids the button icons are compared against, with legacy fallbacks. */
-function resolveAssets() {
+type ButtonKind = "voice" | "video"
+
+interface Assets {
+	voice?: number
+	video?: number
+	call?: number
+	callNew?: number
+	dmVideo?: number
+	dmVideoNew?: number
+}
+
+/**
+ * Icon *components* the buttons render, as of 337-340. `PhoneHangUpIcon` is deliberately absent:
+ * that is the button that ends a call in progress, and hiding it would trap the user in one.
+ */
+const VOICE_ICONS = new Set(["PhoneCallIcon", "VoiceCallIcon", "CallIcon", "PhoneIcon"])
+const VIDEO_ICONS = new Set(["VideoIcon", "VideoCallIcon"])
+
+/** How deep into a button row to look. The deepest real nesting is 4 (group > row > pressable > icon). */
+const MAX_DEPTH = 8
+
+/** Resolves the asset ids older builds compare against, with legacy fallbacks. */
+function resolveAssets(): Assets {
 	const { getAssetIdByName } = revenge.assets
 	return {
-		// Profile buttons compare against `props.icon`.
+		// Profile buttons compared against `props.icon`.
 		voice: getAssetIdByName("ic_audio") ?? getAssetIdByName("PhoneCallIcon"),
 		video: getAssetIdByName("ic_video") ?? getAssetIdByName("VideoIcon"),
-		// DM header buttons compare against `props.source`, and appear under either the old
+		// DM header buttons compared against `props.source`, and appeared under either the old
 		// or the new asset names depending on build.
 		call: getAssetIdByName("nav_header_connect"),
 		callNew: getAssetIdByName("PhoneCallIcon"),
 		dmVideo: getAssetIdByName("video"),
 		dmVideoNew: getAssetIdByName("VideoIcon"),
 	}
+}
+
+/** The name of the icon component behind a component reference, an element, or a wrapper. */
+function iconName(icon: any): string | undefined {
+	if (typeof icon === "function") return icon.name || icon.displayName
+	if (icon === null || typeof icon !== "object") return undefined
+	// A rendered element -- `<PhoneCallIcon size="xs" />` -- carries the component on `.type`.
+	const type = icon.type
+	if (typeof type === "function") return type.name || type.displayName
+	if (type !== null && typeof type === "object") return type.displayName || type.type?.name
+	return icon.displayName
+}
+
+/**
+ * Identifies a node as a call or video button by what it draws, never by where it sits. Current
+ * builds pass an icon *component* (`<Button icon={<PhoneCallIcon />}>` on profiles,
+ * `<PressableOpacity><PhoneCallIcon /></PressableOpacity>` on DM headers); older builds passed an
+ * asset id on `props.icon` or `props.source`.
+ */
+function classify(node: any, assets: Assets): ButtonKind | undefined {
+	const props = node?.props
+
+	for (const id of [props?.icon, props?.source]) {
+		if (typeof id !== "number") continue
+		if (id === assets.voice || id === assets.call || id === assets.callNew) return "voice"
+		if (id === assets.video || id === assets.dmVideo || id === assets.dmVideoNew) return "video"
+	}
+
+	for (const name of [iconName(node), iconName(props?.icon), iconName(props?.IconComponent)]) {
+		if (name === undefined) continue
+		if (VOICE_ICONS.has(name)) return "voice"
+		if (VIDEO_ICONS.has(name)) return "video"
+	}
+
+	return undefined
+}
+
+/**
+ * Drops every hidden button in `node`'s subtree. Returns true when `node` itself should be
+ * dropped by its parent -- either it *is* a hidden button, or it is a wrapper whose entire
+ * contents were hidden and which would otherwise render as an empty gap.
+ *
+ * Only child *arrays* are written to; `props` objects are left alone, since a wrapper is removed
+ * by its parent rather than emptied in place.
+ */
+function prune(
+	node: any,
+	depth: number,
+	hidden: (kind: ButtonKind) => boolean,
+	assets: Assets,
+): boolean {
+	if (node === null || typeof node !== "object") return false
+
+	const kind = classify(node, assets)
+	if (kind !== undefined) return hidden(kind)
+
+	if (depth >= MAX_DEPTH) return false
+
+	const children = node.props?.children
+	if (Array.isArray(children)) {
+		let removed = 0
+		let kept = 0
+		for (let idx = 0; idx < children.length; idx++) {
+			const child = children[idx]
+			if (child === null || child === undefined || child === false) continue
+			if (prune(child, depth + 1, hidden, assets)) {
+				children[idx] = null
+				removed++
+			} else kept++
+		}
+		return removed > 0 && kept === 0
+	}
+
+	if (children !== null && typeof children === "object") {
+		return prune(children, depth + 1, hidden, assets)
+	}
+
+	return false
 }
 
 export default function patchCallButtons(
@@ -49,6 +148,26 @@ export default function patchCallButtons(
 
 	const patches: Array<() => void> = []
 	const s = () => jsonStorage.cache ?? DEFAULTS
+
+	// Assets are registered before anything renders, so one resolve covers every later render.
+	let assets: Assets | undefined
+	const getAssets = () => (assets ??= resolveAssets())
+
+	/**
+	 * Hides whichever of the two buttons the given settings turn off. `component` is returned
+	 * unchanged -- the pruning happens in place, on the child arrays.
+	 */
+	const hideIn = (component: any, voice: boolean, video: boolean) => {
+		if (!voice && !video) return component
+		prune(component, 0, kind => (kind === "voice" ? voice : video), getAssets())
+		return component
+	}
+
+	const hideProfileButtons = (component: any) =>
+		hideIn(component, s().upHideVoiceButton, s().upHideVideoButton)
+
+	const hideDMButtons = (component: any) =>
+		hideIn(component, s().dmHideCallButton, s().dmHideVideoButton)
 
 	// Every surface is applied independently -- one Discord rename must disable one surface,
 	// not the whole plugin.
@@ -69,47 +188,7 @@ export default function patchCallButtons(
 	apply("UserProfileActions", () => {
 		patches.push(
 			getModules(withName("UserProfileActions"), (mod: any) => {
-				patches.push(
-					after(mod, "default", (component: any) => {
-						if (!s().upHideVideoButton && !s().upHideVoiceButton) return component
-						const assets = resolveAssets()
-
-						let buttons =
-							component?.props?.children?.props?.children?.[1]?.props?.children
-						if (buttons === undefined) buttons = component?.props?.children?.[1]?.props?.children
-						if (buttons?.props?.children !== undefined) buttons = buttons.props.children
-						if (buttons === undefined) return component
-
-						for (const idx in buttons) {
-							const button = buttons[idx]
-
-							if (button?.props?.children !== undefined) {
-								const container = button.props.children
-								for (const idx2 in container) {
-									const btn = container[idx2]
-									if (
-										(btn?.props?.icon === assets.voice && s().upHideVoiceButton) ||
-										(btn?.props?.icon === assets.video && s().upHideVideoButton)
-									)
-										delete container[idx2]
-								}
-							}
-
-							if (button?.props?.IconComponent !== undefined) {
-								if (s().upHideVoiceButton) delete buttons[1]
-								if (s().upHideVideoButton) delete buttons[2]
-							}
-
-							if (
-								(button?.props?.icon === assets.voice && s().upHideVoiceButton) ||
-								(button?.props?.icon === assets.video && s().upHideVideoButton)
-							)
-								delete buttons[idx]
-						}
-
-						return component
-					}),
-				)
+				patches.push(after(mod, "default", hideProfileButtons))
 			}, { returnNamespace: true }),
 		)
 	})
@@ -117,15 +196,7 @@ export default function patchCallButtons(
 	// --- User profile (simplified) ---
 	apply("SimplifiedUserProfileContactButtons", () => {
 		const patchContactButtons = (mod: any) => {
-			patches.push(
-				after(mod, "default", (component: any) => {
-					const buttons = component?.props?.children
-					if (buttons === undefined) return component
-					if (s().upHideVoiceButton) delete buttons[1]
-					if (s().upHideVideoButton) delete buttons[2]
-					return component
-				}),
-			)
+			patches.push(after(mod, "default", hideProfileButtons))
 		}
 		// Renamed at some point; whichever exists gets patched.
 		patches.push(
@@ -159,35 +230,7 @@ export default function patchCallButtons(
 	apply("PrivateChannelButtons", () => {
 		patches.push(
 			getModules(withTypeName("PrivateChannelButtons"), (mod: any) => {
-				patches.push(
-					after(mod, "type", (component: any) => {
-						if (!s().dmHideCallButton && !s().dmHideVideoButton) return component
-						const assets = resolveAssets()
-
-						let buttons = component?.props?.children
-						if (buttons === undefined) return component
-
-						if (buttons[0]?.props?.accessibilityLabel !== undefined) {
-							if (s().dmHideCallButton) delete buttons[0]
-							if (s().dmHideVideoButton) delete buttons[1]
-							return component
-						}
-
-						if (buttons[0]?.props?.source === undefined) buttons = buttons[0]?.props?.children
-						if (buttons === undefined) return component
-
-						for (const idx in buttons) {
-							const src = buttons[idx]?.props?.source
-							if (
-								((src === assets.call || src === assets.callNew) && s().dmHideCallButton) ||
-								((src === assets.dmVideo || src === assets.dmVideoNew) && s().dmHideVideoButton)
-							)
-								delete buttons[idx]
-						}
-
-						return component
-					}),
-				)
+				patches.push(after(mod, "type", hideDMButtons))
 			}),
 		)
 	})
@@ -196,27 +239,7 @@ export default function patchCallButtons(
 	apply("ChannelButtons", () => {
 		patches.push(
 			getModules(withProps("ChannelButtons"), (mod: any) => {
-				patches.push(
-					after(mod, "ChannelButtons", (component: any) => {
-						if (!s().dmHideCallButton && !s().dmHideVideoButton) return component
-						const assets = resolveAssets()
-
-						const buttons = component?.props?.children
-						if (buttons === undefined) return component
-
-						for (const idx in buttons) {
-							const src = buttons[idx]?.props?.children?.[0]?.props?.source
-							if (src === undefined) continue
-							if (
-								(src === assets.call && s().dmHideCallButton) ||
-								(src === assets.dmVideo && s().dmHideVideoButton)
-							)
-								delete buttons[idx]
-						}
-
-						return component
-					}),
-				)
+				patches.push(after(mod, "ChannelButtons", hideDMButtons))
 			}, { returnNamespace: true }),
 		)
 	})

@@ -4,7 +4,7 @@
 	"name": "Hide Call Buttons",
 	"description": "Hides call and video buttons from DMs, user profiles and voice channels.",
 	"author": "John (janisslsm), bleelblep",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
