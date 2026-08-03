@@ -89,22 +89,42 @@ export function patchRenderRestore(): () => void {
 			if (!entries.length) return ret
 
 			const arr = ret._array
-			const present = new Set(arr.map((m: any) => String(m?.id)))
+			const entryIds = new Set(entries.map(e => e.id))
+
+			// The store loads history progressively (cold start, pagination), so a position computed
+			// once against an early, incomplete page goes stale the moment more real messages load in
+			// behind it — that's what pins a restored deletion to "before the new messages" instead of
+			// its real chronological slot. Strip our own previously-injected records for these entries
+			// and recompute fresh against the CURRENT array on every call rather than trusting the
+			// first one.
+			for (let i = arr.length - 1; i >= 0; i--) {
+				const m = arr[i]
+				if (m?.__vml_deleted && entryIds.has(String(m?.id))) arr.splice(i, 1)
+			}
 
 			// _array is time-ordered; find which direction so injected messages slot into their real
 			// chronological position instead of landing at the end (the out-of-order bug).
 			let dir = 1
 			if (arr.length >= 2) dir = timeOf(arr[0]) <= timeOf(arr[arr.length - 1]) ? 1 : -1
 
+			// Confirmed on-device: on cold/partial load, arr only holds a recent window (e.g. the
+			// last few hours). An entry older than everything currently loaded has no real neighbor
+			// yet -- Discord just hasn't paginated back far enough to know what's actually next to
+			// it -- so inserting it at idx 0 shoves it "before the new messages" until more history
+			// streams in and self-corrects. Better to wait than guess: skip until the loaded window
+			// actually reaches back past the entry's timestamp.
+			const oldestLoaded = arr.length ? (dir === 1 ? timeOf(arr[0]) : timeOf(arr[arr.length - 1])) : -Infinity
+
 			let added = 0
 			for (const entry of entries) {
-				if (present.has(entry.id)) continue
 				try {
+					const t = entry.sentAt
+					if (t < oldestLoaded) continue
+
 					const record = createMessageRecord(buildRaw(entry, channelId))
 					if (!record) continue
 					record.__vml_deleted = true
 
-					const t = entry.sentAt
 					let idx: number
 					if (dir === 1) {
 						idx = arr.findIndex((m: any) => timeOf(m) > t)
