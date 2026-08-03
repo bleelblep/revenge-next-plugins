@@ -26,7 +26,7 @@
 				},
 				"1.4.0": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.anti-ghost-ping-1.4.0.zip",
-					"sha256": "c27a5491ca23c4decb2d20f0351c2103978266fad90db89df76183e340596f77",
+					"sha256": "ffd6d7b1f2e1ab34435c0a7e7fd1ccc3b726d282fa0ef8ed6e10cc5a72306bbd",
 					"size": 4419,
 					"dependencies": {
 						"revenge.api": {
@@ -62,7 +62,7 @@
 				},
 				"1.2.0": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.custom-timestamps-1.2.0.zip",
-					"sha256": "150f1fdc4bf306cfe1fd46d5a93506443665d927da1b3bb1a343a12588bad986",
+					"sha256": "7f195ba9db413adf9688a01d0c23f526f26ef26181fb8809cad81015e7579799",
 					"size": 2749,
 					"dependencies": {
 						"revenge.api": {
@@ -98,7 +98,7 @@
 				},
 				"1.2.0": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.ghost-log-1.2.0.zip",
-					"sha256": "765596ad916c90281d7d6e6a87cc75b6cfaaf24b480c3b7cd23d7e753d30c4c2",
+					"sha256": "f30c79e5819910da853ed61c07db49fa42f7fec437c1cb29a81beaa1242acce1",
 					"size": 10020,
 					"dependencies": {
 						"revenge.api": {
@@ -117,13 +117,26 @@
 			"author": "bleelblep",
 			"icon": "TrashIcon",
 			"channels": {
-				"beta": "0.2.0-beta1"
+				"beta": "0.2.0-beta2"
 			},
 			"versions": {
 				"0.2.0-beta1": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.ghost-log-native-beta-0.2.0-beta1.zip",
 					"sha256": "55f5c60b38dcab5d647aaba62260f9d712f6bbf63949ffaf56632676cba255b9",
 					"size": 25529,
+					"dependencies": {
+						"revenge.api": {
+							"version": ">=1 <2"
+						},
+						"discord": {
+							"version": "*"
+						}
+					}
+				},
+				"0.2.0-beta2": {
+					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.ghost-log-native-beta-0.2.0-beta2.zip",
+					"sha256": "e817db00c374ebf7a1ce49c52fc20d49129415bc5f5dd4e2748b29e512641d9c",
+					"size": 25587,
 					"dependencies": {
 						"revenge.api": {
 							"version": ">=1 <2"
@@ -184,7 +197,7 @@
 				},
 				"1.2.2": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.hide-call-buttons-1.2.2.zip",
-					"sha256": "ed86d548fa2c2b409f10015d43508036973ec64a340a217bfe0044d21a91b217",
+					"sha256": "ecf49dee3def41beebcd32da559dac0a27f659fa70f3cd02496cff7ec5643b03",
 					"size": 2197,
 					"dependencies": {
 						"revenge.api": {
@@ -260,7 +273,7 @@
 				},
 				"1.6.0": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.hide-servers-drawer-1.6.0.zip",
-					"sha256": "41fb0a86682a88fbc9c75cd9f035d19c6aefd00a1c6c029e61557c9bfbb686be",
+					"sha256": "27e7a2e425aed9843a58ef20e60a51e7a12b3ca59c678ce9aa133ca025a74ab0",
 					"size": 13284,
 					"dependencies": {
 						"revenge.api": {
@@ -296,7 +309,7 @@
 				},
 				"1.1.0": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.relationship-notifier-1.1.0.zip",
-					"sha256": "7344870a07f49db01cd42739fef4811f3f8dc11cf5176bae92320cd29cdd1c99",
+					"sha256": "da86405a20e9bd18004a71e3be0ed5d6882f36277a8708e1d7955b3462543266",
 					"size": 3777,
 					"dependencies": {
 						"revenge.api": {
@@ -347,7 +360,7 @@
 				},
 				"0.19.1": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.screenshot-redactor-0.19.1.zip",
-					"sha256": "c803d5466b43a3f8a5c0046d2c15bc55c0e17d9b04b24288f8a8c902e0ed6365",
+					"sha256": "d7cf61b96fa9233063b8a0378fa90cfbaa7eb0320e320760b43c01727f85d640",
 					"size": 9238,
 					"dependencies": {
 						"revenge.api": {
@@ -360,7 +373,7 @@
 				},
 				"0.25.2-beta1": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.screenshot-redactor-0.25.2-beta1.zip",
-					"sha256": "1dc2fc3bfb0d6fc09028938807d6b52baf5e67e33974339156312b938687892f",
+					"sha256": "a9d619a8bca387394b86faa50300a1af5c0be7ebd071d30d28f45044ffde50cd",
 					"size": 12243,
 					"dependencies": {
 						"revenge.api": {
@@ -396,7 +409,7 @@
 				},
 				"1.2.0": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.show-tag-1.2.0.zip",
-					"sha256": "3380872dc05aaab7b820662cf2882efe549f99c6c11c11225205b6860e6359cb",
+					"sha256": "e871f272603b92f781b6b8dfde4cdcc86b4d2216d9a5cc04da917484ad2d083f",
 					"size": 1535,
 					"dependencies": {
 						"revenge.api": {
@@ -445,7 +458,7 @@
 				},
 				"1.2.2": {
 					"url": "https://bleelblep.github.io/revenge-next-plugins/bleelblep.staff-tags-1.2.2.zip",
-					"sha256": "70b7c93321d3199f0bacbb518d52cdae4c0c4670f312a3d516b46142f607cdac",
+					"sha256": "760307685c57531df32ca2793fa6c7c50848cc00b1d3e0176402d0c6f4a82352",
 					"size": 3436,
 					"dependencies": {
 						"revenge.api": {
