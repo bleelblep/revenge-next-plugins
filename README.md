@@ -40,11 +40,20 @@ Screenshot Redactor currently provides:
 - `latest`: `0.19.1`
 - `beta`: `0.25.2-beta1`
 
+Ghost Log Native Beta is a separate plugin id (`bleelblep.ghost-log-native-beta`) that installs
+alongside stable Ghost Log without touching it. It provides:
+
+- `beta`: `0.2.0-beta1`
+
 ## Important
 
 Anti Ghost Ping and Ghost Log store deleted message text unencrypted on your device. Nothing is
 sent outside your device, but message loggers may increase the risk of Discord taking action
 against your account.
+
+Ghost Log Native Beta stores deleted message text encrypted on your device (AES-GCM) and can render
+deleted messages back into chat across reloads. It carries the same account-action risk as the other
+message loggers.
 
 Screenshot Redactor does not change message text. A person's name can still appear if somebody
 typed it directly into a message.
