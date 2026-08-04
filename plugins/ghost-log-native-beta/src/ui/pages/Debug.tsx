@@ -1,6 +1,6 @@
 import { DEFAULT_BACKUP_PATH, DEFAULTS } from '../../defaults'
 import { fillWithFakeEntries } from '../../lib/debug'
-import { dumpMessageStore, inspectCurrentChannel, inspectMessageInstance, startMessageLoadProbe, watchGetMessages } from '../../lib/probe'
+import { dumpMessageStore, dumpRoutingModules, inspectCurrentChannel, inspectMessageInstance, probeNavigationModules, startMessageLoadProbe, watchGetMessages } from '../../lib/probe'
 import { getSettingsStorage } from '../state'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
@@ -126,6 +126,18 @@ export default function Debug() {
 							subLabel="Logs a real message's constructor, field types, and methods."
 							icon={rowIcon('SearchIcon', 'ic_search')}
 							onPress={() => toast(inspectMessageInstance())}
+						/>
+						<TableRow
+							label="Probe navigation modules"
+							subLabel="Sweeps for a module that can open/jump to a message. Logs candidates to logcat."
+							icon={rowIcon('SearchIcon', 'ic_search')}
+							onPress={() => toast(probeNavigationModules())}
+						/>
+						<TableRow
+							label="Dump routing modules"
+							subLabel="Logs the full key list of the transitionToGuild/selectPrivateChannel/jumpToMessage modules."
+							icon={rowIcon('SearchIcon', 'ic_search')}
+							onPress={() => toast(dumpRoutingModules())}
 						/>
 					</TableRowGroup>
 				</Stack>

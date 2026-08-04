@@ -1,6 +1,7 @@
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import { clearNativeLog, refreshLog, useLog, type DeletedMessage } from '../state'
+import { jumpToDeletedMessage } from '../../lib/navigate'
 import Avatar from '../components/Avatar'
 
 function ago(timestamp: number): string {
@@ -168,6 +169,8 @@ export default function Log() {
 											}
 											label={entry.authorName}
 											subLabel={`${preview}${attachments}\n${entry.channelName} · ${ago(entry.deletedAt)}`}
+											onPress={() => jumpToDeletedMessage(entry)}
+											arrow
 										/>
 									)
 								})}

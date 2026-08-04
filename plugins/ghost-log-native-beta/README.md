@@ -49,6 +49,8 @@ Confirmed on device:
 - encrypted backup create/restore to a user-chosen path (shared storage or app-private)
 - settings parity with stable: Deleted messages, Settings (logging/notifications/limits), Backup,
   Visual style, Debug, Licence
+- tap a deleted-message entry in the log to jump to it in its original server/channel, via
+  Discord's own in-app router (`transitionTo`) rather than an OS-level deep link
 
 ## Upcoming
 

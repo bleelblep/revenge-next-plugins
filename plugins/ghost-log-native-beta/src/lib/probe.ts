@@ -134,6 +134,122 @@ export function inspectMessageInstance(): string {
 }
 
 /**
+ * Sweep for a module that can jump to / open a specific message. `jumpToDeletedMessage`
+ * (`lib/navigate.ts`) guessed `withProps('openUrl')`, mirroring an unshipped sibling plugin
+ * (jump-to-top) that was never confirmed working -- on-device it finds nothing. Same shape as
+ * screenshot-redactor's probe.ts: walk every initialized module id and report both an exact-key
+ * hit list and a heuristic candidate list, one line per hit so no continuation line gets dropped
+ * by a tag filter (porting-rules.md rule 5).
+ */
+const NAV_MAX_ID = 30000
+const NAV_WANTED = [
+	'openUrl',
+	'openURL',
+	'openDeeplink',
+	'handleClick',
+	'jumpToMessage',
+	'transitionToGuild',
+	'transitionTo',
+	'navigateToConnections',
+]
+const NAV_INTERESTING = /^(open|jump|navigate|transition|goto|handle).*(url|link|message|channel|guild|deeplink|click)$/i
+
+export function probeNavigationModules(): string {
+	const { getInitializedModuleExports, isModuleInitialized } = revenge.modules.metro as any
+
+	const exact: string[] = []
+	const hits: string[] = []
+	let scanned = 0
+	let initialized = 0
+
+	for (let id = 0; id < NAV_MAX_ID; id++) {
+		scanned++
+		let exports: any
+		try {
+			if (!isModuleInitialized(id)) continue
+			initialized++
+			exports = getInitializedModuleExports(id)
+		} catch {
+			continue
+		}
+		if (!exports || typeof exports !== 'object') continue
+
+		try {
+			for (const key of NAV_WANTED) {
+				const direct = exports[key]
+				const nested = exports.default?.[key]
+				if (direct === undefined && nested === undefined) continue
+				exact.push(`${id}.${key}: exports=${typeof direct}${nested !== undefined ? ` default.${key}=${typeof nested}` : ''}`)
+			}
+		} catch {
+			/* some namespaces throw on property access */
+		}
+
+		try {
+			const keys: string[] = []
+			for (const key of Object.keys(exports)) {
+				if (typeof exports[key] !== 'function') continue
+				if (!NAV_INTERESTING.test(key)) continue
+				keys.push(key)
+			}
+			if (keys.length) hits.push(`${id}: ${keys.join(', ')}`)
+		} catch {
+			continue
+		}
+	}
+
+	console.log(`${TAG} navProbe: ${initialized} initialized of ${scanned} scanned, ${hits.length} candidates, ${exact.length} exact`)
+	console.log(`${TAG} navProbe EXACT (${exact.length}):`)
+	for (const line of exact) console.log(`${TAG}   exact ${line}`)
+	console.log(`${TAG} navProbe CANDIDATES (${hits.length}):`)
+	for (const line of hits) console.log(`${TAG}   cand ${line}`)
+
+	return `${hits.length} candidates, ${exact.length} exact — see adb logcat`
+}
+
+/**
+ * Dump the full key list (and each value's type) of the module carrying `transitionToGuild` and
+ * of the module carrying `selectPrivateChannel` -- the two navigation primitives
+ * `hide-servers-drawer` already ships successfully (`GuildRow.tsx` / `UnreadDmRow.tsx`). Neither
+ * of those callers needs a *specific channel within a guild*, only "the guild" / "this DM" --
+ * this dump is to find whatever sibling function on the same module handles that, and
+ * `jumpToMessage`'s exact expected argument shape, before guessing another on-device round.
+ */
+export function dumpRoutingModules(): string {
+	const { lookupModule } = revenge.modules.finders as any
+	const { withProps } = revenge.modules.finders.filters
+
+	const describe = (label: string, prop: string) => {
+		try {
+			const mod = lookupModule<any>(withProps(prop))?.[0]
+			if (!mod) {
+				console.log(`${TAG} routing ${label}(${prop}): not found`)
+				return
+			}
+			const keys = Object.keys(mod)
+				.map(k => `${k}:${typeof mod[k]}`)
+				.join(', ')
+			console.log(`${TAG} routing ${label}(${prop}) own keys: ${keys}`)
+			if (mod.default && typeof mod.default === 'object') {
+				const defKeys = Object.keys(mod.default)
+					.map(k => `${k}:${typeof mod.default[k]}`)
+					.join(', ')
+				console.log(`${TAG} routing ${label}(${prop}).default keys: ${defKeys}`)
+			}
+		} catch (error) {
+			console.error(`${TAG} routing ${label}(${prop}) threw:`, error)
+		}
+	}
+
+	describe('transitionToGuild', 'transitionToGuild')
+	describe('selectPrivateChannel', 'selectPrivateChannel')
+	describe('jumpToMessage', 'jumpToMessage')
+	describe('selectChannel', 'selectChannel')
+
+	return 'see adb logcat'
+}
+
+/**
  * Watches flux traffic for message/channel-load events and, on the first occurrence of each type,
  * logs the payload keys plus the current channel's MessageStore shape. This is how we find the
  * injection point for persistent restore. Shapes and counts only — never message content.
