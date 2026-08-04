@@ -43,7 +43,7 @@ Screenshot Redactor currently provides:
 Ghost Log Native Beta is a separate plugin id (`bleelblep.ghost-log-native-beta`) that installs
 alongside stable Ghost Log without touching it. It provides:
 
-- `beta`: `0.2.0-beta1`
+- `beta`: `0.3.0-beta1`
 
 ## Important
 

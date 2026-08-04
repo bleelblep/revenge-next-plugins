@@ -17,6 +17,50 @@ export function setCreateMessageRecord(fn: any) {
 	if (typeof fn === 'function') createMessageRecord = fn
 }
 
+/** Numeric time of a store message regardless of how its timestamp field is represented. */
+function timeOf(m: any): number {
+	const t = m?.timestamp
+	if (t instanceof Date) return t.getTime()
+	if (typeof t === 'number') return t
+	if (typeof t === 'string') {
+		const n = Date.parse(t)
+		return Number.isNaN(n) ? 0 : n
+	}
+	return 0
+}
+
+/**
+ * _array is chronologically ordered, but direction isn't fixed -- some views (e.g. jump-to-message)
+ * hand back newest-first. Detect direction from the array's own two ends rather than assuming
+ * oldest-first, then splice into the matching sorted position instead of pushing onto the end.
+ *
+ * On a cold or partially-paginated load, `array` only holds a recent window. An entry older (in
+ * insertion order) than everything currently loaded has no real neighbor yet -- Discord just hasn't
+ * paginated back far enough to know what's actually next to it -- so inserting it at the edge shoves
+ * it in front of messages it doesn't belong next to until more history streams in. This hook reruns
+ * on every getMessages call against a fresh copy, so skipping here just means it self-corrects once
+ * the loaded window actually reaches back past the entry's timestamp, rather than guessing wrong now.
+ */
+function insertSorted(array: any[], record: any): boolean {
+	if (!(record?.timestamp instanceof Date) || !array.length) {
+		array.push(record)
+		return true
+	}
+	const ts = timeOf(record)
+	const dir = array.length >= 2 && timeOf(array[0]) > timeOf(array[array.length - 1]) ? -1 : 1
+	const edgeTs = dir === 1 ? timeOf(array[0]) : timeOf(array[array.length - 1])
+	if (dir === 1 ? ts < edgeTs : ts > edgeTs) return false
+
+	let i = array.length
+	while (i > 0) {
+		const prevTs = timeOf(array[i - 1])
+		if (dir === 1 ? prevTs <= ts : prevTs >= ts) break
+		i--
+	}
+	array.splice(i, 0, record)
+	return true
+}
+
 /** Raw snake_case message, same shape the store normalizes on LOAD_MESSAGES_SUCCESS. */
 function buildRaw(entry: DeletedMessage, channelId: string): any {
 	return {
@@ -44,18 +88,6 @@ function buildRaw(entry: DeletedMessage, channelId: string): any {
 		type: 0,
 		state: 'SENT',
 	}
-}
-
-/** Numeric time of a store message regardless of how its timestamp field is represented. */
-function timeOf(m: any): number {
-	const t = m?.timestamp
-	if (t instanceof Date) return t.getTime()
-	if (typeof t === 'number') return t
-	if (typeof t === 'string') {
-		const n = Date.parse(t)
-		return Number.isNaN(n) ? 0 : n
-	}
-	return 0
 }
 
 /**
@@ -88,58 +120,34 @@ export function patchRenderRestore(): () => void {
 			const entries = getCachedLog().filter(e => e.channelId === channelId)
 			if (!entries.length) return ret
 
-			const arr = ret._array
-			const entryIds = new Set(entries.map(e => e.id))
+			const present = new Set(ret._array.map((m: any) => String(m?.id)))
+			const missing = entries.filter(e => !present.has(e.id))
+			if (!missing.length) return ret
 
-			// The store loads history progressively (cold start, pagination), so a position computed
-			// once against an early, incomplete page goes stale the moment more real messages load in
-			// behind it — that's what pins a restored deletion to "before the new messages" instead of
-			// its real chronological slot. Strip our own previously-injected records for these entries
-			// and recompute fresh against the CURRENT array on every call rather than trusting the
-			// first one.
-			for (let i = arr.length - 1; i >= 0; i--) {
-				const m = arr[i]
-				if (m?.__vml_deleted && entryIds.has(String(m?.id))) arr.splice(i, 1)
-			}
-
-			// _array is time-ordered; find which direction so injected messages slot into their real
-			// chronological position instead of landing at the end (the out-of-order bug).
-			let dir = 1
-			if (arr.length >= 2) dir = timeOf(arr[0]) <= timeOf(arr[arr.length - 1]) ? 1 : -1
-
-			// Confirmed on-device: on cold/partial load, arr only holds a recent window (e.g. the
-			// last few hours). An entry older than everything currently loaded has no real neighbor
-			// yet -- Discord just hasn't paginated back far enough to know what's actually next to
-			// it -- so inserting it at idx 0 shoves it "before the new messages" until more history
-			// streams in and self-corrects. Better to wait than guess: skip until the loaded window
-			// actually reaches back past the entry's timestamp.
-			const oldestLoaded = arr.length ? (dir === 1 ? timeOf(arr[0]) : timeOf(arr[arr.length - 1])) : -Infinity
-
+			// _array is the store's own live backing array, not a copy handed out per call -- splicing
+			// into it directly desyncs whatever id/index bookkeeping the real MESSAGE_CREATE/UPDATE
+			// reducers keep alongside it (this is what crashed active conversations: a real-time
+			// dispatch landing on indices our splice had silently shifted). Build the merge on a
+			// throwaway copy and hand back a shallow clone of the record instead, so the store's own
+			// array is never touched.
+			const merged = ret._array.slice()
 			let added = 0
-			for (const entry of entries) {
+			for (const entry of missing) {
 				try {
-					const t = entry.sentAt
-					if (t < oldestLoaded) continue
-
 					const record = createMessageRecord(buildRaw(entry, channelId))
 					if (!record) continue
 					record.__vml_deleted = true
-
-					let idx: number
-					if (dir === 1) {
-						idx = arr.findIndex((m: any) => timeOf(m) > t)
-						if (idx === -1) idx = arr.length
-					} else {
-						idx = arr.findIndex((m: any) => timeOf(m) < t)
-						if (idx === -1) idx = arr.length
-					}
-					arr.splice(idx, 0, record)
-					added++
+					if (insertSorted(merged, record)) added++
 				} catch (error) {
 					console.error(`[GhostLogNativeBeta] createMessageRecord failed for ${entry.id}:`, error)
 				}
 			}
-			if (added > 0) log(`render restore merged ${added} into ${channelId}`)
+			if (added > 0) {
+				log(`render restore merged ${added} into ${channelId}`)
+				const clone = Object.assign(Object.create(Object.getPrototypeOf(ret)), ret)
+				clone._array = merged
+				return clone
+			}
 		} catch (error) {
 			console.error('[GhostLogNativeBeta] render restore hook failed:', error)
 		}
