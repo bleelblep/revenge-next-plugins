@@ -21,7 +21,3 @@ plugins/who-reacted/
 
 # Planning notes, kept local.
 docs/plugin-ideas.md
-
-# Moved to the dedicated bleelblep/revenge-next-native-plugins repo -- no longer published from
-# here. Local `dist/` builds and serve.mjs still see it, CI does not.
-plugins/ghost-log-native-beta/
