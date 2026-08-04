@@ -57,7 +57,13 @@ function patchDispatcher(
 						id: message.id,
 						channel_id: message.channel_id,
 						content: message.content,
-						author: message.author ? { ...message.author } : undefined,
+						// Not a spread: UserRecord stores its fields as non-enumerable getters (same
+						// class-instance pattern as MessageRecord itself), so `{ ...message.author }`
+						// silently produces an empty object for any cached *other* user's record --
+						// missing id/username -- which crashed createMessageRecord below on every
+						// non-self delete. The record is immutable and only read from here, so handing
+						// the reference straight through is safe.
+						author: message.author,
 						attachments: message.attachments ? [...message.attachments] : [],
 						embeds: message.embeds ?? [],
 						mentions: message.mentions ?? [],
@@ -74,7 +80,7 @@ function patchDispatcher(
 					}
 
 					if (message.referenced_message) {
-						msgData.referenced_message = { ...message.referenced_message }
+						msgData.referenced_message = message.referenced_message
 						msgData.message_reference = {
 							channel_id: message.referenced_message.channel_id,
 							message_id: message.referenced_message.id,
