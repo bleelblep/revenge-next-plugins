@@ -106,7 +106,7 @@ function relative(d: Date, now: Date): string {
 // Longest tokens first so e.g. "dddd" matches before "ddd" -- a single regex pass means the
 // replacement text is never re-scanned for further token matches (unlike sequential global
 // replaces, which can cascade into already-substituted text).
-const TOKEN_RE = /dddd|ddd|MMMM|MMM|YYYY|YY|Do|DD|D|HH|H|hh|h|mm|ss|A|a/g
+const TOKEN_RE = /dddd|ddd|dd|d|MMMM|MMM|MM|M|YYYY|YY|Do|DD|D|HH|H|hh|h|mm|m|ss|s|A|a/g
 
 /** Supports the common moment.js tokens; not the full moment format-string language. */
 function applyCustomFormat(d: Date, fmt: string): string {
@@ -119,8 +119,12 @@ function applyCustomFormat(d: Date, fmt: string): string {
 	const replacements: Record<string, string> = {
 		dddd: weekday,
 		ddd: weekday.slice(0, 3),
+		dd: weekday.slice(0, 2),
+		d: String(d.getDay()),
 		MMMM: month,
 		MMM: month.slice(0, 3),
+		MM: pad(d.getMonth() + 1),
+		M: String(d.getMonth() + 1),
 		Do: ordinal(day),
 		DD: pad(day),
 		D: String(day),
@@ -131,7 +135,9 @@ function applyCustomFormat(d: Date, fmt: string): string {
 		hh: pad(h12),
 		h: String(h12),
 		mm: pad(d.getMinutes()),
+		m: String(d.getMinutes()),
 		ss: pad(d.getSeconds()),
+		s: String(d.getSeconds()),
 		A: h24 >= 12 ? "PM" : "AM",
 		a: h24 >= 12 ? "pm" : "am",
 	}

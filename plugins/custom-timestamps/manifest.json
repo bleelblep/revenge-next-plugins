@@ -4,7 +4,7 @@
 	"name": "Custom Timestamps",
 	"description": "Customize the format of timestamps in chat — calendar, relative, ISO 8601, or a custom format string.",
 	"author": "bleelblep, Fiery",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
