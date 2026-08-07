@@ -54,9 +54,7 @@ async function capture(entry: Record<string, unknown>, toast: boolean, authorNam
 		await callNativeMethod(`${ID}.captureDeleted`, [entry])
 		addToCache(entry as any)
 		const cfg = settings()
-		if (cfg.autoBackupEnabled) {
-			void callNativeMethod(`${ID}.exportBackup`, [cfg.backupFilePath || DEFAULT_BACKUP_PATH]).catch(() => {})
-		}
+		if (cfg.autoBackupEnabled) scheduleBackup(cfg)
 		if (toast) {
 			revenge.discord.actions.ToastActionCreators.open({
 				key: `${ID}:${entry.id}`,
@@ -66,6 +64,19 @@ async function capture(entry: Record<string, unknown>, toast: boolean, authorNam
 	} catch (error) {
 		console.error(`${TAG} capture bridge failed:`, error)
 	}
+}
+
+// Auto-backup once per burst, not once per catch: previously every captured deletion fired a
+// full-log encrypt+write to the backup file, so N rapid deletions meant 2N full rewrites
+// (capture + backup each) serialized through the native mutex. Under a purge that I/O storm
+// is the only beta-only work that scales with delete rate. Trailing-debounce it instead.
+let backupTimer: ReturnType<typeof setTimeout> | undefined
+function scheduleBackup(cfg: GhostLogSettings) {
+	if (backupTimer !== undefined) return
+	backupTimer = setTimeout(() => {
+		backupTimer = undefined
+		void callNativeMethod(`${ID}.exportBackup`, [cfg.backupFilePath || DEFAULT_BACKUP_PATH]).catch(() => {})
+	}, 2000)
 }
 
 function handle(channelId: string, messageId: string) {
@@ -134,6 +145,10 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 		api.cleanup(
 			onFluxEventDispatched('MESSAGE_DELETE', (payload: any) => {
 				try {
+					// __vml_cleanup deletes are emitted by this plugin's own stop-cleanup for
+					// messages already flagged/logged — re-capturing them would spam the log
+					// (and the bridge) with the entire flagged set on every reload.
+					if (payload?.__vml_cleanup) return payload
 					handle(payload.channelId, payload.id)
 				} catch (error) {
 					console.error(`${TAG} MESSAGE_DELETE handler failed:`, error)
@@ -142,12 +157,19 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 			}),
 			onFluxEventDispatched('MESSAGE_DELETE_BULK', (payload: any) => {
 				try {
+					if (payload?.__vml_cleanup) return payload
 					for (const id of payload.ids ?? []) handle(payload.channelId, id)
 				} catch (error) {
 					console.error(`${TAG} MESSAGE_DELETE_BULK handler failed:`, error)
 				}
 				return payload
 			}),
+			() => {
+				if (backupTimer !== undefined) {
+					clearTimeout(backupTimer)
+					backupTimer = undefined
+				}
+			},
 		)
 
 		try {
