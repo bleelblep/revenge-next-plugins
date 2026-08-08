@@ -37,7 +37,17 @@ let cache: DeletedMessage[] = []
 let loading = false
 const listeners = new Set<() => void>()
 
+// Bumped on every mutation of `cache`. The render-restore hook runs on MessageStore.getMessages
+// -- i.e. several times per frame -- and needs an O(1) way to answer "has the log changed since
+// the last time I built records for this channel?" without rescanning or rebuilding anything.
+let version = 0
+
+export function getLogVersion(): number {
+	return version
+}
+
 function notify() {
+	version++
 	for (const fn of listeners) fn()
 }
 

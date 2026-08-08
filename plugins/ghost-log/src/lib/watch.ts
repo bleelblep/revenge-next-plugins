@@ -1,6 +1,6 @@
 import { shouldIgnore } from "./detect"
 import { DEFAULTS } from "../defaults"
-import { encryptMessageText, saveBackupFromStorage } from "./backup"
+import { cancelScheduledBackup, encryptMessageText, scheduleBackup } from "./backup"
 import type { GhostLogStorage, DeletedMessage } from "../types"
 
 const log = (...m: any[]) => console.log("[GhostLog]", ...m)
@@ -93,7 +93,7 @@ export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogSto
 			const cap = settings.unlimitedEntries ? Infinity : settings.maxEntries
 			const nextLog = appendCapped(settings.log ?? [], entry, cap)
 			jsonStorage.set({ log: nextLog })
-			void saveBackupFromStorage(jsonStorage, nextLog)
+			scheduleBackup(jsonStorage)
 			if (settings.toastOnCatch) toast(entry)
 		}
 	}
@@ -135,6 +135,7 @@ export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogSto
 	})
 
 	return () => {
+		cancelScheduledBackup()
 		unsubscribeSingle()
 		unsubscribeBulk()
 		unsubscribeUpdate()

@@ -1,7 +1,5 @@
-import { getCachedLog } from '../ui/state'
+import { getCachedLog, getLogVersion } from '../ui/state'
 import type { DeletedMessage } from '../ui/state'
-
-const log = (...m: any[]) => console.log('[GhostLogNativeBeta]', ...m)
 
 function stores() {
 	return revenge.discord.flux.Stores as any
@@ -15,6 +13,45 @@ let createMessageRecord: ((...a: any[]) => any) | undefined
 
 export function setCreateMessageRecord(fn: any) {
 	if (typeof fn === 'function') createMessageRecord = fn
+}
+
+// A captured deletion never changes once stored, so the MessageRecord built for it is reusable.
+// It used to be rebuilt from scratch on every getMessages call -- and getMessages runs several
+// times per frame, so the cost was (entries for this channel) x (calls per frame), all of it
+// synchronous on the render path. Measured on-device at 341.8: ~15ms per call with 30 orphaned
+// entries, scaling linearly, against a 16ms frame budget. Deleting messages in quick succession
+// grows that set fast, which is what turned a burst of deletions into an unrecoverable freeze.
+// Building each record once collapses the per-call cost to the presence scan below.
+const recordCache = new Map<string, any>()
+let recordCacheVersion = -1
+
+/**
+ * Drop memoized records for entries that have left the log (trim, clear, reload).
+ * Takes the whole log, not one channel's slice -- pruning against a slice would evict every
+ * other channel's records on each call and defeat the cache entirely.
+ */
+function syncRecordCache(allEntries: DeletedMessage[], version: number) {
+	if (recordCacheVersion === version) return
+	recordCacheVersion = version
+	if (!recordCache.size) return
+	const live = new Set(allEntries.map(e => e.id))
+	for (const id of recordCache.keys()) if (!live.has(id)) recordCache.delete(id)
+}
+
+/** Build once, reuse thereafter. Returns undefined if the record could not be built. */
+function recordFor(entry: DeletedMessage, channelId: string): any {
+	const hit = recordCache.get(entry.id)
+	if (hit !== undefined) return hit
+	try {
+		const record = createMessageRecord!(buildRaw(entry, channelId))
+		if (!record) return undefined
+		record.__vml_deleted = true
+		recordCache.set(entry.id, record)
+		return record
+	} catch (error) {
+		console.error(`[GhostLogNativeBeta] createMessageRecord failed for ${entry.id}:`, error)
+		return undefined
+	}
 }
 
 /** Numeric time of a store message regardless of how its timestamp field is represented. */
@@ -41,24 +78,49 @@ function timeOf(m: any): number {
  * on every getMessages call against a fresh copy, so skipping here just means it self-corrects once
  * the loaded window actually reaches back past the entry's timestamp, rather than guessing wrong now.
  */
-function insertSorted(array: any[], record: any): boolean {
-	if (!(record?.timestamp instanceof Date) || !array.length) {
-		array.push(record)
-		return true
-	}
-	const ts = timeOf(record)
-	const dir = array.length >= 2 && timeOf(array[0]) > timeOf(array[array.length - 1]) ? -1 : 1
-	const edgeTs = dir === 1 ? timeOf(array[0]) : timeOf(array[array.length - 1])
-	if (dir === 1 ? ts < edgeTs : ts > edgeTs) return false
+function mergeSorted(source: any[], records: any[]): any[] | undefined {
+	if (!records.length) return undefined
 
-	let i = array.length
-	while (i > 0) {
-		const prevTs = timeOf(array[i - 1])
-		if (dir === 1 ? prevTs <= ts : prevTs >= ts) break
-		i--
+	// No ordering information to work from: preserve the old push-to-end behaviour.
+	if (!source.length) return source.concat(records)
+
+	const dir = source.length >= 2 && timeOf(source[0]) > timeOf(source[source.length - 1]) ? -1 : 1
+	const edgeTs = dir === 1 ? timeOf(source[0]) : timeOf(source[source.length - 1])
+
+	const admitted: any[] = []
+	for (const record of records) {
+		// Same rule as before: a record with no usable timestamp can only go on the end, and one
+		// that falls outside the currently-loaded window is skipped rather than jammed against the
+		// edge -- it self-corrects once pagination reaches back past it.
+		if (!(record?.timestamp instanceof Date)) {
+			admitted.push(record)
+			continue
+		}
+		const ts = timeOf(record)
+		if (dir === 1 ? ts < edgeTs : ts > edgeTs) continue
+		admitted.push(record)
 	}
-	array.splice(i, 0, record)
-	return true
+	if (!admitted.length) return undefined
+
+	// Single linear merge instead of one splice per record: splicing inserted each record with an
+	// O(loaded) scan plus an O(loaded) memmove, so a channel with many logged deletions cost
+	// O(missing x loaded) on every getMessages call.
+	admitted.sort((a, b) => (dir === 1 ? timeOf(a) - timeOf(b) : timeOf(b) - timeOf(a)))
+
+	const out: any[] = []
+	let i = 0
+	let j = 0
+	while (i < source.length && j < admitted.length) {
+		const st = timeOf(source[i])
+		const at = timeOf(admitted[j])
+		// `<=` keeps an existing message ahead of an injected one at an equal timestamp, matching
+		// the old insert loop, which walked back only while the neighbour was strictly later.
+		if (dir === 1 ? st <= at : st >= at) out.push(source[i++])
+		else out.push(admitted[j++])
+	}
+	while (i < source.length) out.push(source[i++])
+	while (j < admitted.length) out.push(admitted[j++])
+	return out
 }
 
 /** Raw snake_case message, same shape the store normalizes on LOAD_MESSAGES_SUCCESS. */
@@ -117,12 +179,21 @@ export function patchRenderRestore(): () => void {
 			if (!channelId || !ret?._array || !Array.isArray(ret._array)) return ret
 			if (typeof createMessageRecord !== 'function') return ret
 
-			const entries = getCachedLog().filter(e => e.channelId === channelId)
+			const all = getCachedLog()
+			syncRecordCache(all, getLogVersion())
+
+			const entries = all.filter(e => e.channelId === channelId)
 			if (!entries.length) return ret
 
 			const present = new Set(ret._array.map((m: any) => String(m?.id)))
 			const missing = entries.filter(e => !present.has(e.id))
 			if (!missing.length) return ret
+
+			const records: any[] = []
+			for (const entry of missing) {
+				const record = recordFor(entry, channelId)
+				if (record) records.push(record)
+			}
 
 			// _array is the store's own live backing array, not a copy handed out per call -- splicing
 			// into it directly desyncs whatever id/index bookkeeping the real MESSAGE_CREATE/UPDATE
@@ -130,20 +201,10 @@ export function patchRenderRestore(): () => void {
 			// dispatch landing on indices our splice had silently shifted). Build the merge on a
 			// throwaway copy and hand back a shallow clone of the record instead, so the store's own
 			// array is never touched.
-			const merged = ret._array.slice()
-			let added = 0
-			for (const entry of missing) {
-				try {
-					const record = createMessageRecord(buildRaw(entry, channelId))
-					if (!record) continue
-					record.__vml_deleted = true
-					if (insertSorted(merged, record)) added++
-				} catch (error) {
-					console.error(`[GhostLogNativeBeta] createMessageRecord failed for ${entry.id}:`, error)
-				}
-			}
-			if (added > 0) {
-				log(`render restore merged ${added} into ${channelId}`)
+			const merged = mergeSorted(ret._array, records)
+			if (merged) {
+				// Deliberately not logged per call: this hook runs several times per frame, and during
+				// a deletion burst the console bridge was itself a measurable share of the cost.
 				const clone = Object.assign(Object.create(Object.getPrototypeOf(ret)), ret)
 				clone._array = merged
 				return clone
