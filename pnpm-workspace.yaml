@@ -1,0 +1,5 @@
+# pnpm 10+ requires native dependency build scripts to be explicitly reviewed.
+# These are the two build tools used by build.mjs.
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
