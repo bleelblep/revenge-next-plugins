@@ -6,6 +6,8 @@ export const DEFAULTS: GhostLogStorage = {
 	unlimitedEntries: false,
 	backupEnabled: true,
 	backupFilePath: "",
+	saveEmbeds: true,
+	embedsPerFile: 100,
 	toastOnCatch: false,
 	deleteStyle: "overlay",
 	logDeletions: true,
@@ -13,4 +15,5 @@ export const DEFAULTS: GhostLogStorage = {
 	ignoredChannelIds: [],
 	ignoredGuildIds: [],
 	countOwnMessages: false,
+	ignoreBots: false,
 }

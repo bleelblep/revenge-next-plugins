@@ -51,6 +51,8 @@ function patchDispatcher(
 						return args
 					}
 
+					if (settings.ignoreBots && message.author?.bot) return args
+
 					if (settings.deleteStyle === 'off') return args
 
 					const msgData: any = {

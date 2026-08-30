@@ -9,5 +9,8 @@ export interface GhostLogSettings {
 	unlimitedEntries: boolean
 	autoBackupEnabled: boolean
 	backupFilePath: string
+	saveEmbeds: boolean
+	embedsPerFile: 50 | 100
 	lastBackupAt?: number
+	ignoreBots: boolean
 }

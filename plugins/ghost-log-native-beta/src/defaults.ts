@@ -14,4 +14,7 @@ export const DEFAULTS: GhostLogSettings = {
 	unlimitedEntries: false,
 	autoBackupEnabled: true,
 	backupFilePath: DEFAULT_BACKUP_PATH,
+	saveEmbeds: true,
+	embedsPerFile: 100,
+	ignoreBots: false,
 }

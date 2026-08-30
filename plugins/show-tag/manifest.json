@@ -4,7 +4,7 @@
 	"name": "Show Tag",
 	"description": "Shows the username (or full Discord tag on legacy accounts) in the message header, including reply previews.",
 	"author": "Cynosphere, bleelblep",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

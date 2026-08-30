@@ -14,11 +14,14 @@ export default plugin<{ jsonStorage: ShowTagStorage }>({
 		default: DEFAULTS,
 	},
 	start({ cleanup, jsonStorage }) {
-		try {
-			cleanup(patchRowManager(jsonStorage))
-		} catch (error) {
-			console.error("[ShowTag] failed to patch RowManager:", error)
-		}
+		const installTimer = setTimeout(() => {
+			try {
+				cleanup(patchRowManager(jsonStorage))
+			} catch (error) {
+				console.error("[ShowTag] failed to patch RowManager:", error)
+			}
+		}, 0)
+		cleanup(() => clearTimeout(installTimer))
 	},
 	SettingsComponent: Settings,
 })

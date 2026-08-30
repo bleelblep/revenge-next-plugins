@@ -10,7 +10,7 @@ const ID = 'bleelblep.ghost-log-native-beta'
 export default function Options() {
 	const { Page } = revenge.components
 	const { ScrollView } = revenge.react.ReactNative
-	const { Stack, TableRowGroup, TableSwitchRow } = revenge.discord.design.Design
+	const { Stack, TableRowGroup, TableSwitchRow, TableRadioGroup, TableRadioRow } = revenge.discord.design.Design
 
 	const storage = getSettingsStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
@@ -31,6 +31,28 @@ export default function Options() {
 							icon={rowIcon('PencilIcon', 'ic_edit')}
 							value={!!s.logDeletions}
 							onValueChange={v => set({ logDeletions: v })}
+						/>
+						<TableSwitchRow
+							label="Save embeds and attachments"
+							subLabel="Keep rich message content in separate rotating files instead of the main text log."
+							icon={rowIcon('ImageIcon', 'PaperclipIcon', 'ic_image')}
+							value={!!s.saveEmbeds}
+							onValueChange={v => set({ saveEmbeds: v })}
+						/>
+						<TableRadioGroup
+							label="Rich content file size"
+							value={String(s.embedsPerFile)}
+							onValueChange={v => set({ embedsPerFile: Number(v) === 50 ? 50 : 100 })}
+						>
+							<TableRadioRow label="50 records per file" value="50" />
+							<TableRadioRow label="100 records per file" value="100" />
+						</TableRadioGroup>
+						<TableSwitchRow
+							label="Ignore bots"
+							subLabel="Don't capture deleted messages from bot accounts."
+							icon={rowIcon('BotIcon', 'ClydeIcon', 'RobotIcon', 'UserIcon')}
+							value={!!s.ignoreBots}
+							onValueChange={v => set({ ignoreBots: v })}
 						/>
 					</TableRowGroup>
 

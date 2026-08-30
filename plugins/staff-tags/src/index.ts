@@ -27,10 +27,13 @@ export default plugin<{ jsonStorage: StaffTagsStorage }>({
 			}
 		}
 
-		apply("chat", () => patchChat(jsonStorage))
-		apply("tag", patchTag)
-		apply("name", () => patchName(jsonStorage))
-		apply("details", () => patchDetails(jsonStorage))
+		const installTimer = setTimeout(() => {
+			apply("chat", () => patchChat(jsonStorage))
+			apply("tag", patchTag)
+			apply("name", () => patchName(jsonStorage))
+			apply("details", () => patchDetails(jsonStorage))
+		}, 0)
+		cleanup(() => clearTimeout(installTimer))
 	},
 	SettingsComponent: Settings,
 })

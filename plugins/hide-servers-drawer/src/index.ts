@@ -78,10 +78,13 @@ export default plugin<{ jsonStorage: HideServersDrawerStorage }>({
 		// are deliberately left unpatched (see the TARGETS comment in sortedGuilds.ts) --
 		// and the saveGuildFolders guard is the checkgate that keeps it that way even if a
 		// future Discord build reroutes a persist caller through a filtered getter.
-		apply("sortedGuilds", patchSortedGuilds)
-		apply("saveGuildFolders", patchSaveGuildFolders)
-		apply("guildsBar", patchGuildsBar)
-		refresh()
+		const installTimer = setTimeout(() => {
+			apply("sortedGuilds", patchSortedGuilds)
+			apply("saveGuildFolders", patchSaveGuildFolders)
+			apply("guildsBar", patchGuildsBar)
+			refresh()
+		}, 0)
+		cleanup(() => clearTimeout(installTimer))
 
 		// Dev auto-probe: a few seconds after start, dump the navigation actions and the
 		// store's method list, then arm a one-shot stock-bar render + tree dump -- so a

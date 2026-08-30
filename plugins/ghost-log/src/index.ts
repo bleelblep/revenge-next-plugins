@@ -37,7 +37,22 @@ export default plugin<{ jsonStorage: GhostLogStorage }>({
 		}
 
 		try {
-			cleanup(patchVisuals(jsonStorage))
+			// Discord 343.11 can still be finishing Metro module registration during the
+			// AppRegistry startup turn. Install the invasive render hooks on the next turn so
+			// a partially-created export cannot take down the process during launch.
+			let cancelled = false
+			const timer = setTimeout(() => {
+				if (cancelled) return
+				try {
+					cleanup(patchVisuals(jsonStorage))
+				} catch (error) {
+					console.error("[GhostLog] failed to start deferred visual patching:", error)
+				}
+			}, 0)
+			cleanup(() => {
+				cancelled = true
+				clearTimeout(timer)
+			})
 		} catch (error) {
 			console.error("[GhostLog] failed to start visual patching:", error)
 		}

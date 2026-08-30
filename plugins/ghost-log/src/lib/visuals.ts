@@ -40,6 +40,7 @@ function patchDispatcher(jsonStorage: RevengeJsonStorageApi<GhostLogStorage>, pa
 						return args
 					}
 
+					if (settings.ignoreBots && message.author?.bot) return args
 					if (settings.ignoredUserIds?.includes(message.author?.id)) return args
 					if (settings.ignoredChannelIds?.includes(event.channelId)) return args
 					const channel = s.ChannelStore?.getChannel?.(event.channelId)

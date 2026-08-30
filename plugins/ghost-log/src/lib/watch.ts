@@ -1,6 +1,7 @@
 import { shouldIgnore } from "./detect"
 import { DEFAULTS } from "../defaults"
 import { cancelScheduledBackup, encryptMessageText, scheduleBackup } from "./backup"
+import { saveRichContent } from "./richContent"
 import type { GhostLogStorage, DeletedMessage } from "../types"
 
 const log = (...m: any[]) => console.log("[GhostLog]", ...m)
@@ -36,15 +37,6 @@ function toast(entry: DeletedMessage) {
 	} catch (error) {
 		console.error("[GhostLog] Failed to show toast:", error)
 	}
-}
-
-function extractAttachments(message: any): DeletedMessage["attachments"] {
-	const atts = message.attachments
-	if (!Array.isArray(atts) || !atts.length) return undefined
-	return atts.map((a: any) => ({
-		filename: a.filename ?? "attachment",
-		url: a.url ?? a.proxy_url ?? "",
-	})).filter((a: { url: string }) => a.url)
 }
 
 function appendCapped(log: DeletedMessage[], entry: DeletedMessage, maxEntries: number): DeletedMessage[] {
@@ -84,10 +76,10 @@ export function watchForDeletions(jsonStorage: RevengeJsonStorageApi<GhostLogSto
 				authorAvatar: message.author?.avatar,
 				guildIcon: meta.guildIcon,
 				content: encryptMessageText(String(message.content ?? "")),
-				attachments: extractAttachments(message),
 				sentAt: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
 				deletedAt: Date.now(),
 			}
+		saveRichContent(message, entry.id, entry.channelId, entry.deletedAt, settings)
 
 			log(`Caught deletion from ${entry.authorName} in ${entry.channelName}`)
 			const cap = settings.unlimitedEntries ? Infinity : settings.maxEntries

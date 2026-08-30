@@ -4,6 +4,7 @@ import { patchRenderRestore } from './lib/restore'
 import { patchVisuals } from './lib/visuals'
 import { registerPages } from './ui/routes'
 import { addToCache, refreshLog, setSettingsStorage } from './ui/state'
+import { saveRichContent } from './lib/richContent'
 import Settings from './ui/pages/Settings'
 import type { GhostLogSettings } from './types'
 
@@ -89,6 +90,7 @@ function handle(channelId: string, messageId: string) {
 		const me = s.UserStore?.getCurrentUser?.()?.id
 		if (me && message.author?.id === me) return
 	}
+	if (cfg.ignoreBots && message.author?.bot) return
 	if (!cfg.logDeletions) return
 
 	const meta = describe(message, channelId)
@@ -104,7 +106,6 @@ function handle(channelId: string, messageId: string) {
 			authorAvatar: message.author?.avatar,
 			guildIcon: meta.guildIcon,
 			content: String(message.content ?? '').slice(0, 2000),
-			attachments: extractAttachments(message),
 			sentAt: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
 			deletedAt: Date.now(),
 		},
@@ -112,6 +113,7 @@ function handle(channelId: string, messageId: string) {
 		meta.authorName,
 		meta.channelName,
 	)
+	saveRichContent(message, String(messageId), String(channelId), Date.now(), cfg)
 }
 
 export default plugin<{ jsonStorage: GhostLogSettings }>({
@@ -172,17 +174,27 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 			},
 		)
 
-		try {
-			api.cleanup(patchVisuals(settings, handle))
-		} catch (error) {
-			console.error(`${TAG} failed to start visual patching:`, error)
-		}
-
-		try {
-			api.cleanup(patchRenderRestore())
-		} catch (error) {
-			console.error(`${TAG} failed to start render restore:`, error)
-		}
+		// Discord 343.11 may still be completing Metro module registration during the
+		// AppRegistry startup turn. Defer the hooks until the next turn; a partial export
+		// must disable the feature, never crash the host during launch.
+		let cancelled = false
+		const timer = setTimeout(() => {
+			if (cancelled) return
+			try {
+				api.cleanup(patchVisuals(settings, handle))
+			} catch (error) {
+				console.error(`${TAG} failed to start deferred visual patching:`, error)
+			}
+			try {
+				api.cleanup(patchRenderRestore())
+			} catch (error) {
+				console.error(`${TAG} failed to start deferred render restore:`, error)
+			}
+		}, 0)
+		api.cleanup(() => {
+			cancelled = true
+			clearTimeout(timer)
+		})
 	},
 
 	stop() {

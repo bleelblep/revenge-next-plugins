@@ -48,7 +48,11 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 			}
 		}
 
-		// chatManager is the one that matters: it redacts at the JS/native boundary, which is
+		// Discord 343.11 can still be registering Metro exports while plugin start runs. Defer
+		// invasive module discovery by one turn so the finders see initialized surfaces. Cancel
+		// the timer if the plugin stops before installation begins.
+		const installTimer = setTimeout(() => {
+			// chatManager is the one that matters: it redacts at the JS/native boundary, which is
 		// both the last place anything can be changed and the only place the already-drawn rows
 		// can be repainted from. rowManager stays as a second line -- it redacts the same
 		// `Message` shape through the same function, so the two agreeing costs nothing and it
@@ -64,7 +68,9 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 		// the header's avatar are resolved by two unrelated mechanisms, and treating them as one
 		// surface is what let the avatar leak while the name next to it redacted.
 		apply("avatar", patchAvatar)
-		apply("messageActionSheet", patchMessageActionSheet)
+			apply("messageActionSheet", patchMessageActionSheet)
+		}, 0)
+		cleanup(() => clearTimeout(installTimer))
 
 		// Placeholder numbering is per-session by design; drop it when the plugin stops so a
 		// disable/enable cycle can't be used to line two screenshots up against each other.

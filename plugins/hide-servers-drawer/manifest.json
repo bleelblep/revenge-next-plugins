@@ -5,7 +5,7 @@
 	"description": "Locally hide servers — or entire folders — from your server list. The stock bar does the hiding itself, so folders, unread badges and drag-to-reorder all behave exactly as stock.",
 	"author": "bleelblep, blerp",
 	"icon": "EyeSlashIcon",
-	"version": "1.6.0",
+	"version": "1.6.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

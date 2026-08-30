@@ -28,11 +28,14 @@ export default plugin<{ jsonStorage: HideCallButtonsStorage }>({
 		default: DEFAULTS,
 	},
 	start({ cleanup, jsonStorage }) {
-		try {
-			cleanup(patchCallButtons(jsonStorage))
-		} catch (error) {
-			console.error("[HideCallButtons] failed to apply patches:", error)
-		}
+		const installTimer = setTimeout(() => {
+			try {
+				cleanup(patchCallButtons(jsonStorage))
+			} catch (error) {
+				console.error("[HideCallButtons] failed to apply patches:", error)
+			}
+		}, 0)
+		cleanup(() => clearTimeout(installTimer))
 	},
 	SettingsComponent: Settings,
 })

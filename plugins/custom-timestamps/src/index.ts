@@ -8,11 +8,14 @@ export default plugin<{ jsonStorage: TimestampStorage }>({
 		default: DEFAULTS,
 	},
 	start({ cleanup, jsonStorage }) {
-		try {
-			cleanup(patchRowManager(jsonStorage))
-		} catch (error) {
-			console.error("[CustomTimestamps] failed to patch RowManager:", error)
-		}
+		const installTimer = setTimeout(() => {
+			try {
+				cleanup(patchRowManager(jsonStorage))
+			} catch (error) {
+				console.error("[CustomTimestamps] failed to patch RowManager:", error)
+			}
+		}, 0)
+		cleanup(() => clearTimeout(installTimer))
 	},
 	SettingsComponent: Settings,
 })

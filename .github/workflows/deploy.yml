@@ -40,3 +40,7 @@ jobs:
               with:
                   github_token: ${{ secrets.GITHUB_TOKEN }}
                   publish_dir: ./dist
+                  # Keep versioned ZIP artifacts from previous deployments. The build writes
+                  # a new <plugin-id>-<version>.zip for every release; only the unversioned
+                  # channel aliases are expected to move forward.
+                  keep_files: true
