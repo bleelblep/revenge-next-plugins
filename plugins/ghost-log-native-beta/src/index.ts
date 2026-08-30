@@ -4,7 +4,7 @@ import { patchRenderRestore } from './lib/restore'
 import { patchVisuals } from './lib/visuals'
 import { registerPages } from './ui/routes'
 import { addToCache, refreshLog, setSettingsStorage } from './ui/state'
-import { saveRichContent } from './lib/richContent'
+import { richContentForCapture } from './lib/richContent'
 import Settings from './ui/pages/Settings'
 import type { GhostLogSettings } from './types'
 
@@ -84,6 +84,7 @@ function handle(channelId: string, messageId: string) {
 
 	const meta = describe(message, channelId)
 	const deletedAt = Date.now()
+	const richContent = richContentForCapture(message, cfg)
 	void capture(
 		{
 			id: String(messageId),
@@ -96,6 +97,7 @@ function handle(channelId: string, messageId: string) {
 			authorAvatar: message.author?.avatar,
 			guildIcon: meta.guildIcon,
 			content: String(message.content ?? '').slice(0, 2000),
+			...(richContent ? { richContent, richContentPerFile: cfg.embedsPerFile } : {}),
 			sentAt: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
 			deletedAt,
 		},
@@ -103,7 +105,6 @@ function handle(channelId: string, messageId: string) {
 		meta.authorName,
 		meta.channelName,
 	)
-	saveRichContent(message, String(messageId), String(channelId), deletedAt, cfg)
 }
 
 export default plugin<{ jsonStorage: GhostLogSettings }>({
@@ -198,6 +199,7 @@ declare module '@revenge-mod/modules/native' {
 	export interface NativeMethods {
 		'bleelblep.ghost-log-native-beta.captureDeleted': [args: [entry: Record<string, unknown>], returnValue: boolean]
 		'bleelblep.ghost-log-native-beta.getLog': [args: any[], returnValue: string]
+		'bleelblep.ghost-log-native-beta.getRichContent': [args: [ids: string[]], returnValue: string]
 		'bleelblep.ghost-log-native-beta.getLogCount': [args: any[], returnValue: number]
 		'bleelblep.ghost-log-native-beta.clearLog': [args: any[], returnValue: boolean]
 		'bleelblep.ghost-log-native-beta.getLogFilePath': [args: any[], returnValue: string]

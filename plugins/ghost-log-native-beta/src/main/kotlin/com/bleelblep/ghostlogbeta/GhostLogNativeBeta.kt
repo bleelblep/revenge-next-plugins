@@ -32,6 +32,7 @@ val ghostLogNativeBeta = plugin {
         val mutex = Mutex()
         val entries = mutableListOf<JSONObject>()
         val logFile = File(storageDir, "deleted-log.json.enc")
+		val richIndexFile = File(storageDir, "deleted-embeds.index.v1.json")
         var maxEntries = 100
         var unlimitedEntries = false
 
@@ -76,6 +77,41 @@ val ghostLogNativeBeta = plugin {
             logFile.writeText(encrypt(arr.toString()))
         }
 
+		fun richShard(file: Int) = File(storageDir, "deleted-embeds-%05d.json".format(file))
+
+		fun persistRichLocked(rich: JSONObject, messageId: String, channelId: String, deletedAt: Long, perFile: Int) {
+			val index = runCatching { JSONObject(richIndexFile.readText()) }.getOrElse { JSONObject() }
+			var file = index.optInt("file", 1).coerceAtLeast(1)
+			var target = richShard(file)
+			var existing = runCatching { JSONObject(target.readText()) }.getOrElse { JSONObject() }
+			var oldEntries = existing.optJSONArray("entries") ?: JSONArray()
+			val limit = perFile.coerceIn(50, 100)
+			if (oldEntries.length() >= limit) {
+				file += 1
+				target = richShard(file)
+				existing = JSONObject()
+				oldEntries = JSONArray()
+			}
+			val next = JSONObject().apply {
+				put("messageId", messageId)
+				put("channelId", channelId)
+				put("deletedAt", deletedAt)
+				if (rich.has("attachments")) put("attachments", rich.optJSONArray("attachments"))
+				if (rich.has("embeds")) put("embeds", rich.optJSONArray("embeds"))
+			}
+			val out = JSONArray().put(next)
+			for (i in 0 until oldEntries.length()) {
+				if (out.length() >= limit) break
+				val old = oldEntries.optJSONObject(i) ?: continue
+				if (old.optString("messageId") != messageId) out.put(old)
+			}
+			existing.put("version", 1).put("entries", out)
+			target.writeText(existing.toString())
+			if (file != index.optInt("file", 1) || !richIndexFile.exists()) {
+				richIndexFile.writeText(JSONObject().put("version", 1).put("file", file).toString())
+			}
+		}
+
         fun loadLocked() {
             entries.clear()
             val raw = runCatching { logFile.readText() }.getOrNull() ?: return
@@ -91,6 +127,10 @@ val ghostLogNativeBeta = plugin {
         registerNativeAsyncMethod("${manifest.id}.captureDeleted") { args ->
             val map = args.getOrNull(0) as? Map<*, *> ?: return@registerNativeAsyncMethod false
             val entry = JSONObject(map)
+			val rich = entry.optJSONObject("richContent")
+			val richPerFile = entry.optInt("richContentPerFile", 100)
+			entry.remove("richContent")
+			entry.remove("richContentPerFile")
             // React Native delivers all numbers as Double; normalize the timestamps to Long so the
             // stored JSON reads clean and matches stable's number shape.
             for (key in listOf("sentAt", "deletedAt")) {
@@ -102,6 +142,7 @@ val ghostLogNativeBeta = plugin {
                 entries.add(0, entry)
                 trimLocked()
                 persistLocked()
+				if (rich != null) persistRichLocked(rich, id, entry.optString("channelId"), entry.optLong("deletedAt"), richPerFile)
             }
             log.i("captured deletion id=$id count=${entries.size}")
             true
@@ -114,6 +155,23 @@ val ghostLogNativeBeta = plugin {
                 arr.toString()
             }
         }
+
+		registerNativeAsyncMethod("${manifest.id}.getRichContent") { args ->
+			val ids = (args.getOrNull(0) as? List<*>)?.mapNotNull { it as? String }?.toHashSet() ?: emptySet()
+			mutex.withLock {
+				val out = JSONObject()
+				val index = runCatching { JSONObject(richIndexFile.readText()) }.getOrElse { JSONObject() }
+				for (file in 1..(index.optInt("file", 0).coerceAtLeast(0))) {
+					val entries = runCatching { JSONObject(richShard(file).readText()).optJSONArray("entries") }.getOrNull() ?: continue
+					for (i in 0 until entries.length()) {
+						val rich = entries.optJSONObject(i) ?: continue
+						val id = rich.optString("messageId")
+						if (id in ids) out.put(id, rich)
+					}
+				}
+				out.toString()
+			}
+		}
 
         registerNativeAsyncMethod("${manifest.id}.getLogCount") { _ ->
             mutex.withLock { entries.size }
