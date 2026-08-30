@@ -69,7 +69,10 @@ export default function Options() {
 							}
 							icon={rowIcon("LockIcon", "ic_lock")}
 							value={!!s.backupEnabled}
-							onValueChange={v => set({ backupEnabled: v })}
+							onValueChange={v => {
+								void set({ backupEnabled: v })
+								if (v && storage) void saveBackupFromStorage(storage, undefined, true)
+							}}
 						/>
 						<TableSwitchRow
 							label="Unlimited entries"

@@ -1,7 +1,9 @@
 import type { GhostLogSettings } from '../types'
+import { callNativeMethod } from './native'
 
 const PLUGIN_ID = 'bleelblep.ghost-log-native-beta'
 const INDEX_FILE = 'deleted-embeds.index.v1.json'
+let nativeBaseDir: string | undefined
 
 interface RichEntry {
 	messageId: string
@@ -12,7 +14,16 @@ interface RichEntry {
 }
 
 function path(name: string) {
-	return `${revenge.plugins.constants.pluginStorageDirFor(PLUGIN_ID)}/${name}`
+	return `${nativeBaseDir ?? revenge.plugins.constants.pluginStorageDirFor(PLUGIN_ID)}/${name}`
+}
+
+async function ensureNativeBaseDir() {
+	if (nativeBaseDir) return
+	const logPath = await callNativeMethod(`${PLUGIN_ID}.getLogFilePath`, [])
+	if (typeof logPath === 'string') {
+		const slash = Math.max(logPath.lastIndexOf('/'), logPath.lastIndexOf('\\'))
+		if (slash > 0) nativeBaseDir = logPath.slice(0, slash)
+	}
 }
 
 function shardPath(file: number) {
@@ -59,6 +70,7 @@ export function saveRichContent(
 
 	void serialize(async () => {
 		try {
+			await ensureNativeBaseDir()
 			const fs = revenge.modules.native.fs
 			const indexPath = path(INDEX_FILE)
 			const index = await fs.exists(indexPath)
@@ -81,4 +93,28 @@ export function saveRichContent(
 			console.error('[GhostLogNativeBeta] Failed to save deleted embeds:', error)
 		}
 	})
+}
+
+export async function loadRichContent(ids: string[]) {
+	const wanted = new Set(ids)
+	const out = new Map<string, Pick<RichEntry, 'attachments' | 'embeds'>>()
+	if (!wanted.size) return out
+	try {
+		await ensureNativeBaseDir()
+		const fs = revenge.modules.native.fs
+		const indexPath = path(INDEX_FILE)
+		const index = await fs.exists(indexPath) ? JSON.parse(await fs.readFile(indexPath)) : { file: 0 }
+		const last = Number.isInteger(index?.file) && index.file > 0 ? index.file : 0
+		for (let file = 1; file <= last; file++) {
+			const target = shardPath(file)
+			if (!(await fs.exists(target))) continue
+			const parsed = JSON.parse(await fs.readFile(target))
+			for (const entry of parsed?.entries ?? []) {
+				if (wanted.has(entry?.messageId)) out.set(entry.messageId, entry)
+			}
+		}
+	} catch (error) {
+		console.error('[GhostLogNativeBeta] Failed to load deleted embeds:', error)
+	}
+	return out
 }

@@ -39,17 +39,6 @@ function describe(message: any, channelId: string) {
 	}
 }
 
-function extractAttachments(message: any) {
-	const atts = message.attachments
-	if (!Array.isArray(atts) || !atts.length) return undefined
-	return atts
-		.map((a: any) => ({
-			filename: a.filename ?? 'attachment',
-			url: a.url ?? a.proxy_url ?? '',
-		}))
-		.filter((a: { url: string }) => a.url)
-}
-
 async function capture(entry: Record<string, unknown>, toast: boolean, authorName: string, channelName: string) {
 	try {
 		await callNativeMethod(`${ID}.captureDeleted`, [entry])
@@ -94,6 +83,7 @@ function handle(channelId: string, messageId: string) {
 	if (!cfg.logDeletions) return
 
 	const meta = describe(message, channelId)
+	const deletedAt = Date.now()
 	void capture(
 		{
 			id: String(messageId),
@@ -107,13 +97,13 @@ function handle(channelId: string, messageId: string) {
 			guildIcon: meta.guildIcon,
 			content: String(message.content ?? '').slice(0, 2000),
 			sentAt: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
-			deletedAt: Date.now(),
+			deletedAt,
 		},
 		cfg.toastOnCatch,
 		meta.authorName,
 		meta.channelName,
 	)
-	saveRichContent(message, String(messageId), String(channelId), Date.now(), cfg)
+	saveRichContent(message, String(messageId), String(channelId), deletedAt, cfg)
 }
 
 export default plugin<{ jsonStorage: GhostLogSettings }>({

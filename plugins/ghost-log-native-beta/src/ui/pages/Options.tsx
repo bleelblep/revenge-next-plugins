@@ -1,6 +1,6 @@
 import { callNativeMethod } from '../../lib/native'
 import { DEFAULTS } from '../../defaults'
-import { getSettingsStorage } from '../state'
+import { getSettingsStorage, useLog } from '../state'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { GhostLogSettings } from '../../types'
@@ -14,6 +14,7 @@ export default function Options() {
 
 	const storage = getSettingsStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
+	const count = useLog().length
 	const set = (patch: Partial<GhostLogSettings>) => storage?.set(patch)
 
 	const syncLimits = (maxEntries: number, unlimitedEntries: boolean) => {
@@ -76,7 +77,12 @@ export default function Options() {
 							}
 							icon={rowIcon('LockIcon', 'ic_lock')}
 							value={!!s.autoBackupEnabled}
-							onValueChange={v => set({ autoBackupEnabled: v })}
+							onValueChange={v => {
+								void set({ autoBackupEnabled: v })
+								if (v && count > 0) {
+									void callNativeMethod(`${ID}.exportBackup`, [s.backupFilePath || DEFAULT_BACKUP_PATH])
+								}
+							}}
 						/>
 						<TableSwitchRow
 							label="Unlimited entries"

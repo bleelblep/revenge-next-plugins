@@ -5,7 +5,7 @@
 	"description": "Native-first rewrite beta of Ghost Log. Logs deleted messages with AES-GCM encryption, restores them in chat across reloads, and keeps an encrypted backup. Testing track for the stable plugin.",
 	"author": "bleelblep",
 	"icon": "TrashIcon",
-	"version": "0.4.3-beta4",
+	"version": "0.4.3-beta5",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

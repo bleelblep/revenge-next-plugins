@@ -1,4 +1,5 @@
 import { callNativeMethod } from '../lib/native'
+import { loadRichContent } from '../lib/richContent'
 import type { GhostLogSettings } from '../types'
 
 const ID = 'bleelblep.ghost-log-native-beta'
@@ -27,6 +28,7 @@ export interface DeletedMessage {
 	guildIcon?: string
 	content: string
 	attachments?: { filename: string; url: string }[]
+	embeds?: unknown[]
 	sentAt: number
 	deletedAt: number
 }
@@ -62,6 +64,8 @@ export async function refreshLog(): Promise<DeletedMessage[]> {
 	try {
 		const raw = await callNativeMethod(`${ID}.getLog`, [])
 		cache = raw ? (JSON.parse(raw) as DeletedMessage[]) : []
+		const rich = await loadRichContent(cache.map(entry => entry.id))
+		cache = cache.map(entry => ({ ...entry, ...(rich.get(entry.id) ?? {}) }))
 		console.log(`[GhostLogNativeBeta] cache loaded ${cache.length} entries`)
 	} catch (error) {
 		console.error('[GhostLogNativeBeta] getLog failed:', error)

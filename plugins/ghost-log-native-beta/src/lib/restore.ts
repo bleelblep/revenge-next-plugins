@@ -138,7 +138,7 @@ function buildRaw(entry: DeletedMessage, channelId: string): any {
 			public_flags: 0,
 		},
 		attachments: entry.attachments ?? [],
-		embeds: [],
+		embeds: entry.embeds ?? [],
 		mentions: [],
 		mention_roles: [],
 		mention_everyone: false,
