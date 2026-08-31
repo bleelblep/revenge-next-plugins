@@ -27,8 +27,8 @@ export interface DeletedMessage {
 	authorAvatar?: string
 	guildIcon?: string
 	content: string
-	attachments?: { filename: string; url: string }[]
-	embeds?: unknown[]
+	attachments?: any[]
+	embeds?: any[]
 	sentAt: number
 	deletedAt: number
 }
@@ -61,13 +61,16 @@ export function subscribeLog(fn: () => void): () => void {
 export async function refreshLog(): Promise<DeletedMessage[]> {
 	if (loading) return cache
 	loading = true
-	try {
-		const raw = await callNativeMethod(`${ID}.getLog`, [])
-		cache = raw ? (JSON.parse(raw) as DeletedMessage[]) : []
-		const rich = await loadRichContent(cache.map(entry => entry.id))
-		cache = cache.map(entry => ({ ...entry, ...(rich.get(entry.id) ?? {}) }))
-		console.log(`[GhostLogNativeBeta] cache loaded ${cache.length} entries`)
-	} catch (error) {
+		try {
+			const raw = await callNativeMethod(`${ID}.getLog`, [])
+			const entries = raw ? (JSON.parse(raw) as DeletedMessage[]) : []
+			const rich = await loadRichContent(entries.map(entry => entry.id))
+			// Assign the cache ONCE, after rich content is merged. Assigning text-only entries first
+			// exposed an intermediate state to the render-restore hook, which memoized MessageRecords
+			// with empty attachments/embeds and never rebuilt them once the rich content landed.
+			cache = entries.map(entry => ({ ...entry, ...(rich.get(entry.id) ?? {}) }))
+			console.log(`[GhostLogNativeBeta] cache loaded ${cache.length} entries`)
+		} catch (error) {
 		console.error('[GhostLogNativeBeta] getLog failed:', error)
 		cache = []
 	} finally {

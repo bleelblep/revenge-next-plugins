@@ -1,5 +1,5 @@
 import { callNativeMethod } from '../../lib/native'
-import { DEFAULTS } from '../../defaults'
+import { DEFAULT_BACKUP_PATH, DEFAULTS } from '../../defaults'
 import { getSettingsStorage, useLog } from '../state'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
@@ -40,14 +40,6 @@ export default function Options() {
 							value={!!s.saveEmbeds}
 							onValueChange={v => set({ saveEmbeds: v })}
 						/>
-						<TableRadioGroup
-							label="Rich content file size"
-							value={String(s.embedsPerFile)}
-							onValueChange={v => set({ embedsPerFile: Number(v) === 50 ? 50 : 100 })}
-						>
-							<TableRadioRow label="50 records per file" value="50" />
-							<TableRadioRow label="100 records per file" value="100" />
-						</TableRadioGroup>
 						<TableSwitchRow
 							label="Ignore bots"
 							subLabel="Don't capture deleted messages from bot accounts."
@@ -56,6 +48,18 @@ export default function Options() {
 							onValueChange={v => set({ ignoreBots: v })}
 						/>
 					</TableRowGroup>
+
+					{/* Standalone radio group: nesting TableRadioRows inside the Logging
+					    TableRowGroup rendered them as an isolated pill with rounded corners
+					    mid-list. As its own top-level group they square up correctly. */}
+					<TableRadioGroup
+						title="Rich content file size"
+						defaultValue={String(s.embedsPerFile)}
+						onChange={(v: string) => set({ embedsPerFile: Number(v) === 50 ? 50 : 100 })}
+					>
+						<TableRadioRow label="50 records per file" value="50" />
+						<TableRadioRow label="100 records per file" value="100" />
+					</TableRadioGroup>
 
 					<TableRowGroup title="Notifications" hasIcons>
 						<TableSwitchRow

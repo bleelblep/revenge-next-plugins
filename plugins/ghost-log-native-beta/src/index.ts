@@ -42,7 +42,9 @@ function describe(message: any, channelId: string) {
 async function capture(entry: Record<string, unknown>, toast: boolean, authorName: string, channelName: string) {
 	try {
 		await callNativeMethod(`${ID}.captureDeleted`, [entry])
-		addToCache(entry as any)
+		// Keep the live cache in the same complete shape that a later reload gets
+		// from the native rich-content sidecar.
+		addToCache({ ...entry, ...((entry as any).richContent ?? {}) } as any)
 		const cfg = settings()
 		if (cfg.autoBackupEnabled) scheduleBackup(cfg)
 		if (toast) {
@@ -65,7 +67,10 @@ function scheduleBackup(cfg: GhostLogSettings) {
 	if (backupTimer !== undefined) return
 	backupTimer = setTimeout(() => {
 		backupTimer = undefined
-		void callNativeMethod(`${ID}.exportBackup`, [cfg.backupFilePath || DEFAULT_BACKUP_PATH]).catch(() => {})
+		const path = cfg.backupFilePath || DEFAULT_BACKUP_PATH
+		callNativeMethod(`${ID}.exportBackup`, [path])
+			.then(() => console.log(`${TAG} auto backup written to ${path}`))
+			.catch(error => console.error(`${TAG} auto backup failed:`, error))
 	}, 2000)
 }
 
@@ -97,7 +102,15 @@ function handle(channelId: string, messageId: string) {
 			authorAvatar: message.author?.avatar,
 			guildIcon: meta.guildIcon,
 			content: String(message.content ?? '').slice(0, 2000),
-			...(richContent ? { richContent, richContentPerFile: cfg.embedsPerFile } : {}),
+			...(richContent
+				? {
+						richContent,
+						richContentPerFile: cfg.embedsPerFile,
+						// Tells native where to put the encrypted media: <backupDir>/media, so it
+						// survives an app uninstall/data-wipe alongside the portable backup file.
+						backupPath: cfg.backupFilePath || DEFAULT_BACKUP_PATH,
+				  }
+				: {}),
 			sentAt: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
 			deletedAt,
 		},
@@ -118,11 +131,15 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 		settingsStorage = api.jsonStorage
 		setSettingsStorage(api.jsonStorage)
 
-		// Load the native log into the JS cache so restore injection has entries on channel load.
-		void refreshLog()
-
-		// Sync log limits into the native store.
-		void callNativeMethod(`${ID}.setLimits`, [settings().maxEntries, settings().unlimitedEntries]).catch(() => {})
+		// Point native at the portable base dir FIRST (awaited) so the log, rolling shards and media
+		// all resolve to the backup location, THEN load the log and sync limits. Ordering matters:
+		// refreshLog reads the native log, so it must run after setBaseDir switches the directory.
+		async function bootstrap() {
+			await callNativeMethod(`${ID}.setBaseDir`, [settings().backupFilePath || DEFAULT_BACKUP_PATH]).catch(() => {})
+			await callNativeMethod(`${ID}.setLimits`, [settings().maxEntries, settings().unlimitedEntries]).catch(() => {})
+			void refreshLog()
+		}
+		void bootstrap()
 
 		try {
 			api.cleanup(registerPages())
@@ -200,6 +217,8 @@ declare module '@revenge-mod/modules/native' {
 		'bleelblep.ghost-log-native-beta.captureDeleted': [args: [entry: Record<string, unknown>], returnValue: boolean]
 		'bleelblep.ghost-log-native-beta.getLog': [args: any[], returnValue: string]
 		'bleelblep.ghost-log-native-beta.getRichContent': [args: [ids: string[]], returnValue: string]
+		'bleelblep.ghost-log-native-beta.getMedia': [args: [name: string], returnValue: string | null]
+		'bleelblep.ghost-log-native-beta.setBaseDir': [args: [backupPath: string], returnValue: boolean]
 		'bleelblep.ghost-log-native-beta.getLogCount': [args: any[], returnValue: number]
 		'bleelblep.ghost-log-native-beta.clearLog': [args: any[], returnValue: boolean]
 		'bleelblep.ghost-log-native-beta.getLogFilePath': [args: any[], returnValue: string]
