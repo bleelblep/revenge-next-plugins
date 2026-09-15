@@ -33,17 +33,16 @@ https://bleelblep.github.io/revenge-next-plugins/
 ## Channels
 
 Plugins use `latest` for stable releases. A plugin may also provide a `beta` channel for testing
-newer versions.
+newer versions. Channels are computed automatically: `latest` is the newest version without a label,
+`beta` is the newest version overall.
 
-Screenshot Redactor currently provides:
-
-- `latest`: `0.19.1`
-- `beta`: `0.25.2-beta1`
+Screenshot Redactor provides `latest` (`0.19.x`) and `beta` (`0.25.x-betaN`).
 
 Ghost Log Native Beta is a separate plugin id (`bleelblep.ghost-log-native-beta`) that installs
-alongside stable Ghost Log without touching it. It provides:
+alongside stable Ghost Log without touching it. It only publishes `beta`.
 
-- `beta`: `0.3.0-beta1`
+Artifacts live in `pool/<id>@<version>.zip` on the `gh-pages` branch, next to `index.json`. The
+repository URL above does not change.
 
 ## Important
 

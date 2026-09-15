@@ -1,2 +1,0 @@
-import { g as withGeneratedIconComponent, h as lookupGeneratedIconComponent, m as WithGeneratedIconComponent } from "../../types-aeIN6rX0.js";
-export { WithGeneratedIconComponent, lookupGeneratedIconComponent, withGeneratedIconComponent };
