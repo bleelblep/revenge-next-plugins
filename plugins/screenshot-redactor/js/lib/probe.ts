@@ -101,7 +101,7 @@ export function probeNameModules(): string {
 	// prop sweeps below are noise — they exist only for a build that has moved the files.
 	for (const path of ["utils/UserUtils.tsx", "utils/AvatarUtils.tsx"]) {
 		try {
-			const { lookupModuleWithImportedPath } = revenge.discord.utils.finders
+			const { lookupModuleWithImportedPath } = revenge.discord.utils.modules.finders
 			const [exports, id] = lookupModuleWithImportedPath(path)
 			log(
 				id === undefined

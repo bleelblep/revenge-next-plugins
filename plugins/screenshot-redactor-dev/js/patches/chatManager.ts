@@ -1,4 +1,4 @@
-import { applyBatch, isReplaying, noteCleared } from "../lib/chatRows"
+import { applyBatch, isReplaying, noteCleared, setChatBridge } from "../lib/chatRows"
 import { count, noteChatManagerPatch } from "../lib/diagnostics"
 import { redactRows } from "../lib/rowSchema"
 import { currentUserId, isEnabled, settings } from "../lib/state"
@@ -103,6 +103,166 @@ const cleanups: Array<() => void> = []
 let installed = false
 
 /**
+ * The Fabric chat commands, which is where the row list actually lives on Discord 347+.
+ *
+ * `DCDChatManager` is not merely late here, it is gone: on 347.4 it reads as `null` through
+ * `NativeModules`, `nativeModuleProxy` and `TurboModuleRegistry` alike, and `RN$Bridgeless` is
+ * true. The list became a Fabric component, so what used to be a native module method is now a
+ * codegen command taking the component's host instance:
+ *
+ *     updateRows(hostRef, { rows, isLoadingAtTop, scrollData, HACK_iOSForceAnimations,
+ *                           forceReload, isAnimated })
+ *     clearRows(hostRef)
+ *
+ * Two differences that matter. `rows` is a plain array, not a JSON string -- so the parse/
+ * stringify either side of the old hook is not just unnecessary but wrong. And the list is
+ * identified by `hostRef.__nativeTag` rather than a numeric tag argument, so the ref has to be
+ * remembered per tag to push anything back.
+ *
+ * Confirmed on device by hooking it and reading one batch: 21 rows of the same
+ * `{ type, message, changeType, index }` shape the old bridge carried, which is why
+ * `lib/rowSchema.ts` needs no change at all.
+ */
+function asChatCommands(exports: any): any {
+	// Revenge hands back the default export where there is one; older shapes put the commands
+	// directly on the module.
+	const commands = exports?.default ?? exports
+	if (typeof commands?.updateRows !== "function" || typeof commands?.clearRows !== "function") {
+		return undefined
+	}
+
+	// The legacy native module carries both names too. Arity tells them apart without calling
+	// either: the Fabric command takes (ref, options), the old ReactMethod took
+	// (tag, json, isLoadingAtTop).
+	if (commands.clearRows.length !== 1) return undefined
+
+	return commands
+}
+
+/**
+ * Sweep what is already initialized, then wait for the rest.
+ *
+ * Deliberately NOT `lookupModule`: a miss is cached permanently, and at `start()` the chat
+ * commands module is reliably not initialized yet -- one early lookup would poison it for the
+ * session. This is the same sweep-then-subscribe shape `patches/avatar.ts` and
+ * `patches/displayName.ts` already use, for the same reason (porting rule 3).
+ */
+function subscribeForChatCommands(): () => void {
+	try {
+		const { lookupModules, waitForModules } = revenge.modules.finders
+		const { withProps } = revenge.modules.finders.filters
+
+		const accept = (exports: any) => {
+			if (installed) return
+			const commands = asChatCommands(exports)
+			if (!commands) return
+			installed = true
+			installFabric(commands)
+		}
+
+		for (const [exports] of lookupModules(withProps("updateRows"))) accept(exports)
+		if (installed) return () => {}
+
+		return waitForModules(withProps("updateRows"), accept)
+	} catch (error) {
+		console.error("[ScreenshotRedactor] could not subscribe for Fabric chat commands:", error)
+		return () => {}
+	}
+}
+
+/** The host ref and last options seen per list, so a repaint can address the right component. */
+const hosts = new Map<number, { ref: any; options: any }>()
+
+function tagOf(ref: any): number | undefined {
+	const tag = ref?.__nativeTag
+	return typeof tag === "number" ? tag : undefined
+}
+
+function installFabric(commands: any) {
+	cleanups.push(
+		revenge.patcher.before(commands, "updateRows", (args: any[]) => {
+			try {
+				if (!isReplaying()) {
+					const ref = args?.[0]
+					const options = args?.[1]
+					const tag = tagOf(ref)
+					const rows = options?.rows
+
+					if (tag !== undefined && Array.isArray(rows)) {
+						hosts.set(tag, { ref, options })
+						count("batchesSeen")
+
+						// The rows here are live objects Discord still holds, unlike the old
+						// bridge where `JSON.parse` already handed us a private copy. Both the
+						// mirror and the redaction pass therefore have to work on clones, or we
+						// would be rewriting the client's own state rather than the frame.
+						applyBatch(tag, JSON.parse(JSON.stringify(rows)))
+
+						if (isEnabled()) {
+							const { style, redactAvatars, redactBadges, redactSelf } = settings()
+
+							const outgoing = JSON.parse(JSON.stringify(rows))
+							const redacted = redactRows(outgoing, {
+								style,
+								avatars: redactAvatars,
+								badges: redactBadges,
+								self: redactSelf,
+								selfId: currentUserId(),
+							})
+
+							if (redacted > 0) count("rowsRedacted")
+							options.rows = outgoing
+						}
+					}
+				}
+			} catch (error) {
+				// Same rule as the legacy hook: a failure here leaks a name, it never takes the
+				// chat down. The untouched rows go through.
+				console.error("[ScreenshotRedactor] Fabric updateRows hook failed:", error)
+			}
+
+			return args
+		}),
+	)
+
+	cleanups.push(
+		revenge.patcher.before(commands, "clearRows", (args: any[]) => {
+			try {
+				const tag = tagOf(args?.[0])
+				if (!isReplaying() && tag !== undefined) noteCleared(tag)
+			} catch (error) {
+				console.error("[ScreenshotRedactor] Fabric clearRows hook failed:", error)
+			}
+
+			return args
+		}),
+	)
+
+	setChatBridge({
+		clear(tag: number) {
+			const host = hosts.get(tag)
+			if (host) commands.clearRows(host.ref)
+		},
+		push(tag: number, rows: any[]) {
+			const host = hosts.get(tag)
+			if (!host) return
+			// Reuse the last options object seen for this list rather than hand-building one: it
+			// came from a real call, so every field native expects is present and valid. Only the
+			// rows and the reload flag are ours.
+			commands.updateRows(host.ref, { ...host.options, rows, forceReload: true, isAnimated: false })
+		},
+	})
+
+	cleanups.push(() => {
+		hosts.clear()
+		setChatBridge(undefined)
+	})
+
+	console.log("[ScreenshotRedactor] Fabric chat commands hooked")
+	noteChatManagerPatch("patched (fabric)")
+}
+
+/**
  * Installs the hooks if they aren't already and the module can be found.
  *
  * Called from `start()` and again from the `generate` hook, which only fires once chat is
@@ -112,21 +272,33 @@ let installed = false
 export function ensureChatManagerPatched(): boolean {
 	if (installed) return true
 
+	// Legacy first: it is a plain property read, so on the builds that still have it there is no
+	// reason to pay for a Metro lookup. On 347+ it misses instantly and we fall through.
 	const manager = findChatManager()
-	if (!manager) return false
+	if (manager) {
+		installed = true
+		install(manager)
+		return true
+	}
 
-	installed = true
-	install(manager)
-	return true
+	// No Fabric attempt here: this runs from the `generate` hook, i.e. once per row, and the
+	// Fabric lookup is a Metro sweep. That path is driven by the subscription below instead.
+	return false
 }
 
 export default function patchChatManager(): () => void {
 	let unsubscribe: (() => void) | undefined
 
 	if (!ensureChatManagerPatched()) {
-		console.log("[ScreenshotRedactor] DCDChatManager not directly reachable; asking Metro for it")
+		console.log("[ScreenshotRedactor] no chat bridge yet (legacy module absent, Fabric commands not initialized); asking Metro for it")
 		noteChatManagerPatch("waiting on Metro")
-		unsubscribe = subscribeForChatManager()
+
+		const unsubLegacy = subscribeForChatManager()
+		const unsubFabric = subscribeForChatCommands()
+		unsubscribe = () => {
+			try { unsubLegacy() } catch { /* already gone */ }
+			try { unsubFabric() } catch { /* already gone */ }
+		}
 	}
 
 	return () => {
@@ -216,6 +388,16 @@ function install(manager: any) {
 		)
 	}
 
+	setChatBridge({
+		clear(tag: number) {
+			manager.clearRows(tag)
+		},
+		push(tag: number, rows: any[]) {
+			manager.updateRows(tag, JSON.stringify(rows), false)
+		},
+	})
+	cleanups.push(() => setChatBridge(undefined))
+
 	console.log("[ScreenshotRedactor] DCDChatManager hooked")
-	noteChatManagerPatch("patched")
+	noteChatManagerPatch("patched (legacy)")
 }

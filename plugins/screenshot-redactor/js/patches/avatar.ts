@@ -48,7 +48,7 @@ import { findUserIdField, findUserObject } from "../lib/userArgs"
  * prototype would need an instance to reach it from and would cover strictly less.
  *
  * The same module reached by the same means as the name resolvers, and for the same reasons:
- * `revenge.discord.utils.finders.getModuleWithImportedPath` is uncapped, uncached and
+ * `revenge.discord.utils.modules.finders.getModuleWithImportedPath` is uncapped, uncached and
  * self-unsubscribing. See the header of `patches/displayName.ts` for why the `getModules` +
  * `withProps` route silently installs nothing here.
  */
@@ -200,7 +200,7 @@ export default function patchAvatar(): () => void {
 
 	try {
 		unsubscribes.push(
-			revenge.discord.utils.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any) => {
+			revenge.discord.utils.modules.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any) => {
 				if (patchNamespace(mod, seen, cleanups) === 0) {
 					console.error(`[ScreenshotRedactor] ${MODULE_PATH} found but carries no avatar resolver`)
 					noteResolverSkipped(MODULE_PATH)

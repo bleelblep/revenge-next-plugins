@@ -34,7 +34,7 @@ import { findUserObject } from "../lib/userArgs"
  *
  * ## Why `getModuleWithImportedPath` and not `getModules`
  *
- * `revenge.discord.utils.finders.getModuleWithImportedPath` looks the module up in the import
+ * `revenge.discord.utils.modules.finders.getModuleWithImportedPath` looks the module up in the import
  * tracker's `Map<path, id>` and, failing that, subscribes to `fileFinishedImporting`. No filter,
  * no result cache, no `max`, and it unsubscribes itself once the path resolves — imported paths
  * are unique, so there is nothing to disambiguate.
@@ -233,7 +233,7 @@ export default function patchDisplayName(): () => void {
 	// current build it answers synchronously.
 	try {
 		unsubscribes.push(
-			revenge.discord.utils.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any, id: unknown) => {
+			revenge.discord.utils.modules.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any, id: unknown) => {
 				if (patchNamespace(mod, `path, module ${String(id)}`, seen, cleanups) === 0) {
 					console.error(`[ScreenshotRedactor] ${MODULE_PATH} found but carries no resolver`)
 					noteResolverSkipped(MODULE_PATH)

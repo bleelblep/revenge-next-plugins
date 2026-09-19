@@ -10,6 +10,7 @@ import patchDmHeader from "./patches/dmHeader"
 import patchMessageActionSheet from "./patches/messageActionSheet"
 import patchOverlay from "./patches/overlay"
 import patchRowManager from "./patches/rowManager"
+import { registerPages } from "./ui/routes"
 import Settings from "./ui/pages/Settings"
 import type { ScreenshotRedactorStorage } from "./types"
 
@@ -23,6 +24,16 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 	},
 	start({ cleanup, jsonStorage }) {
 		setStorage(jsonStorage)
+
+		// The Visuals and Debug sub-screens are their own navigator routes, and the root page's
+		// two index rows navigate straight to them. Registering them is what puts those routes
+		// in the settings navigator -- without this call both rows are dead taps, because
+		// `navigation.navigate` silently no-ops on a route the navigator has never heard of.
+		try {
+			cleanup(registerPages())
+		} catch (error) {
+			console.error("[ScreenshotRedactor] failed to register settings pages:", error)
+		}
 
 		// Patches are installed unconditionally and gated per-call on `enabled`, rather than
 		// installed and removed as the toggle flips. Patching the chat path is the risky part;

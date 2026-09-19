@@ -1,7 +1,7 @@
 import Debug from "./pages/Debug"
 import Visuals from "./pages/Visuals"
 
-const PREFIX = "bleelblep.screenshot-redactor-dev"
+const PREFIX = "bleelblep.screenshot-redactor"
 
 export const VISUALS_ROUTE = `${PREFIX}.visuals`
 export const DEBUG_ROUTE = `${PREFIX}.debug`

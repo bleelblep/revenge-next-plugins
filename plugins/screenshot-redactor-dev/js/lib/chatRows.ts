@@ -164,12 +164,26 @@ export function noteCleared(tag: number) {
 	state.trusted = true
 }
 
-function chatManager(): any {
-	try {
-		return (revenge.react.ReactNative as any)?.NativeModules?.DCDChatManager
-	} catch {
-		return undefined
-	}
+/**
+ * The two ways rows reach native, behind one interface.
+ *
+ * Discord 347 moved the message list onto the New Architecture: `DCDChatManager` is gone (it
+ * reads as `null` through `NativeModules`, `nativeModuleProxy` AND `TurboModuleRegistry`), and
+ * rows now go through a Fabric command object as `updateRows(hostRef, { rows, ... })` with `rows`
+ * an ordinary array rather than a JSON string. The old bridge is kept for older builds, so this
+ * file talks to whichever one `patches/chatManager.ts` managed to install against.
+ */
+export interface ChatBridge {
+	/** Empties native's list for this tag, so the next push takes the whole-list path. */
+	clear(tag: number): void
+	/** Pushes a complete row list back for this tag. */
+	push(tag: number, rows: any[]): void
+}
+
+let bridge: ChatBridge | undefined
+
+export function setChatBridge(next: ChatBridge | undefined) {
+	bridge = next
 }
 
 /**
@@ -191,9 +205,8 @@ export function refreshChat(): string | undefined {
 	// regenerates through RowManager.generate (our hook redacts or restores it per toggle).
 	const fluxOutcome = rerenderViaFlux()
 
-	const manager = chatManager()
-	if (typeof manager?.updateRows !== "function" || typeof manager?.clearRows !== "function") {
-		const outcome = `DCDChatManager unavailable; ${fluxOutcome}`
+	if (!bridge) {
+		const outcome = `chat bridge unavailable; ${fluxOutcome}`
 		noteRefreshOutcome(outcome)
 		return outcome
 	}
@@ -239,8 +252,8 @@ export function refreshChat(): string | undefined {
 
 			replaying = true
 			try {
-				manager.clearRows(tag)
-				manager.updateRows(tag, JSON.stringify(payload), false)
+				bridge.clear(tag)
+				bridge.push(tag, payload)
 			} finally {
 				replaying = false
 			}
