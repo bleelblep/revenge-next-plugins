@@ -1,5 +1,6 @@
 import { callNativeMethod } from './lib/native'
 import { DEFAULT_BACKUP_PATH, DEFAULTS } from './defaults'
+import patchBlockGhostActions from './patches/blockGhostActions'
 import { patchRenderRestore } from './lib/restore'
 import { patchVisuals } from './lib/visuals'
 import { registerPages } from './ui/routes'
@@ -214,6 +215,14 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 			api.cleanup(registerPages())
 		} catch (error) {
 			console.error(`${TAG} failed to register settings pages:`, error)
+		}
+
+		// A restored message is still an ordinary SENT message to the rest of the client, so
+		// reply and react are offered on it and go out to an id the server has deleted.
+		try {
+			api.cleanup(patchBlockGhostActions(settings))
+		} catch (error) {
+			console.error(`${TAG} failed to guard deleted-message actions:`, error)
 		}
 
 		// The dispatcher hook inside patchVisuals provably sees every raw MESSAGE_DELETE (it

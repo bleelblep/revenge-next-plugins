@@ -233,6 +233,11 @@ function installRenderRestore(ms: any, getSettings: () => GhostLogSettings): () 
 	// garbage on the render path. The store hands back the same collection object (and the same
 	// backing array) until it actually mutates, so keying on the array identity, its length and the
 	// log version reuses the previous clone for every repeat call within a frame.
+	// Bounded, unlike before. Each entry holds a whole merged message array and the key is the
+	// channel, so this grew by one full conversation for every channel with logged deletions the
+	// user visited, and was freed only when the plugin stopped -- growth tied to exactly the
+	// usage this plugin exists for. Oldest goes first; losing a memo costs one rebuild.
+	const MAX_CACHED_CHANNELS = 8
 	const cloneCache = new Map<string, { source: any[]; length: number; head: string; tail: string; version: number; clone: any }>()
 
 	// The memo is only sound while the SET OF IDS in the store's array is unchanged. Array identity
@@ -317,6 +322,12 @@ function installRenderRestore(ms: any, getSettings: () => GhostLogSettings): () 
 					clone._map = map
 				}
 				cloneCache.set(channelId, { source, length: source.length, head, tail, version, clone })
+				// Map iterates in insertion order, so the first key is the least recently cached.
+				while (cloneCache.size > MAX_CACHED_CHANNELS) {
+					const oldest = cloneCache.keys().next()
+					if (oldest.done) break
+					cloneCache.delete(oldest.value)
+				}
 				return clone
 			}
 		} catch (error) {

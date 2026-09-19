@@ -1,5 +1,9 @@
 {
 	"name": "Bleelblep's Revenge Next Plugins",
 	"description": "Revenge Next ports of bleelblep/revengeplugins, built from this repository.",
-	"channels": {}
+	"channels": {
+		"bleelblep.ghost-log-native-beta": {
+			"latest": "0.5.0-beta4"
+		}
+	}
 }
