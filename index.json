@@ -55,13 +55,27 @@
       "author": "bleelblep",
       "icon": "TrashIcon",
       "channels": {
-        "beta": "0.5.0-beta3"
+        "beta": "0.5.0-beta4",
+        "latest": "0.5.0-beta4"
       },
       "versions": {
         "0.5.0-beta3": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log-native-beta@0.5.0-beta3.zip",
           "sha256": "ec36c694da223f105967bd83772cbb23162f83f050707fb08f253513767a423b",
           "size": 55399,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.5.0-beta4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log-native-beta@0.5.0-beta4.zip",
+          "sha256": "129a29b4b1d3ae412207145d4af2d4521940ba9f6e712190a35625f19e2eafa8",
+          "size": 56076,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -166,14 +180,37 @@
         }
       }
     },
+    "bleelblep.screenshot-redactor-legacy": {
+      "name": "Screenshot Redactor (Legacy)",
+      "description": "Pre-347 build, kept for Discord versions older than 347 only — install Screenshot Redactor instead. A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder.",
+      "author": "bleelblep",
+      "icon": "EyeSlashIcon",
+      "channels": {
+        "latest": "0.19.3"
+      },
+      "versions": {
+        "0.19.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor-legacy@0.19.3.zip",
+          "sha256": "2f088bf5c5e8eb663c1f85d7799b51032133e908b101e6867679675757348ca2",
+          "size": 12279,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.screenshot-redactor": {
       "name": "Screenshot Redactor",
       "description": "A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder.",
       "author": "bleelblep",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "0.19.2",
-        "beta": "0.25.2-beta2"
+        "latest": "0.25.3"
       },
       "versions": {
         "0.19.2": {
@@ -193,6 +230,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor@0.25.2-beta2.zip",
           "sha256": "1aa21089562b157597c15756280a87a35030b826069aa58d57957245c31530b6",
           "size": 11983,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.25.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor@0.25.3.zip",
+          "sha256": "567836bc0f5d5a32cde5ccd5a42384ebb9a367e624a0cf3338718722390ddec9",
+          "size": 12369,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
