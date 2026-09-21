@@ -3,29 +3,6 @@
   "name": "Bleelblep's Revenge Next Plugins",
   "description": "Revenge Next ports of bleelblep/revengeplugins, built from this repository.",
   "plugins": {
-    "bleelblep.anti-ghost-ping": {
-      "name": "Anti Ghost Ping",
-      "description": "Catches messages that pinged you and were then deleted. Stores their text locally, so it is a message logger — see the warning in its settings.",
-      "author": "bleelblep",
-      "channels": {
-        "latest": "1.4.0"
-      },
-      "versions": {
-        "1.4.0": {
-          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.anti-ghost-ping@1.4.0.zip",
-          "sha256": "9caea2f2fd01f2752b6e0bfb9e1200b3a7101e94b2c2d544c8364611a4bac776",
-          "size": 4354,
-          "dependencies": {
-            "revenge.api": {
-              "version": ">=1 <2"
-            },
-            "discord": {
-              "version": "*"
-            }
-          }
-        }
-      }
-    },
     "bleelblep.custom-timestamps": {
       "name": "Custom Timestamps",
       "description": "Customize the format of timestamps in chat — calendar, relative, ISO 8601, or a custom format string.",
@@ -87,29 +64,6 @@
         }
       }
     },
-    "bleelblep.ghost-log": {
-      "name": "Ghost Log",
-      "description": "Logs deleted messages and optionally keeps them visible in chat. Stores message text locally — see the warning in its settings.",
-      "author": "bleelblep",
-      "channels": {
-        "latest": "1.2.5"
-      },
-      "versions": {
-        "1.2.5": {
-          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log@1.2.5.zip",
-          "sha256": "1a98cff97c567abb698721455ac2c3262fcabb9d342324cbcd6fb3af0eb33a02",
-          "size": 10286,
-          "dependencies": {
-            "revenge.api": {
-              "version": ">=1 <2"
-            },
-            "discord": {
-              "version": "*"
-            }
-          }
-        }
-      }
-    },
     "bleelblep.hide-call-buttons": {
       "name": "Hide Call Buttons",
       "description": "Hides call and video buttons from DMs, user profiles and voice channels.",
@@ -146,29 +100,6 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.6.1.zip",
           "sha256": "64c4cc95808f7c76c9a7204ec2f4abeae9667995c7cf5b2bfd680d00947fb911",
           "size": 12918,
-          "dependencies": {
-            "revenge.api": {
-              "version": ">=1 <2"
-            },
-            "discord": {
-              "version": "*"
-            }
-          }
-        }
-      }
-    },
-    "bleelblep.relationship-notifier": {
-      "name": "Relationship Notifier",
-      "description": "Tells you when someone removes you as a friend, when you lose a mutual server, or when a group DM closes. Discord does none of these silently on purpose.",
-      "author": "bleelblep",
-      "channels": {
-        "latest": "1.1.0"
-      },
-      "versions": {
-        "1.1.0": {
-          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.relationship-notifier@1.1.0.zip",
-          "sha256": "44d1088d2a786011a8a94b58369c909fa2c8cfc5c664407232439616e875e80e",
-          "size": 3744,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
