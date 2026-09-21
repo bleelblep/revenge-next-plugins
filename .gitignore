@@ -40,3 +40,9 @@ plugins/who-reacted/
 
 # Planning notes, kept local.
 docs/plugin-ideas.md
+
+# Unlisted from the published repository. Kept and still buildable locally; the CI release
+# never sees them, so they cannot re-enter the pool on the next push to main.
+plugins/anti-ghost-ping/
+plugins/ghost-log/
+plugins/relationship-notifier/
