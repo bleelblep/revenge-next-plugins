@@ -3,6 +3,57 @@
   "name": "Bleelblep's Revenge Next Plugins",
   "description": "Revenge Next ports of bleelblep/revengeplugins, built from this repository.",
   "plugins": {
+    "bleelblep.ai-core": {
+      "name": "AI Core",
+      "description": "Shared AI plumbing for this repository's plugins. Holds one API key, one daily spending cap and one request queue, so the plugins that use a model do not each ask for their own. Does nothing on its own — install it only if a plugin asks for it.",
+      "author": "bleelblep",
+      "icon": "SparklesIcon",
+      "channels": {
+        "latest": "1.2.0"
+      },
+      "versions": {
+        "1.2.0": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@1.2.0.zip",
+          "sha256": "511265e9b179262b6aee04bde43345a8bd6e5d291a03bb503ed7a4d54d9ef96c",
+          "size": 6089,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.catch-up": {
+      "name": "Catch Up",
+      "description": "Summarises what you missed in a channel. Run /catchup and the last few hundred messages come back as a short brief only you can see. Needs AI Core for the key and the spending cap.",
+      "author": "bleelblep",
+      "icon": "ClockIcon",
+      "channels": {
+        "latest": "0.2.1"
+      },
+      "versions": {
+        "0.2.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.catch-up@0.2.1.zip",
+          "sha256": "0c6357f4664901e059412d30791bac794181730745ff6f6180adf0e0b9707567",
+          "size": 6640,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <2"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.custom-timestamps": {
       "name": "Custom Timestamps",
       "description": "Customize the format of timestamps in chat — calendar, relative, ISO 8601, or a custom format string.",
@@ -111,6 +162,34 @@
         }
       }
     },
+    "bleelblep.plugin-hub": {
+      "name": "Plugin Hub",
+      "description": "Adds a Plugin Hub row under Revenge's Plugins, with shortcuts straight into the settings of the plugins you choose. Show them as favourites and a list, an icon grid, cards or sideways shelves, with bleelblep plugins, bleelblep AI Core and other plugins in their own sections. Adding plugins needs Revenge's Developer Mode switched on; using the hub does not.",
+      "author": "bleelblep",
+      "icon": "AppsIcon",
+      "channels": {
+        "latest": "0.2.1"
+      },
+      "versions": {
+        "0.2.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.2.1.zip",
+          "sha256": "2b78a0ad2012b1e4eb527f8a32c3c3585085dfa90279dd751d028be3790e686a",
+          "size": 5018,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "revenge.api.hidden": {
+              "version": "*",
+              "optional": true
+            }
+          }
+        }
+      }
+    },
     "bleelblep.screenshot-redactor-legacy": {
       "name": "Screenshot Redactor (Legacy)",
       "description": "Pre-347 build, kept for Discord versions older than 347 only — install Screenshot Redactor instead. A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder.",
@@ -185,6 +264,58 @@
         }
       }
     },
+    "bleelblep.second-thoughts": {
+      "name": "Second Thoughts",
+      "description": "A send-guard that stays quiet. Credentials, API keys and card numbers are caught by pattern alone -- no key, no network, no AI -- and never reach the wire. Install AI Core as well and it also weighs up anger, drunk-posting and oversharing, but only on a draft a free local check has already flagged. Everything else sends untouched, at full speed.",
+      "author": "bleelblep",
+      "icon": "ShieldIcon",
+      "channels": {
+        "latest": "0.2.3"
+      },
+      "versions": {
+        "0.2.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.second-thoughts@0.2.3.zip",
+          "sha256": "03d0c27b00b629c12f15d1fea834141c5837ab9e6d594baf51350b5af8e5f756",
+          "size": 12780,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <2",
+              "optional": true
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.send-tweaks": {
+      "name": "Send Tweaks",
+      "description": "Small fixes to what you send. Removes tracking from links (?si=, utm_source, fbclid and friends), lets replies start without pinging, and applies your own find-and-replace rules. Text inside code blocks is never touched.",
+      "author": "bleelblep",
+      "icon": "SendMessageIcon",
+      "channels": {
+        "latest": "0.1.0"
+      },
+      "versions": {
+        "0.1.0": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.1.0.zip",
+          "sha256": "6e9976e784a7a84367b1c896b9fbbece6e8b0ca12ffa506892906efe6c010166",
+          "size": 6934,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.show-tag": {
       "name": "Show Tag",
       "description": "Shows the username (or full Discord tag on legacy accounts) in the message header, including reply previews.",
@@ -220,6 +351,30 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.staff-tags@1.2.3.zip",
           "sha256": "b1ab0de3ea3bc38b46668e28fadc0a608e26afdf66fb568a331b8bb95724101f",
           "size": 3342,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.translate": {
+      "name": "Translate",
+      "description": "Long-press any message to translate it in place, and long-press again to put it back. Optionally translates everything not already in your language as it arrives. Four keyless services behind it — Google, Bing, Yandex and MyMemory — tried in turn, so one going down does not take the plugin with it. No key, no account, no AI.",
+      "author": "bleelblep",
+      "icon": "GlobeEarthIcon",
+      "channels": {
+        "latest": "0.5.1"
+      },
+      "versions": {
+        "0.5.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.translate@0.5.1.zip",
+          "sha256": "627d4733dce47f0c578425c3bffa72825532e15223e6cee28f4aa016dfe03ec2",
+          "size": 11278,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
