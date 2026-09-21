@@ -171,22 +171,27 @@ function inject(
 
 const patchedModules = new WeakSet<any>()
 
-function patchSheetModule(
-	mod: any,
-	channelId: string,
-	messageId: string,
-	text: string,
-	patches: Array<() => void>,
-) {
+/**
+ * The message whose sheet is opening, set on every `openLazy`.
+ *
+ * The sheet module is patched once and that patch serves every later sheet, so it must not capture
+ * the message it was first patched for. Closing over the first long-press's ids is exactly what
+ * made every later sheet offer to translate that first message again (0.5.1).
+ */
+let current: { channelId: string; messageId: string; text: string } | undefined
+
+function patchSheetModule(mod: any, patches: Array<() => void>) {
 	if (!mod || typeof mod.default !== 'function') return mod
 	if (patchedModules.has(mod)) return mod
 
 	const applyTo = (rendered: any) => {
 		try {
+			const target = current
 			if (
+				target &&
 				rendered != null &&
 				!rendered[SYM_PATCHED] &&
-				inject(rendered, channelId, messageId, text)
+				inject(rendered, target.channelId, target.messageId, target.text)
 			) {
 				rendered[SYM_PATCHED] = true
 				status.injected = true
@@ -232,6 +237,9 @@ export default function patchMessageActionSheet(): () => void {
 				try {
 					const [sheet, key, props] = args
 					if (typeof key === 'string') status.lastKey = key
+					// Cleared first, so a sheet for something that is not a translatable message
+					// never inherits the previous message's row.
+					current = undefined
 
 					const message = props?.message
 					const text = textOf(message)
@@ -248,11 +256,10 @@ export default function patchMessageActionSheet(): () => void {
 						typeof sheet.then === 'function'
 					) {
 						debug(`sheet ${key}: ${text.length} characters to offer`)
+						current = { channelId, messageId, text }
 						// A *derived* promise, not a `.then` bolted onto theirs, so the component
 						// `openLazy` receives cannot resolve before the row has been added.
-						args[0] = sheet.then((mod: any) =>
-							patchSheetModule(mod, channelId, messageId, text, patches),
-						)
+						args[0] = sheet.then((mod: any) => patchSheetModule(mod, patches))
 					}
 				} catch (error) {
 					console.error('[Translate] openLazy hook failed:', error)
