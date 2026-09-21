@@ -184,7 +184,7 @@ export default function patchSaveGuildFolders(): () => void {
 	// on it, confirmed by 337.10 disassembly).
 	try {
 		unsubscribes.push(
-			revenge.discord.utils.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any) => patchHost(mod)),
+			revenge.discord.utils.modules.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any) => patchHost(mod)),
 		)
 	} catch (error) {
 		console.error(`[HideServersDrawer] imported-path lookup for ${MODULE_PATH} failed:`, error)

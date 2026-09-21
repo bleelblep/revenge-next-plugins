@@ -36,14 +36,14 @@ export default function Options() {
 						<TableSwitchRow
 							label="Save embeds and attachments"
 							subLabel="Keep rich message content in separate rotating files instead of the main text log."
-							icon={rowIcon('ImageIcon', 'PaperclipIcon', 'ic_image')}
+							icon={rowIcon('ImageIcon', 'ic_image')}
 							value={!!s.saveEmbeds}
 							onValueChange={v => set({ saveEmbeds: v })}
 						/>
 						<TableSwitchRow
 							label="Ignore bots"
 							subLabel="Don't capture deleted messages from bot accounts."
-							icon={rowIcon('BotIcon', 'ClydeIcon', 'RobotIcon', 'UserIcon')}
+							icon={rowIcon('ClydeIcon', 'RobotIcon', 'UserIcon')}
 							value={!!s.ignoreBots}
 							onValueChange={v => set({ ignoreBots: v })}
 						/>
@@ -95,7 +95,7 @@ export default function Options() {
 									? 'Keeping every caught message.'
 									: `Off - only the newest ${s.maxEntries ?? DEFAULTS.maxEntries} entries are kept, oldest are dropped when full.`
 							}
-							icon={rowIcon('InfinityIcon', 'ListBulletsIcon', 'ListViewIcon')}
+							icon={rowIcon('ListBulletsIcon', 'ListViewIcon')}
 							value={!!s.unlimitedEntries}
 							onValueChange={v => {
 								set({ unlimitedEntries: v })

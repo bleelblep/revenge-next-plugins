@@ -46,7 +46,7 @@ export default function Debug() {
 						<TableSwitchRow
 							label="Use the legacy custom bar"
 							subLabel="Replaces the stock server bar while anything is hidden."
-							icon={rowIcon("ClockIcon", "HistoryIcon")}
+							icon={rowIcon("ClockIcon")}
 							value={instant()}
 							onValueChange={(v: boolean) => {
 								setInstant(v)

@@ -39,8 +39,8 @@ interface Assets {
  * Icon *components* the buttons render, as of 337-340. `PhoneHangUpIcon` is deliberately absent:
  * that is the button that ends a call in progress, and hiding it would trap the user in one.
  */
-const VOICE_ICONS = new Set(["PhoneCallIcon", "VoiceCallIcon", "CallIcon", "PhoneIcon"])
-const VIDEO_ICONS = new Set(["VideoIcon", "VideoCallIcon"])
+const VOICE_ICONS = new Set(["PhoneCallIcon", "CallIcon", "PhoneIcon"])
+const VIDEO_ICONS = new Set(["VideoIcon"])
 
 /** How deep into a button row to look. The deepest real nesting is 4 (group > row > pressable > icon). */
 const MAX_DEPTH = 8
@@ -235,20 +235,13 @@ export default function patchCallButtons(
 	})
 
 	// --- User profile (simplified) ---
-	apply("SimplifiedUserProfileContactButtons", () => {
-		const patchContactButtons = (mod: any) => {
-			patches.push(after(mod, "default", hideProfileButtons))
-		}
-		// Renamed at some point; whichever exists gets patched.
+	// `SimplifiedUserProfileContactButtons` was dropped: it is absent from every bundle checked (337.10,
+	// 343.11, 348.0), so its subscription could never resolve.
+	apply("UserProfileContactButtons", () => {
 		patches.push(
-			getModules(withName("SimplifiedUserProfileContactButtons"), patchContactButtons, {
-				returnNamespace: true,
-			}),
-		)
-		patches.push(
-			getModules(withName("UserProfileContactButtons"), patchContactButtons, {
-				returnNamespace: true,
-			}),
+			getModules(withName("UserProfileContactButtons"), (mod: any) => {
+				patches.push(after(mod, "default", hideProfileButtons))
+			}, { returnNamespace: true }),
 		)
 	})
 
