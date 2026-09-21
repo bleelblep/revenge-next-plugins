@@ -6,7 +6,7 @@ import {
 	noteSkippedRowTypeWithAuthor,
 } from "../lib/diagnostics"
 import { redactMessage } from "../lib/rowSchema"
-import { currentUserId, isEnabled, settings } from "../lib/state"
+import { currentUserId, isEnabled, redactOptions, settings } from "../lib/state"
 import { ensureChatManagerPatched } from "./chatManager"
 import { ensureDmHeaderPatched } from "./dmHeader"
 
@@ -152,13 +152,7 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 					// Shared with the `updateRows` hook rather than reimplemented here: both
 					// rewrite the same `Message` shape, and the two drifting apart is how the
 					// reply preview ended up with its own slightly different avatar clearing.
-					const changed = redactMessage(generated, {
-						style,
-						avatars: redactAvatars,
-						badges: redactBadges,
-						self: redactSelf,
-						selfId: currentUserId(),
-					})
+					const changed = redactMessage(generated, redactOptions())
 
 					if (changed) count("rowsRedacted")
 					else count("skippedSelf")

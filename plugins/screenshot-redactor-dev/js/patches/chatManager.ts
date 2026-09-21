@@ -1,7 +1,7 @@
 import { applyBatch, isReplaying, noteCleared, setChatBridge } from "../lib/chatRows"
 import { count, noteChatManagerPatch } from "../lib/diagnostics"
 import { redactRows } from "../lib/rowSchema"
-import { currentUserId, isEnabled, settings } from "../lib/state"
+import { currentUserId, isEnabled, redactOptions, settings } from "../lib/state"
 
 /**
  * Redaction at the JS/native boundary.
@@ -202,13 +202,7 @@ function installFabric(commands: any) {
 							const { style, redactAvatars, redactBadges, redactSelf } = settings()
 
 							const outgoing = JSON.parse(JSON.stringify(rows))
-							const redacted = redactRows(outgoing, {
-								style,
-								avatars: redactAvatars,
-								badges: redactBadges,
-								self: redactSelf,
-								selfId: currentUserId(),
-							})
+							const redacted = redactRows(outgoing, redactOptions())
 
 							if (redacted > 0) count("rowsRedacted")
 							options.rows = outgoing
@@ -346,13 +340,7 @@ function install(manager: any) {
 								// the originals and this copy gets rewritten. Only paid while
 								// redaction is armed.
 								const outgoing = JSON.parse(json)
-								const redacted = redactRows(outgoing, {
-									style,
-									avatars: redactAvatars,
-									badges: redactBadges,
-									self: redactSelf,
-									selfId: currentUserId(),
-								})
+								const redacted = redactRows(outgoing, redactOptions())
 
 								if (redacted > 0) count("rowsRedacted")
 								args[1] = JSON.stringify(outgoing)

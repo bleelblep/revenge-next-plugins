@@ -38,7 +38,7 @@ import { ChangeType, redactRows } from "./rowSchema"
 import { count, noteRefreshOutcome } from "./diagnostics"
 import { nudgeStores } from "./nudge"
 import { rerenderViaFlux } from "./rerender"
-import { currentUserId, isEnabled, settings } from "./state"
+import { currentUserId, isEnabled, redactOptions, settings } from "./state"
 
 interface TagState {
 	/** `undefined` mirrors native's `rows == null`, i.e. "the next batch is a full sync". */
@@ -241,13 +241,7 @@ export function refreshChat(): string | undefined {
 			})
 
 			if (enabled) {
-				redactRows(payload, {
-					style,
-					avatars: redactAvatars,
-					badges: redactBadges,
-					self: redactSelf,
-					selfId: currentUserId(),
-				})
+				redactRows(payload, redactOptions())
 			}
 
 			replaying = true

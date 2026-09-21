@@ -41,6 +41,16 @@ export interface ScreenshotRedactorStorage {
 	 */
 	redactResolvedNames: boolean
 	/**
+	 * Blank out details people typed into the message itself -- emails, phone numbers, street
+	 * addresses, card numbers, invite links, API keys.
+	 *
+	 * Everything else in this plugin redacts *identity fields*: who wrote it, their avatar, a
+	 * mention. None of that touches what was written, so a screenshot with every name replaced
+	 * still showed the phone number somebody pasted three messages up. Pattern matching only --
+	 * no key, no network, no AI.
+	 */
+	redactBodyDetails: boolean
+	/**
 	 * Verbose logging to the console — the generated row's field names, and per-call detail
 	 * from the channel-title hooks. Reaches `adb logcat -s ReactNativeJS`. Shapes and key names
 	 * only; never a name, id or URL.

@@ -1,5 +1,6 @@
 import { DEFAULTS } from "../defaults"
 import { resetAliases } from "./alias"
+import type { RedactOptions } from "./rowSchema"
 import type { ScreenshotRedactorStorage } from "../types"
 
 let storage: RevengeJsonStorageApi<ScreenshotRedactorStorage> | undefined
@@ -75,4 +76,24 @@ export function resetCurrentUserId() {
 export function onEnabledChanged(enabled: boolean) {
 	const { resetNumberingOnEnable } = settings()
 	if (!enabled || resetNumberingOnEnable) resetAliases()
+}
+
+/**
+ * The options every redaction site passes.
+ *
+ * There were four copies of this object -- two in `patches/chatManager.ts`, one in
+ * `patches/rowManager.ts`, one in `lib/chatRows.ts` -- and adding a field meant finding all four.
+ * The reply preview once ended up with its own slightly different avatar clearing for exactly
+ * this reason, so body redaction gets one construction site rather than a fifth copy.
+ */
+export function redactOptions(): RedactOptions {
+	const s = settings()
+	return {
+		style: s.style,
+		avatars: s.redactAvatars,
+		badges: s.redactBadges,
+		self: s.redactSelf,
+		selfId: currentUserId(),
+		bodyDetails: s.redactBodyDetails,
+	}
 }

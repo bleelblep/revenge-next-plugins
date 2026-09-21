@@ -36,6 +36,9 @@ export default function Settings({
 	const navigation = useNavigation() as { navigate: (route: string) => void }
 	const settings = api.jsonStorage.use() ?? DEFAULTS
 
+	const setSetting = (patch: Partial<ScreenshotRedactorStorage>) =>
+		api.jsonStorage.set(patch)
+
 	function setEnabled(enabled: boolean) {
 		api.jsonStorage.set({ enabled })
 		onEnabledChanged(enabled)
@@ -72,6 +75,21 @@ export default function Settings({
 							icon={rowIcon("EyeSlashIcon")}
 							value={!!settings.enabled}
 							onValueChange={setEnabled}
+						/>
+					</TableRowGroup>
+
+					{/*
+					 * Message text, kept apart from the identity toggles above because it is a
+					 * different promise. Those replace who somebody is; this blanks what they
+					 * typed. Pattern matching only -- nothing here reaches the network.
+					 */}
+					<TableRowGroup title="Message text" hasIcons>
+						<TableSwitchRow
+							label="Blank details in messages"
+							subLabel="Emails, phone numbers, addresses, card numbers, invite links and API keys people typed. Matched on this device — nothing is sent anywhere."
+							icon={rowIcon("LockIcon")}
+							value={!!settings.redactBodyDetails}
+							onValueChange={value => setSetting({ redactBodyDetails: value })}
 						/>
 					</TableRowGroup>
 

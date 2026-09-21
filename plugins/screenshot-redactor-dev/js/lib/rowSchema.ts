@@ -21,6 +21,8 @@
  */
 
 import { redactedAvatarUrl, redactedName } from "./alias"
+import { blankValues, collectText } from "./bodyText"
+import { findSensitive } from "./bodyPatterns"
 import { noteAvatarKey, noteMentionRedacted } from "./diagnostics"
 import { isSnowflake } from "./userArgs"
 import type { RedactionStyle } from "../types"
@@ -158,6 +160,8 @@ export interface RedactOptions {
 	avatars: boolean
 	badges: boolean
 	self: boolean
+	/** Blank emails, phone numbers, addresses and keys typed into the message body. */
+	bodyDetails?: boolean
 	/**
 	 * The current user's id, for mentions.
 	 *
@@ -309,6 +313,17 @@ export function redactMessage(message: any, options: RedactOptions): boolean {
 	// implementation that can drift. `state` 0 is LOADED; a system reference carries no author.
 	const referenced = message.referencedMessage
 	if (referenced?.message && redactMessage(referenced.message, options)) changed = true
+
+	// The message body. Deliberately before the author checks below: what somebody typed is
+	// worth blanking whether or not the row names them, and "redact me too" being off must not
+	// mean your own messages keep leaking an address.
+	if (options.bodyDetails && Array.isArray(message.content)) {
+		const text = collectText(message.content)
+		if (text) {
+			const values = findSensitive(text).map(hit => hit.value)
+			if (values.length && blankValues(message.content, values) > 0) changed = true
+		}
+	}
 
 	const authorId = message.authorId
 	if (typeof authorId !== "string" || !authorId) return changed

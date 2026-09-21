@@ -16,5 +16,7 @@ export const DEFAULTS: ScreenshotRedactorStorage = {
 	resetNumberingOnEnable: true,
 	showSheetToggle: true,
 	redactResolvedNames: true,
+	// On: free, local, and the obvious complement to redacting names.
+	redactBodyDetails: true,
 	verboseLogging: false,
 }
