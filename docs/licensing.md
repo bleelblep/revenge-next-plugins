@@ -5,12 +5,9 @@ plugin's `NOTICE.md` and `THIRD_PARTY_LICENSES/` directory before copying its co
 
 | Plugin | License or attribution |
 | --- | --- |
-| Anti Ghost Ping | CC0-1.0 |
-| Ghost Log | CC0-1.0, with visual-indicator work retained under BSD-3-Clause |
-| Relationship Notifier | CC0-1.0 |
-| Screenshot Redactor | CC0-1.0 |
-| Who Reacted | CC0-1.0 |
-| Hide Servers | CC0-1.0, except `src/patches/createElementIntercept.ts` under GPL-3.0 |
+| Screenshot Redactor (both ids) | CC0-1.0 |
+| Ghost Log Native Beta | CC0-1.0, with visual-indicator work retained under BSD-3-Clause |
+| Hide Servers | CC0-1.0, except `js/patches/createElementIntercept.ts` under GPL-3.0 |
 | Staff Tags | CC0-1.0; original work by Fiery and シグマ siguma |
 | Custom Timestamps | Unlicense; original work by Fiery |
 | Show Tag | Unlicense; original work by Cynosphere |

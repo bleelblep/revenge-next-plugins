@@ -1,81 +1,78 @@
 # Plugin status and technical notes
 
+## Discord 348
+
+Checked against 348.0 (versioncode 348200) by comparing its Hermes bundle and a jadx decompile with
+343.11:
+
+- The native message-row schema only gained fields (`forceRevealSpoilers`, `secondaryCtaButton`,
+  and three inside embeds and links). Nothing was removed or renamed, so the plugins that rewrite
+  rows (Screenshot Redactor, Translate, Show Tag, Custom Timestamps, Staff Tags) need no schema
+  changes.
+- `DCDChatManager.updateRows` / `clearRows` and the chat module's React methods are unchanged.
+- `SparklesIcon` was removed and there is no standalone sparkle icon left (`SparkleIcon` only
+  exists inside `PencilSparkleIcon` and `ImageSparkleIcon`). AI Core, Catch Up and Plugin Hub use
+  `MagicWandIcon` instead.
+- `addSettingsItemToSection('REVENGE', …)` now succeeds. Plugin Hub had relied on it failing to get
+  a section of its own; it now registers its own section directly (see below).
+
 ## Screenshot Redactor
 
-### Stable (`0.19.1`)
+Two plugin ids, from two folders:
 
-The stable release redacts message authors, avatars, reply previews, inline mentions, DM and
-group-DM headers, the DM header avatar, and server-tag badges.
+| Folder | Id | Version | For |
+| --- | --- | --- | --- |
+| `plugins/screenshot-redactor-dev` | `bleelblep.screenshot-redactor` | `0.27.x` | Discord 347 and newer |
+| `plugins/screenshot-redactor` | `bleelblep.screenshot-redactor-legacy` | `0.19.x` | Discord before 347 |
+
+Both redact message authors, avatars, reply previews, inline mentions, DM and group-DM headers,
+the DM header avatar, and server-tag badges. On 347+ the chat bridge is a Fabric command rather
+than `DCDChatManager`, which is why the lines split.
+
+`0.27.0` adds **message-body redaction**: emails, phone numbers, addresses, card numbers, invite
+links and API keys typed into messages are blanked, matched on the device.
 
 Known limitations:
 
 - Arming redaction may require switching channels before messages already on screen repaint.
 - Disarming may leave placeholders visible until Discord reloads because rows, resolvers, and
   images can remain cached.
-- Message text is deliberately untouched, so names typed directly into a message remain visible.
+- Names typed directly into a message are not recognised, so they remain visible.
+- Group-DM headers only update after the channel is refreshed or switched.
 - Screenshot Redactor and Show Tag both modify `generated.username`; their final result can depend
   on patch order and remains unverified.
 
-### Beta (`0.25.2-beta1`)
+## Plugin Hub
 
-The beta keeps the stable redaction patches but changes the controls and refresh behavior.
+Registers a **Plugin Hub** section with `index: 1`, directly below Revenge's section, holding two
+rows:
 
-Changes compared with stable:
+- **Hub**: shortcuts to the plugins you pick, in a favourites, grid, cards or shelves layout.
+- **AI Hub**: AI Core and the plugins that depend on it, as plain rows. The row is hidden unless
+  AI Core is running, detected through `globalThis.__bleelblepAiCore`, which AI Core sets in
+  `start` and clears on stop.
 
-| Area | Stable | Beta |
-| --- | --- | --- |
-| Settings | All controls and diagnostics are on one page. | Uses a short main page with separate Visuals and Debug pages. |
-| Quick controls | Optional long-press row and optional floating chat button. | Removes the floating button and uses the long-press row as the only quick control. |
-| Repainting | Tries the native chat mirror; usually requires a channel switch when that module is unavailable. | Also dispatches up to 50 cached messages through `MESSAGE_UPDATE` to ask Discord to regenerate visible rows. |
-| Header refresh | Nudges four likely stores. | Nudges six likely stores and sweeps initialized store callback sets, but group-DM headers still require a channel refresh or switch. |
-| New-install defaults | Server tags and your own identity are not redacted by default. | Server tags and your own identity are redacted by default. |
-| Recovery | Explains that a reload may be needed. | Adds a Reload Discord action to mark the plugin for reload. |
-| Diagnostics | Included on the main settings page. | Moved to a dedicated page with a manual Repaint chat action and clearer repaint results. |
+Revenge inserts sections without an `index` at the top of the list in registration order, so an
+external plugin's unindexed section ends up *above* Revenge's. Index `0` does not work either,
+because Revenge treats it as unset.
 
-Beta items that still need device confirmation:
+Listing installed plugins in "Choose plugins" needs Revenge's Developer Mode (the hidden API);
+using the hub does not.
 
-- **Flux repaint:** the beta dispatches synthetic `MESSAGE_UPDATE` events for up to 50 cached
-  messages. The source notes that other event handlers may reject these payloads. Confirm that
-  arming and disarming repaint visible rows without changing message state, duplicating rows, or
-  causing errors.
-- **Group-DM headers:** redaction applies only after the channel is refreshed or switched. The
-  wider store sweep does not repaint the currently displayed group-DM header immediately.
-- **Long-press migration:** the beta removes the setting that controls the long-press row but still
-  reads the persisted `showSheetToggle` value. A user who disabled that row in stable may carry
-  `false` into beta and have no visible setting to turn it back on.
-- **More aggressive defaults:** fresh beta installs redact server tags and the current user by
-  default. Confirm this is intentional before promoting beta to stable, especially because the
-  server-tag option is still described as capable of visibly breaking chat.
-- **Broad store sweep:** toggling redaction invokes callback sets across initialized Flux stores to
-  refresh headers. Check for unnecessary rerenders, UI stalls, or unrelated state changes.
+## Catch Up
 
-The beta deliberately removes the floating chat overlay (`patches/overlay.tsx`) rather than merely
-hiding it. Users must use the main settings toggle or the message long-press action.
+`/catchup` sends a transcript of `<@authorId>: message` lines to AI Core's provider with the
+prompt in `js/lib/summarise.ts`. Mentions inside messages stay as raw `<@id>`. The model refers to
+people only by copying those mentions. `js/lib/mentions.ts` replaces any `<@id>` that was not in
+the transcript with "someone", so a mistyped id never renders as a mention of a stranger. The
+summary is a clientside ephemeral message, so its mentions never ping.
 
-## Anti Ghost Ping
+## Ghost Log Native Beta
 
-The self-ping test works end to end. A real ghost ping from another user has not been confirmed.
-
-This plugin stores deleted message text unencrypted on the device until its log is cleared. It is
-a message logger and may increase account risk under Discord's Terms of Service.
-
-## Ghost Log
-
-Ghost Log records deleted message text and can preserve deleted messages in chat with a visual
-indicator. It has the same local-storage and account-risk warning as Anti Ghost Ping.
-
-## Relationship Notifier
-
-The plugin builds and type-checks, but its friend removal, mutual-server loss, and group-DM close
-event payloads still require on-device confirmation. It records names and avatar hashes, not
-message content.
-
-## Who Reacted
-
-The action-sheet insertion uses a mechanism already confirmed by Screenshot Redactor. The REST
-request for reactor names builds and type-checks but still needs visual confirmation on a real
-message. See [`plugins/who-reacted/README.md`](../plugins/who-reacted/README.md) for investigation
-notes and remaining limitations.
+Stores deleted message text encrypted on the device (AES-GCM) and can render deleted messages back
+into chat across reloads. It is a message logger and may increase account risk under Discord's Terms
+of Service. Its Kotlin half only registers its own native methods and hooks no Discord classes, so
+Discord updates do not affect it directly.
 
 ## Patch interactions
 
@@ -103,7 +100,7 @@ Screenshot Redactor exposed three separate lookup problems:
 2. `getModules` shares its `max` budget between initialized lookups and future subscriptions.
 3. Successfully finding a resolver does not prove the target UI surface uses that resolver.
 
-Prefer `revenge.discord.utils.finders.getModuleWithImportedPath` when the Discord source path is
+Prefer `revenge.discord.utils.modules.finders.getModuleWithImportedPath` when the Discord source path is
 known. See [porting rule 3](./porting-rules.md#3-module-lookups).
 
 ### Staff Tags

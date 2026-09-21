@@ -5,8 +5,8 @@ you can introduce in plugin code, see [Porting rules](./porting-rules.md).
 
 ## JSX runtime is read eagerly
 
-`build.mjs` marks `revenge/jsx-runtime` external and maps it via Rollup's `output.globals`,
-which emits:
+The template's build (`revenge-plugin build`) passes the JSX runtime in as an argument of the
+bundle's wrapper function, which emits:
 
 ```js
 })({}, revenge.react.ReactJSXRuntime);

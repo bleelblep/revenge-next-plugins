@@ -88,16 +88,17 @@ Rules that are Revenge's, not SemVer's:
 
 ### Screenshot Redactor's two folders
 
-`plugins/screenshot-redactor` (stable, `0.19.x`) and `plugins/screenshot-redactor-dev` (beta,
-`0.25.x-betaN`) share the id `bleelblep.screenshot-redactor`. The downgrade rule compares against
-the newest published version of the **id**, so once `0.25.2-beta2` is published, a stable
-`0.19.3` would be refused. Promote a stable release from the `0.25` line instead, or pin it
-through a channel override.
+`plugins/screenshot-redactor-dev` publishes `bleelblep.screenshot-redactor` (`0.27.x`, Discord
+347+). `plugins/screenshot-redactor` publishes `bleelblep.screenshot-redactor-legacy` (`0.19.x`,
+older builds). They used to share one id, which made a `0.19.x` release impossible once `0.25.x`
+was out: the downgrade rule compares against the newest published version of the **id**. Keep the
+ids separate.
 
 ## Local-only plugins
 
-`jump-to-top`, `multi-scrobbler` and `who-reacted` are gitignored. Local builds package them;
-releases run from a clean CI checkout, so they can never be published.
+`anti-ghost-ping`, `ghost-log`, `jump-to-top`, `multi-scrobbler`, `relationship-notifier` and
+`who-reacted` are gitignored. Local builds package them; releases run from a clean CI checkout, so
+they can never be published.
 
 ## Device logs
 
@@ -105,6 +106,12 @@ releases run from a clean CI checkout, so they can never be published.
 adb logcat -s ReactNativeJS:V
 ```
 
-For a live JS console without adb, see `revenge-next-native-plugins/dbg.mjs` (devtools protocol
-v5). See [porting rule 5](./porting-rules.md#5-read-the-app-instead-of-guessing) for the full
+For a live JS console, run the official devtools server and point Revenge's DevTools setting at
+`ws://<lan-ip>:7864`:
+
+```sh
+bun x @revenge-mod/devtools-server --mcp       # also serves MCP at http://localhost:7864/mcp
+```
+
+Keep it in a terminal you can type into: an MCP `eval` waits for an "Allow?" answer there. See [porting rule 5](./porting-rules.md#5-read-the-app-instead-of-guessing) for the full
 debugging workflow.
