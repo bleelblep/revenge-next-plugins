@@ -24,7 +24,14 @@ export interface Transcript {
 	/** Characters in the rendered transcript, for the cost estimate on the settings page. */
 	characters: number
 	text: string
+	/**
+	 * Every user id that appears in `text`, as an author or a mention. The model refers to people
+	 * only by copying these; `lib/mentions.ts` drops any it did not get from here.
+	 */
+	userIds: Set<string>
 }
+
+const MENTION = /<@!?(\d+)>/g
 
 /**
  * Message types that carry conversation. Everything else -- joins, pins, boosts, call starts --
@@ -36,8 +43,13 @@ export interface Transcript {
  */
 const CONVERSATIONAL_TYPES = new Set([0, 19, 20, 21, 23])
 
-function displayName(message: any): string {
+/**
+ * Who wrote a line: a mention, so the summary can name people by copying it and Discord renders
+ * it as a tappable pill. The display name is only for a message with no author id.
+ */
+function authorLabel(message: any): string {
 	const author = message?.author
+	if (typeof author?.id === 'string') return `<@${author.id}>`
 	return (
 		message?.nick ??
 		author?.globalName ??
@@ -50,7 +62,7 @@ function displayName(message: any): string {
 /**
  * Attachments and embeds are named, not included. "[image]" tells the model a picture was part of
  * the conversation, which is occasionally load-bearing, without spending tokens on a CDN URL
- * nobody can read anyway.
+ * nobody can read anyway. Mentions stay as `<@id>`, the same form author lines use.
  */
 function renderContent(message: any): string {
 	const parts: string[] = []
@@ -75,7 +87,13 @@ export function buildTranscript(
 	limit: number,
 	skipBots = true,
 ): Transcript {
-	const empty: Transcript = { lines: [], available: 0, characters: 0, text: '' }
+	const empty: Transcript = {
+		lines: [],
+		available: 0,
+		characters: 0,
+		text: '',
+		userIds: new Set(),
+	}
 
 	let messages: any[]
 	try {
@@ -106,13 +124,25 @@ export function buildTranscript(
 	const slice = usable.slice(-Math.max(1, limit))
 
 	const lines = slice.map(message => ({
-		author: displayName(message),
+		author: authorLabel(message),
 		content: renderContent(message),
 	}))
 
 	const text = lines.map(line => `${line.author}: ${line.content}`).join('\n')
 
-	return { lines, available: usable.length, characters: text.length, text }
+	const userIds = new Set<string>()
+	// An exec loop, not matchAll: not every Hermes build has matchAll.
+	const mention = new RegExp(MENTION.source, 'g')
+	for (let match = mention.exec(text); match; match = mention.exec(text))
+		userIds.add(match[1])
+
+	return {
+		lines,
+		available: usable.length,
+		characters: text.length,
+		text,
+		userIds,
+	}
 }
 
 /** The channel the command was run in, for the summary's header. */

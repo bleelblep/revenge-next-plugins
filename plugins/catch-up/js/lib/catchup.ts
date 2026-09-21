@@ -10,6 +10,7 @@ import { backfill } from './backfill'
 import { showClientMessage } from './clientMessage'
 import { argument, OptionType, registerCommand } from './commands'
 import { debug, settings, toast } from './state'
+import { keepKnownMentions } from './mentions'
 import { summarise } from './summarise'
 import { buildTranscript, channelLabel } from './transcript'
 import type { CommandArgument, CommandContext } from './commands'
@@ -86,7 +87,7 @@ async function run(args: CommandArgument[], context: CommandContext) {
 
 	report(
 		channelId,
-		`**Catch-up · ${channelLabel(channelId)}** _(${scope})_\n\n${result.text}`,
+		`**Catch-up · ${channelLabel(channelId)}** _(${scope})_\n\n${keepKnownMentions(result.text ?? '', transcript.userIds)}`,
 	)
 }
 

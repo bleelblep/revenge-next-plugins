@@ -73,7 +73,7 @@ export default function Settings({
 						<TableRow
 							label="AI Core"
 							subLabel={aiLine}
-							icon={rowIcon('SparklesIcon', 'ic_star')}
+							icon={rowIcon('MagicWandIcon', 'ic_star')}
 						/>
 					</TableRowGroup>
 

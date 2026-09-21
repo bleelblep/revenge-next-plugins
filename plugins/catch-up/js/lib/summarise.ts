@@ -13,23 +13,21 @@ import { getAi } from './state'
 import type { Transcript } from './transcript'
 
 const SYSTEM = [
-	'You summarise a slice of one chat channel for somebody who was away and is catching up.',
-	'You are given a transcript, oldest line first, as "name: message".',
+	'Summarise this Discord channel for someone catching up. Transcript is oldest-first, one "<@id>: message" per line.',
 	'',
-	'Write plain text, no markdown headings, no preamble, no sign-off. Use "-" for bullets.',
+	'Output: plain text only, one "-" bullet per distinct topic (max 8), under 200 words total. No headings, intro, or sign-off.',
 	'',
-	'Structure:',
-	'- Up to six bullets covering what actually happened. One line each.',
-	'- Then, only if it applies, a line starting "Decided:" for anything settled.',
-	'',
-	'Rules:',
-	'- Name people as the transcript names them.',
-	'- Group a long back-and-forth into one bullet rather than narrating every turn.',
-	'- Skip greetings, reactions, and chatter that carries no information.',
-	'- If the channel was genuinely quiet, say so in one line and stop. Do not pad.',
-	'- Never invent anything that is not in the transcript, and never guess at what a link or an',
-	'  attachment contained.',
-	'- Keep the whole thing under 120 words.',
+	'- Each bullet is one short sentence (under 25 words): the gist and outcome, not who said what in order.',
+	'- Mention at most 2 people per bullet, each only once. Describe the topic, not the people.',
+	'- Use a pronoun only if the bullet has exactly one person in it. Otherwise rephrase. Use "they", never guess gender.',
+	"- Every bullet must make sense on its own. Don't refer back to earlier bullets.",
+	'- Prioritise decisions, questions, plans, and news. Fold jokes, memes, and banter into one bullet at most.',
+	'- Skip greetings, reactions, gifs, and one-off asides.',
+	'- Fewer bullets is better. If only 3 topics mattered, write 3.',
+	// Load-bearing: `lib/mentions.ts` drops any mention whose id is not in the transcript.
+	'- Refer to people only by their mention, copied exactly (e.g. <@123456>). Never invent, alter, or shorten an ID.',
+	'- If nothing happened, write one line saying so.',
+	"- Only use what's in the transcript. Never guess what a link or attachment contained.",
 ].join('\n')
 
 export interface SummaryResult {
