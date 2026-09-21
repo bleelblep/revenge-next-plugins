@@ -7,15 +7,28 @@
       "name": "AI Core",
       "description": "Shared AI plumbing for this repository's plugins. Holds one API key, one daily spending cap and one request queue, so the plugins that use a model do not each ask for their own. Does nothing on its own — install it only if a plugin asks for it.",
       "author": "bleelblep",
-      "icon": "SparklesIcon",
+      "icon": "MagicWandIcon",
       "channels": {
-        "latest": "1.2.0"
+        "latest": "1.2.5"
       },
       "versions": {
         "1.2.0": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@1.2.0.zip",
           "sha256": "511265e9b179262b6aee04bde43345a8bd6e5d291a03bb503ed7a4d54d9ef96c",
           "size": 6089,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.2.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@1.2.5.zip",
+          "sha256": "17ec3ca21dd71e829bc6e1e56a6affe222b2d962d8ff81889a0404aaba6a8ece",
+          "size": 6121,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -33,13 +46,29 @@
       "author": "bleelblep",
       "icon": "ClockIcon",
       "channels": {
-        "latest": "0.2.1"
+        "latest": "0.2.5"
       },
       "versions": {
         "0.2.1": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.catch-up@0.2.1.zip",
           "sha256": "0c6357f4664901e059412d30791bac794181730745ff6f6180adf0e0b9707567",
           "size": 6640,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <2"
+            }
+          }
+        },
+        "0.2.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.catch-up@0.2.5.zip",
+          "sha256": "08ace707e5014cdba7d058d096b75b638cb636c1fd869df1fdb34b70d92281be",
+          "size": 6913,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -83,8 +112,8 @@
       "author": "bleelblep",
       "icon": "TrashIcon",
       "channels": {
-        "beta": "0.5.0-beta4",
-        "latest": "0.5.0-beta4"
+        "beta": "0.5.0-beta5",
+        "latest": "0.5.0-beta5"
       },
       "versions": {
         "0.5.0-beta3": {
@@ -112,6 +141,19 @@
               "version": "*"
             }
           }
+        },
+        "0.5.0-beta5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log-native-beta@0.5.0-beta5.zip",
+          "sha256": "1b02ed5085950b8fcf13e21092236dc4830aca18269b0dc1122271bc4636a74d",
+          "size": 56053,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -120,13 +162,26 @@
       "description": "Hides call and video buttons from DMs, user profiles and voice channels.",
       "author": "John (janisslsm), bleelblep",
       "channels": {
-        "latest": "1.2.3"
+        "latest": "1.2.4"
       },
       "versions": {
         "1.2.3": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-call-buttons@1.2.3.zip",
           "sha256": "110b3a503b2b59fa00f1d0608ddc205cd588e178da0e65f82e501682a4390b20",
           "size": 2186,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.2.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-call-buttons@1.2.4.zip",
+          "sha256": "1232c23eb454b99ffd492806699d7fa7710333bd5f053285519b026ac4d7729e",
+          "size": 2147,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -144,7 +199,7 @@
       "author": "bleelblep, blerp",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "1.6.1"
+        "latest": "1.6.2"
       },
       "versions": {
         "1.6.1": {
@@ -159,22 +214,52 @@
               "version": "*"
             }
           }
+        },
+        "1.6.2": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.6.2.zip",
+          "sha256": "7509568be5b778ad5b3e0b6d4bb5703b950aa6da6606b6d5cacbbc68fc7b6985",
+          "size": 12911,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
     "bleelblep.plugin-hub": {
       "name": "Plugin Hub",
-      "description": "Adds a Plugin Hub row under Revenge's Plugins, with shortcuts straight into the settings of the plugins you choose. Show them as favourites and a list, an icon grid, cards or sideways shelves, with bleelblep plugins, bleelblep AI Core and other plugins in their own sections. Adding plugins needs Revenge's Developer Mode switched on; using the hub does not.",
+      "description": "Adds a Plugin Hub section to Discord's settings: a Hub row with shortcuts straight into the settings of the plugins you choose, and an AI Hub row listing the plugins that use AI Core (shown only while AI Core is installed). Show the Hub as favourites and a list, an icon grid, cards or sideways shelves. Adding plugins needs Revenge's Developer Mode switched on; using the hub does not.",
       "author": "bleelblep",
       "icon": "AppsIcon",
       "channels": {
-        "latest": "0.2.1"
+        "latest": "0.2.6"
       },
       "versions": {
         "0.2.1": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.2.1.zip",
           "sha256": "2b78a0ad2012b1e4eb527f8a32c3c3585085dfa90279dd751d028be3790e686a",
           "size": 5018,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "revenge.api.hidden": {
+              "version": "*",
+              "optional": true
+            }
+          }
+        },
+        "0.2.6": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.2.6.zip",
+          "sha256": "0645ac8301bdf4f6df72d065e7bb0b83ebf35a3643363fdc0c91d27230e5a69d",
+          "size": 5181,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -216,11 +301,11 @@
     },
     "bleelblep.screenshot-redactor": {
       "name": "Screenshot Redactor",
-      "description": "A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder.",
+      "description": "A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder. Also blanks emails, phone numbers, addresses, card numbers and API keys typed into the messages themselves. Everything is matched on this device; nothing is ever sent anywhere.",
       "author": "bleelblep",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "0.25.3"
+        "latest": "0.27.0"
       },
       "versions": {
         "0.19.2": {
@@ -253,6 +338,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor@0.25.3.zip",
           "sha256": "567836bc0f5d5a32cde5ccd5a42384ebb9a367e624a0cf3338718722390ddec9",
           "size": 12369,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.27.0": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor@0.27.0.zip",
+          "sha256": "99deade1b71440693ed6f1e021954b6676b7c465083a9e5f0be0a4c953b15388",
+          "size": 13731,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
