@@ -1,5 +1,9 @@
 import { DEFAULTS } from '../../defaults'
-import { discoveryAvailable, listInstalled } from '../../lib/installed'
+import {
+	discoveryAvailable,
+	listInstalled,
+	usesAiCore,
+} from '../../lib/installed'
 import { getStorage } from '../../lib/state'
 import { rowIcon } from '../icon'
 import { placement } from '../routes'
@@ -12,7 +16,8 @@ import type { Entry, Layout } from '../../types'
  * Choosing what the hub shows.
  *
  * Every installed plugin is a switch, grouped the way the hub groups them. Bleelblep's plugins can
- * be added or removed all at once, and AI Core's get a section of their own.
+ * be added or removed all at once. AI Core and the plugins that use it go on the AI Hub page, the
+ * rest on the Hub. Favourites are a Hub thing: the AI Hub is always a list.
  *
  * Without Developer Mode there is no list of installed plugins to show (see `lib/installed.ts`),
  * so the page says so plainly -- and still lists what is already in the hub, so removing things
@@ -42,7 +47,6 @@ export default function Manage() {
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const entries: Entry[] = s.entries ?? []
 	const pinned = new Set(entries.map(entry => entry.id))
-	const starredCount = entries.filter(entry => entry.favourite).length
 
 	// Every write replaces the whole list -- see the note on `entries` in `types.ts`.
 	const write = (next: Entry[]) => storage?.set({ entries: next })
@@ -68,9 +72,10 @@ export default function Manage() {
 	const available = discoveryAvailable()
 
 	const openable = (plugin: Installed) => plugin.hasSettings
-	const mine = installed?.filter(plugin => plugin.mine && !plugin.ai) ?? []
-	const ai = installed?.filter(plugin => plugin.ai) ?? []
-	const others = installed?.filter(plugin => !plugin.mine && !plugin.ai) ?? []
+	const mine = installed?.filter(plugin => plugin.mine && !usesAiCore(plugin)) ?? []
+	const ai = installed?.filter(usesAiCore) ?? []
+	const others =
+		installed?.filter(plugin => !plugin.mine && !usesAiCore(plugin)) ?? []
 
 	const addAll = (list: Installed[]) =>
 		write([
@@ -135,6 +140,49 @@ export default function Manage() {
 		/>
 	)
 
+	/** Stars for one page. The limit is per page, since each page draws its own tiles. */
+	const favouritesGroup = (ai: boolean, title: string) => {
+		const own = entries.filter(entry => usesAiCore(entry) === ai)
+		if (!own.length) return null
+		const starredCount = own.filter(entry => entry.favourite).length
+		return (
+			<View style={{ gap: 8 }}>
+				<TableRowGroup title={title} hasIcons>
+					{own.map(entry => {
+						const starred = !!entry.favourite
+						// Past the limit, unstarred ones are locked rather than silently
+						// ignored -- a switch that turns on and does nothing is worse.
+						const full = !starred && starredCount >= MAX_FAVOURITES
+						return (
+							<TableSwitchRow
+								key={entry.id}
+								label={entry.name}
+								subLabel={
+									full ? `Up to ${MAX_FAVOURITES} — unstar one first` : undefined
+								}
+								icon={rowIcon(entry.icon ?? 'PuzzlePieceIcon', 'PuzzlePieceIcon')}
+								disabled={full}
+								value={starred}
+								onValueChange={value =>
+									write(
+										entries.map(e =>
+											e.id === entry.id ? { ...e, favourite: value } : e,
+										),
+									)
+								}
+							/>
+						)
+					})}
+				</TableRowGroup>
+				{starredCount ? null : (
+					<Text color="text-muted" variant="text-sm/normal">
+						None starred, so the first four on this page are shown as favourites.
+					</Text>
+				)}
+			</View>
+		)
+	}
+
 	return (
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
@@ -190,55 +238,10 @@ export default function Manage() {
 						/>
 					</TableRadioGroup>
 
-					<TableRowGroup hasIcons>
-						<TableSwitchRow
-							label="Separate section for bleelblep AI Core"
-							subLabel="Plugins that use AI Core are listed under their own heading."
-							icon={rowIcon('SparklesIcon')}
-							value={!!s.aiSection}
-							onValueChange={value => storage?.set({ aiSection: value })}
-						/>
-					</TableRowGroup>
-
-					{s.layout === 'favourites' && entries.length ? (
-						<TableRowGroup title="Favourites" hasIcons>
-							{entries.map(entry => {
-								const starred = !!entry.favourite
-								// Past the limit, unstarred ones are locked rather than silently
-								// ignored -- a switch that turns on and does nothing is worse.
-								const full = !starred && starredCount >= MAX_FAVOURITES
-								return (
-									<TableSwitchRow
-										key={entry.id}
-										label={entry.name}
-										subLabel={
-											full
-												? `Up to ${MAX_FAVOURITES} — unstar one first`
-												: undefined
-										}
-										icon={rowIcon(
-											entry.icon ?? 'PuzzlePieceIcon',
-											'PuzzlePieceIcon',
-										)}
-										disabled={full}
-										value={starred}
-										onValueChange={value =>
-											write(
-												entries.map(e =>
-													e.id === entry.id ? { ...e, favourite: value } : e,
-												),
-											)
-										}
-									/>
-								)
-							})}
-						</TableRowGroup>
-					) : null}
-					{s.layout === 'favourites' && entries.length && !starredCount ? (
-						<Text color="text-muted" variant="text-sm/normal">
-							None starred, so the first four in the hub are shown as
-							favourites.
-						</Text>
+					{s.layout === 'favourites' ? (
+						<>
+							{favouritesGroup(false, 'Hub favourites')}
+						</>
 					) : null}
 
 					{available ? (
@@ -272,7 +275,7 @@ export default function Manage() {
 							) : null}
 
 							{ai.length ? (
-								<TableRowGroup title="bleelblep AI Core" hasIcons>
+								<TableRowGroup title="AI Hub" hasIcons>
 									{ai.map(switchRow)}
 								</TableRowGroup>
 							) : null}
@@ -301,7 +304,8 @@ export default function Manage() {
 					) : null}
 
 					<Text color="text-muted" variant="text-sm/normal">
-						The Plugin Hub row is {placement.where}.
+						The Hub rows are {placement.where}. AI Hub only appears while AI Core is
+						running.
 					</Text>
 				</Stack>
 			</ScrollView>

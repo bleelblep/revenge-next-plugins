@@ -103,7 +103,7 @@ export default function Settings({
 											? `${dependent.calls} call${dependent.calls === 1 ? '' : 's'} today`
 											: 'No calls today'
 									}
-									icon={rowIcon(dependent.icon ?? 'SparklesIcon', 'ic_star')}
+									icon={rowIcon(dependent.icon ?? 'MagicWandIcon', 'MagicWandIcon', 'ic_star')}
 									arrow={!!dependent.route}
 									onPress={
 										dependent.route

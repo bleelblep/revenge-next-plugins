@@ -6,6 +6,5 @@ import type { HubStorage } from './types'
  */
 export const DEFAULTS: HubStorage = {
 	entries: [],
-	aiSection: true,
 	layout: 'favourites',
 }

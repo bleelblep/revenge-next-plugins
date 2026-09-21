@@ -1,5 +1,5 @@
 import { DEFAULTS } from '../../defaults'
-import { listInstalled, MY_PREFIX } from '../../lib/installed'
+import { listInstalled, MY_PREFIX, usesAiCore } from '../../lib/installed'
 import { getStorage } from '../../lib/state'
 import {
 	Grid,
@@ -18,7 +18,8 @@ import type { TileState } from '../components/Tiles'
 export const MAX_FAVOURITES = 4
 
 /**
- * The hub, in whichever layout is chosen.
+ * A hub page, in whichever layout is chosen. The Hub shows every pinned plugin that does not use
+ * AI Core, in the chosen layout; the AI Hub shows the ones that do, always as plain rows.
  *
  * Opening a plugin is `navigate(plugin id)`, because Revenge registers every running plugin's
  * settings page as a route named after the plugin (revenge-bundle-next,
@@ -26,6 +27,14 @@ export const MAX_FAVOURITES = 4
  * Developer Mode only adds the ability to tell a plugin that is not running from one that is.
  */
 export default function Hub() {
+	return <HubPage ai={false} />
+}
+
+export function AiHub() {
+	return <HubPage ai />
+}
+
+function HubPage({ ai }: { ai: boolean }) {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
@@ -36,7 +45,9 @@ export default function Hub() {
 	const navigation = useNavigation() as { navigate: (route: string) => void }
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
-	const entries: Entry[] = s.entries ?? []
+	const entries: Entry[] = (s.entries ?? []).filter(
+		entry => usesAiCore(entry) === ai,
+	)
 
 	// Only known when Developer Mode is on; undefined means "cannot tell", not "missing".
 	const installed = listInstalled()
@@ -58,19 +69,17 @@ export default function Hub() {
 
 	// The sections every layout shares, in order. Whether an entry is bleelblep's comes from its
 	// id, so entries saved before sections existed sort themselves correctly.
+	// The AI Hub is one list: AI Core and its dependents are all bleelblep's so far.
 	const isMine = (entry: Entry) => entry.id.startsWith(MY_PREFIX)
-	const inAi = (entry: Entry) => s.aiSection && entry.ai
-	const sections: Array<{ title?: string; entries: Entry[] }> = [
-		{
-			title: 'bleelblep plugins',
-			entries: entries.filter(entry => isMine(entry) && !inAi(entry)),
-		},
-		{ title: 'bleelblep AI Core', entries: entries.filter(inAi) },
-		{
-			title: 'Other plugins',
-			entries: entries.filter(entry => !isMine(entry) && !inAi(entry)),
-		},
-	]
+	const sections: Array<{ title?: string; entries: Entry[] }> = ai
+		? [{ entries }]
+		: [
+				{ title: 'bleelblep plugins', entries: entries.filter(isMine) },
+				{
+					title: 'Other plugins',
+					entries: entries.filter(entry => !isMine(entry)),
+				},
+			]
 	const shown = sections.filter(section => section.entries.length)
 
 	const sectionTitle = (title?: string) =>
@@ -203,6 +212,10 @@ export default function Hub() {
 		))
 
 	const body = () => {
+		if (ai)
+			return (
+				<TableRowGroup hasIcons>{entries.map(listRow)}</TableRowGroup>
+			)
 		switch (s.layout) {
 			case 'grid':
 				return renderGrid()
@@ -223,11 +236,14 @@ export default function Hub() {
 						body()
 					) : (
 						<Text color="text-muted" variant="text-sm/normal">
-							Nothing here yet. Choose the plugins you open most and they will
-							appear here, one tap from their settings.
+							{ai
+								? 'No AI plugins here yet. Pick them under Hub > Choose plugins and they will appear here, one tap from their settings.'
+								: 'Nothing here yet. Choose the plugins you open most and they will appear here, one tap from their settings.'}
 						</Text>
 					)}
 
+					{/* Choosing lives on the Hub only; the AI Hub is just the list. */}
+					{ai ? null : (
 					<TableRowGroup hasIcons>
 						<TableRow
 							label="Choose plugins"
@@ -237,6 +253,7 @@ export default function Hub() {
 							onPress={() => navigation.navigate(MANAGE_ROUTE)}
 						/>
 					</TableRowGroup>
+					)}
 				</Stack>
 			</ScrollView>
 		</Page>

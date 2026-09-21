@@ -85,6 +85,14 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 			console.error('[AiCore] failed to register settings pages:', error)
 		}
 
+		// Presence marker for plugins that only need to know AI Core is running, not use it --
+		// Plugin Hub shows its AI Hub row on this. Declaring a dependency instead would run them
+		// through `decorate` and list them here as AI plugins, which they are not.
+		;(globalThis as any).__bleelblepAiCore = true
+		cleanup(() => {
+			delete (globalThis as any).__bleelblepAiCore
+		})
+
 		// Synchronous, because teardown is given five seconds before the plugin is flagged.
 		cleanup(() => abortAll())
 	},

@@ -14,24 +14,28 @@
 export function rowIcon(...names: string[]) {
 	const { getAssetIdByName } = revenge.assets
 	const { TableRow } = revenge.discord.design.Design
+	let lookupComponent: ((name: string) => any) | undefined
+	try {
+		lookupComponent = revenge.utils.discord.lookupGeneratedIconComponent
+	} catch {
+		/* registry assets only then */
+	}
 
+	// Per name, asset then component, before moving on. Trying every name as an asset first let a
+	// generic asset fallback (`PuzzlePieceIcon`) beat a real component icon listed ahead of it.
 	for (const name of names) {
 		try {
 			const id = getAssetIdByName(name)
 			if (id) return <TableRow.Icon source={id} />
 		} catch {
-			/* try the next name */
+			/* not an asset */
 		}
-	}
-
-	try {
-		const { lookupGeneratedIconComponent } = revenge.utils.discord
-		for (const name of names) {
-			const Component = lookupGeneratedIconComponent(name)
+		try {
+			const Component = lookupComponent?.(name)
 			if (Component) return <Component width={20} height={20} />
+		} catch {
+			/* not a component either */
 		}
-	} catch {
-		/* no icon then */
 	}
 
 	return undefined

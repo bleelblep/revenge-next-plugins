@@ -1,5 +1,5 @@
 /**
- * Plugin Hub -- a "Plugin Hub" row under Revenge's Plugins, with shortcuts into the settings of
+ * Plugin Hub -- a "Plugin Hub" section in Discord's settings, with shortcuts into the settings of
  * the plugins you choose.
  *
  * Deliberately tiny and deliberately separate from AI Core: most of bleelblep's plugins do not

@@ -4,8 +4,8 @@
 	"name": "AI Core",
 	"description": "Shared AI plumbing for this repository's plugins. Holds one API key, one daily spending cap and one request queue, so the plugins that use a model do not each ask for their own. Does nothing on its own — install it only if a plugin asks for it.",
 	"author": "bleelblep",
-	"icon": "SparklesIcon",
-	"version": "1.2.0",
+	"icon": "MagicWandIcon",
+	"version": "1.2.5",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

@@ -93,3 +93,20 @@ export function listInstalled(): Installed[] | undefined {
 
 	return out.sort((a, b) => a.name.localeCompare(b.name))
 }
+
+/**
+ * Whether AI Core is running, for the AI Hub row.
+ *
+ * AI Core sets `globalThis.__bleelblepAiCore` from its `start` and clears it on stop, so this works
+ * without Developer Mode. With Developer Mode on, the live list is asked as well, which also covers
+ * an AI Core older than the marker.
+ */
+export function aiCoreRunning(): boolean {
+	if ((globalThis as any).__bleelblepAiCore === true) return true
+	return !!listInstalled()?.some(plugin => plugin.id === AI_CORE_ID && plugin.enabled)
+}
+
+/** Belongs on the AI Hub page: AI Core itself, or a plugin that depends on it. */
+export function usesAiCore(plugin: { id: string; ai: boolean }): boolean {
+	return plugin.ai
+}

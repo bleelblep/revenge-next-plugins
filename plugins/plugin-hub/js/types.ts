@@ -10,11 +10,11 @@ export interface Entry {
 	id: string
 	name: string
 	icon?: string
-	/** Depends on AI Core, or is AI Core. Decides which section it is listed under. */
+	/** Depends on AI Core, or is AI Core. Listed on the AI Hub page instead of the Hub. */
 	ai: boolean
 	/** The manifest's one-liner, for the Cards layout. Missing on entries added before 0.2.0. */
 	description?: string
-	/** Shown as a big tile at the top of the Favourites layout. At most four are used. */
+	/** Shown as a big tile at the top of the Favourites layout. At most four per page are used. */
 	favourite?: boolean
 }
 
@@ -27,7 +27,5 @@ export interface HubStorage {
 	 * only bites keyed objects).
 	 */
 	entries: Entry[]
-	/** List AI Core plugins in their own section rather than with the rest. */
-	aiSection: boolean
 	layout: Layout
 }

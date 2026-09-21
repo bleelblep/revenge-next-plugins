@@ -11,27 +11,42 @@
  * Call from inside a component's render: `revenge.*` is read here, so module scope is out
  * (docs/porting-rules.md rule 1).
  */
-export function rowIcon(...names: string[]) {
+/**
+ * Other names to try for an icon Discord has removed. There is no standalone sparkle in 348:
+ * `SparklesIcon` is gone and `SparkleIcon` only survives inside `PencilSparkleIcon` /
+ * `ImageSparkleIcon`. Installed manifests may still carry either, so both fall back to the wand.
+ */
+const ALIASES: Record<string, string[]> = {
+	SparklesIcon: ['MagicWandIcon'],
+	SparkleIcon: ['MagicWandIcon'],
+}
+
+export function rowIcon(...requested: string[]) {
+	const names = [...new Set(requested.flatMap(name => [name, ...(ALIASES[name] ?? [])]))]
 	const { getAssetIdByName } = revenge.assets
 	const { TableRow } = revenge.discord.design.Design
+	let lookupComponent: ((name: string) => any) | undefined
+	try {
+		lookupComponent = revenge.utils.discord.lookupGeneratedIconComponent
+	} catch {
+		/* registry assets only then */
+	}
 
+	// Per name, asset then component, before moving on. Trying every name as an asset first let a
+	// generic asset fallback (`PuzzlePieceIcon`) beat a real component icon listed ahead of it.
 	for (const name of names) {
 		try {
 			const id = getAssetIdByName(name)
 			if (id) return <TableRow.Icon source={id} />
 		} catch {
-			/* try the next name */
+			/* not an asset */
 		}
-	}
-
-	try {
-		const { lookupGeneratedIconComponent } = revenge.utils.discord
-		for (const name of names) {
-			const Component = lookupGeneratedIconComponent(name)
+		try {
+			const Component = lookupComponent?.(name)
 			if (Component) return <Component width={20} height={20} />
+		} catch {
+			/* not a component either */
 		}
-	} catch {
-		/* no icon then */
 	}
 
 	return undefined
