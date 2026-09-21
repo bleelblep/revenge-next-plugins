@@ -1,0 +1,23 @@
+{
+	"format": 1,
+	"id": "bleelblep.catch-up",
+	"name": "Catch Up",
+	"description": "Summarises what you missed in a channel. Run /catchup and the last few hundred messages come back as a short brief only you can see. Needs AI Core for the key and the spending cap.",
+	"author": "bleelblep",
+	"icon": "ClockIcon",
+	"version": "0.2.1",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		},
+		"bleelblep.ai-core": {
+			"version": ">=1 <2"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

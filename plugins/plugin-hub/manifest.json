@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "bleelblep.plugin-hub",
+	"name": "Plugin Hub",
+	"description": "Adds a Plugin Hub row under Revenge's Plugins, with shortcuts straight into the settings of the plugins you choose. Show them as favourites and a list, an icon grid, cards or sideways shelves, with bleelblep plugins, bleelblep AI Core and other plugins in their own sections. Adding plugins needs Revenge's Developer Mode switched on; using the hub does not.",
+	"author": "bleelblep",
+	"icon": "AppsIcon",
+	"version": "0.2.1",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		},
+		"revenge.api.hidden": {
+			"version": "*",
+			"optional": true
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

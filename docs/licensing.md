@@ -15,6 +15,12 @@ plugin's `NOTICE.md` and `THIRD_PARTY_LICENSES/` directory before copying its co
 | Custom Timestamps | Unlicense; original work by Fiery |
 | Show Tag | Unlicense; original work by Cynosphere |
 | Hide Call Buttons | BSD-3-Clause; original work by John (`janisslsm`) |
+| Second Thoughts | CC0-1.0 |
+| AI Core | CC0-1.0 |
+| Catch Up | CC0-1.0 |
+| Translate | CC0-1.0 |
+| Send Tweaks | CC0-1.0 |
+| Plugin Hub | CC0-1.0 |
 
 Show Tag's original repository and website are no longer available. Its Unlicense status was
 recovered from a surviving clone whose history contains the license in Cynosphere's initial

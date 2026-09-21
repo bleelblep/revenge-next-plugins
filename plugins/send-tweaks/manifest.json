@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "bleelblep.send-tweaks",
+	"name": "Send Tweaks",
+	"description": "Small fixes to what you send. Removes tracking from links (?si=, utm_source, fbclid and friends), lets replies start without pinging, and applies your own find-and-replace rules. Text inside code blocks is never touched.",
+	"author": "bleelblep",
+	"icon": "SendMessageIcon",
+	"version": "0.1.0",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
