@@ -22,27 +22,36 @@ function refreshSettingsUI() {
 }
 
 export function registerPages(): () => void {
-	const { registerSettingsItem } = revenge.discord.modules.settings
+	const { registerSettingsItem, onSettingsModulesLoaded } =
+		revenge.discord.modules.settings
 
-	const unregister = [
-		registerSettingsItem(OPTIONS_ROUTE, {
-			parent: null,
-			type: 'route',
-			useTitle: () => 'Settings',
-			screen: { route: OPTIONS_ROUTE, getComponent: () => Options },
-		}),
-		registerSettingsItem(DEBUG_ROUTE, {
-			parent: null,
-			type: 'route',
-			useTitle: () => 'Debug',
-			screen: { route: DEBUG_ROUTE, getComponent: () => Debug },
-		}),
-	]
+	// Registered inside `onSettingsModulesLoaded`: it fires immediately when Discord's
+	// settings modules are already loaded, and waits when they are not. Registering
+	// before they exist is how a page ends up missing until the app is restarted.
+	let unregister: Array<() => void> = []
+	const unsubscribe = onSettingsModulesLoaded(() => {
+		unregister = [
+			registerSettingsItem(OPTIONS_ROUTE, {
+				parent: null,
+				type: 'route',
+				useTitle: () => 'Settings',
+				screen: { route: OPTIONS_ROUTE, getComponent: () => Options },
+			}),
+			registerSettingsItem(DEBUG_ROUTE, {
+				parent: null,
+				type: 'route',
+				useTitle: () => 'Debug',
+				screen: { route: DEBUG_ROUTE, getComponent: () => Debug },
+			}),
+		]
 
-	refreshSettingsUI()
+		refreshSettingsUI()
+	})
 
 	return () => {
+		unsubscribe()
 		for (const remove of unregister) remove()
+		unregister = []
 		refreshSettingsUI()
 	}
 }

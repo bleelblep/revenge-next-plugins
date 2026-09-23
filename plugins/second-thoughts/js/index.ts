@@ -37,6 +37,11 @@ export default plugin<{ jsonStorage: SecondThoughtsStorage }>({
 	},
 
 	start(api) {
+		if (api.plugin.startedLate) {
+			api.plugin.requireReload()
+			return
+		}
+
 		const { cleanup, jsonStorage } = api
 		setStorage(jsonStorage)
 
@@ -71,6 +76,10 @@ export default plugin<{ jsonStorage: SecondThoughtsStorage }>({
 		} catch (error) {
 			console.error('[SecondThoughts] failed to guard sendMessage:', error)
 		}
+	},
+
+	stop(api) {
+		api.plugin.requireReload()
 	},
 
 	SettingsComponent: Settings,

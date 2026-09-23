@@ -16,6 +16,12 @@
  * dependent is expected to carry on without it. Second Thoughts is the reference for that shape:
  * its pattern checks are the product, and the model only adds judgement calls on top.
  *
+ * ## Where the key lives
+ *
+ * Not here. Since 2.0 the key is typed into a native dialog, kept encrypted by the Android
+ * Keystore, and the request is made natively -- see `src/main/kotlin/.../AiCore.kt` for why and
+ * for what that does and does not protect against. This side never holds it.
+ *
  * ## What it deliberately does not do
  *
  * No prompts live here. No plugin-specific context building, no caching of anyone's messages,
@@ -25,7 +31,8 @@
 import { DEFAULTS } from './defaults'
 import { abortAll, requestJson, requestText } from './lib/client'
 import { rememberDependent, setDependentRoute } from './lib/dependents'
-import { remainingFor, setStorage, settings, today } from './lib/state'
+import { debug, remainingFor, setStorage, TAG } from './lib/state'
+import { importLegacy, refreshStatus, vaultStatus } from './lib/vault'
 import Settings from './ui/pages/Settings'
 import { registerPages } from './ui/routes'
 import type { AiApi, AiBudget, AiCoreStorage, AiRequest } from './types'
@@ -34,15 +41,37 @@ export { DEFAULTS }
 export type { AiApi, AiBudget, AiCoreStorage, AiRequest }
 
 function budget(pluginId: string): AiBudget {
-	const s = settings()
-	const fresh = s.usageDay !== today()
+	const v = vaultStatus()
 	return {
-		configured: !!s.apiKey,
-		used: fresh ? 0 : s.usageCalls,
-		cap: s.dailyCallCap,
+		configured: v.configured,
+		used: v.calls,
+		cap: v.cap,
 		remaining: remainingFor(pluginId),
-		promptTokens: fresh ? 0 : s.usagePromptTokens,
-		completionTokens: fresh ? 0 : s.usageCompletionTokens,
+		promptTokens: v.promptTokens,
+		completionTokens: v.completionTokens,
+	}
+}
+
+/**
+ * Moves a key saved by AI Core 1.x (plain text in `storage.json`) into the native vault, then
+ * blanks it. Runs once: the native side refuses the import after its vault has ever been written.
+ * If the native half is not running the old key is left alone, so a later start can still move
+ * it -- wiping it then would just lose it.
+ */
+async function migrateLegacyKey(jsonStorage: RevengeJsonStorageApi<AiCoreStorage>) {
+	const stored = { ...DEFAULTS, ...((await jsonStorage.get()) ?? {}) }
+	const status = await refreshStatus()
+	if (!status.native) {
+		console.error(`${TAG} native half not running; AI Core cannot call out`)
+		return
+	}
+	if (!status.migrated) {
+		const moved = await importLegacy(stored.apiKey, stored.baseUrl, stored.dailyCallCap)
+		debug(`legacy import ${moved ? 'done' : 'refused'}`)
+	}
+	if (stored.apiKey) {
+		await jsonStorage.set({ apiKey: '' })
+		console.log(`${TAG} old plain-text key removed from storage`)
 	}
 }
 
@@ -64,8 +93,8 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 			)
 			const api: AiApi = {
 				isAvailable: () => {
-					const s = settings()
-					return !!s.apiKey && s.dailyCallCap > 0 && remainingFor(pluginId) > 0
+					const v = vaultStatus()
+					return v.configured && remainingFor(pluginId) > 0
 				},
 				text: (request: AiRequest) => requestText(pluginId, request),
 				json: <T>(request: AiRequest) => requestJson<T>(pluginId, request),
@@ -76,8 +105,20 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 		})
 	},
 
-	start({ cleanup, jsonStorage }) {
+	start({ cleanup, jsonStorage, plugin }) {
+		// Enabling a plugin mid-session leaves its hooks half-applied -- Discord modules it patches
+		// may already be initialized and its settings routes are registered too late for the
+		// settings screen. Ask for a reload instead of running in a state we cannot verify.
+		if (plugin.startedLate) {
+			plugin.requireReload()
+			return
+		}
+
 		setStorage(jsonStorage)
+
+		migrateLegacyKey(jsonStorage).catch(error => {
+			console.error(`${TAG} key migration failed:`, error)
+		})
 
 		try {
 			cleanup(registerPages())
@@ -97,5 +138,9 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 		cleanup(() => abortAll())
 	},
 
+	// Unpatching cannot put back everything a hook changed once Discord has rendered with it.
+	stop(api) {
+		api.plugin.requireReload()
+	},
 	SettingsComponent: Settings,
 })

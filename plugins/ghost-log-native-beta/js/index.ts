@@ -180,6 +180,14 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 	},
 
 	start(api) {
+		// Enabling a plugin mid-session leaves its hooks half-applied -- Discord modules it patches
+		// may already be initialized and its settings routes are registered too late for the
+		// settings screen. Ask for a reload instead of running in a state we cannot verify.
+		if (api.plugin.startedLate) {
+			api.plugin.requireReload()
+			return
+		}
+
 		console.log(`${TAG} JS started`)
 		settingsStorage = api.jsonStorage
 		setSettingsStorage(api.jsonStorage)
@@ -289,7 +297,8 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 		api.cleanup(flushPendingAdds)
 	},
 
-	stop() {
+	stop(api) {
+		api.plugin.requireReload()
 		console.log(`${TAG} JS stopped`)
 	},
 

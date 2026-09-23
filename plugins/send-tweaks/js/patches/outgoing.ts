@@ -17,6 +17,20 @@
  * Every path returns the args array, including when something throws: a `before` hook that
  * returns nothing sets the arguments to `undefined` for every later hook (porting rule 2), which
  * on this method would break sending outright.
+ *
+ * ## Edits are cleaned when the edit box opens, not only when it is saved
+ *
+ * Discord skips `editMessage` entirely when the edited text is identical to the original, so a
+ * hook there alone never ran on "open edit, save" -- the obvious way to clean an old message's
+ * link. Cleaning the draft carried by `MESSAGE_START_EDIT` fixes that: the edit box opens with
+ * the cleaned text, which now differs from the original, so saving goes through. You also see
+ * the result before saving, and can cancel. The `editMessage` hook stays for text typed or
+ * pasted into the box afterwards.
+ *
+ * A Flux patch rather than a hook on `startEditMessage`: that export and
+ * `startEditMessageRecord` both end in this one event, and the latter may call the former
+ * without going through the export. Returning nothing from a Flux patch blocks the event, so
+ * every path returns a payload.
  */
 
 import { whenModule } from '../lib/finder'
@@ -28,6 +42,8 @@ const status = {
 	moduleId: -1,
 	sends: 0,
 	edits: 0,
+	/** Edit boxes opened with already-cleaned text. */
+	drafts: 0,
 	cleaned: 0,
 	replaced: 0,
 }
@@ -36,7 +52,7 @@ export function outgoingStatus() {
 	return { ...status }
 }
 
-function rewrite(message: any, kind: 'send' | 'edit') {
+function rewrite(message: any, kind: 'send' | 'edit' | 'draft') {
 	if (!message || typeof message.content !== 'string' || !message.content)
 		return
 
@@ -47,7 +63,8 @@ function rewrite(message: any, kind: 'send' | 'edit') {
 	status.cleaned += result.cleaned
 	status.replaced += result.replaced
 	if (kind === 'send') status.sends++
-	else status.edits++
+	else if (kind === 'edit') status.edits++
+	else status.drafts++
 	debug(
 		`${kind}: ${result.cleaned} tracking param(s) removed, ${result.replaced} rule(s) applied`,
 	)
@@ -55,6 +72,24 @@ function rewrite(message: any, kind: 'send' | 'edit') {
 
 export default function patchOutgoing(): () => void {
 	const patches: Array<() => void> = []
+
+	patches.push(
+		revenge.discord.flux.onFluxEventDispatched(
+			'MESSAGE_START_EDIT',
+			(payload: any) => {
+				try {
+					if (!settings().applyToEdits) return payload
+					// A copy, so nothing else holding the original payload sees it change.
+					const draft = { ...payload }
+					rewrite(draft, 'draft')
+					return draft
+				} catch (error) {
+					console.error(`${TAG} edit draft rewrite failed:`, error)
+					return payload
+				}
+			},
+		),
+	)
 
 	patches.push(
 		whenModule(

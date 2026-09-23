@@ -88,6 +88,7 @@ function buildRow(channelId: string, messageId: string, text: string) {
 	if (!ActionSheetRow) return null
 
 	const { getAssetIdByName } = revenge.assets
+	const { TableRowIcon } = revenge.discord.design.Design as any
 	const target = settings().target
 
 	// The same row does both directions, so the label has to say which one it is about to do.
@@ -115,20 +116,23 @@ function buildRow(channelId: string, messageId: string, text: string) {
 		})
 	}
 
+	const source = getAssetIdByName(
+		state === 'show-original' ? 'ArrowAngleLeftUpIcon' : 'GlobeEarthIcon',
+	)
+	// `ActionSheetRow.Icon` is the sheet's own icon and is what every other row uses; the
+	// `TableRowIcon` fallback is only for a build that does not expose it (348.1 does).
+	const Icon = ActionSheetRow.Icon ?? TableRowIcon
+	const icon = Icon && source ? <Icon source={source} /> : undefined
+
+	// Wrapped in a Group, which is what draws the rounded card around a row. Without it the row
+	// renders square-cornered against every other group in the sheet -- 0.5.3 dropped the wrapper
+	// and that is exactly how it looked.
 	return (
 		<ActionSheetRow.Group>
 			<ActionSheetRow
 				label={label}
 				subLabel={subLabel}
-				icon={
-					<ActionSheetRow.Icon
-						source={getAssetIdByName(
-							state === 'show-original'
-								? 'ArrowAngleLeftUpIcon'
-								: 'GlobeEarthIcon',
-						)}
-					/>
-				}
+				icon={icon}
 				onPress={onPress}
 			/>
 		</ActionSheetRow.Group>

@@ -23,6 +23,7 @@ export interface AiHandle {
 		messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
 		temperature?: number
 		maxTokens?: number
+		timeoutMs?: number
 	}): Promise<string | undefined>
 	budget(): {
 		configured: boolean

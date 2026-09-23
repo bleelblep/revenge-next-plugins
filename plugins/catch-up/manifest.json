@@ -5,7 +5,7 @@
 	"description": "Summarises what you missed in a channel. Run /catchup and the last few hundred messages come back as a short brief only you can see. Needs AI Core for the key and the spending cap.",
 	"author": "bleelblep",
 	"icon": "ClockIcon",
-	"version": "0.2.5",
+	"version": "0.2.7",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
@@ -14,7 +14,7 @@
 			"version": "*"
 		},
 		"bleelblep.ai-core": {
-			"version": ">=1 <2"
+			"version": ">=1 <3"
 		}
 	},
 	"dist": {

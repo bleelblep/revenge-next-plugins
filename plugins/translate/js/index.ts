@@ -36,7 +36,12 @@ export default plugin<{ jsonStorage: TranslateStorage }>({
 		default: DEFAULTS,
 	},
 
-	start({ cleanup, jsonStorage }) {
+	start({ cleanup, jsonStorage, plugin }) {
+		if (plugin.startedLate) {
+			plugin.requireReload()
+			return
+		}
+
 		setStorage(jsonStorage)
 
 		try {
@@ -66,6 +71,10 @@ export default plugin<{ jsonStorage: TranslateStorage }>({
 			resetCooldowns()
 			resetTranslations()
 		})
+	},
+
+	stop(api) {
+		api.plugin.requireReload()
 	},
 
 	SettingsComponent: Settings,

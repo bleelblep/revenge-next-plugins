@@ -1,13 +1,53 @@
 // Classic Revenge needed a two-tier colour system: a flat `colors` map plus a separate
 // "semantic colour" resolver (@vendetta/ui's semanticColors + colorResolver.resolveSemanticColor).
-// Revenge Next's `revenge.discord.design.Tokens` is assumed (unconfirmed) to expose already-
-// resolved token strings directly -- see types/revenge.d.ts. If a token below reads wrong or
-// doesn't track the user's theme, that assumption is the first thing to re-check.
+//
+// Revenge Next keeps both tiers, in one place. Confirmed live on 348.1:
+//
+//   revenge.discord.common.tokens.Tokens.RawColor       // { WHITE: '#ffffff', NEUTRAL_73: '#…' }
+//   revenge.discord.common.tokens.Tokens.SemanticColor  // { BORDER_SUBTLE: { dark: { raw, opacity }, … } }
+//
+// This read `revenge.discord.common.Tokens` -- capital T, which does not exist. Behind `?.` and a
+// fallback it failed silently, so every colour here was its hardcoded default and none tracked the
+// user's theme: BACKGROUND_BASE_LOWEST resolves to #121214 on the 'darker' theme, not #1e1f22.
 
-export function token(name: string, fallback: string): string {
+function tokenTables(): any {
 	try {
-		const resolved = (revenge.discord.common.Tokens as any)?.[name]
-		if (typeof resolved === "string") return resolved
+		return (revenge.discord.common as any).tokens?.Tokens
+	} catch {
+		return undefined
+	}
+}
+
+/** The theme actually in use ('dark', 'light', 'midnight', 'darker', 'ash', …). */
+function currentTheme(): string {
+	try {
+		const store = (revenge.discord.flux.Stores as any).ThemeStore
+		const theme = store?.theme ?? store?.getTheme?.()
+		return typeof theme === "string" ? theme : "dark"
+	} catch {
+		return "dark"
+	}
+}
+
+/**
+ * A colour by token name. Raw names resolve directly; semantic names resolve through the current
+ * theme to a raw name. Anything unresolvable falls back, so a renamed token costs one wrong shade
+ * rather than an invisible bar.
+ */
+export function token(name: string, fallback: string): string {
+	const tables = tokenTables()
+	if (!tables) return fallback
+
+	try {
+		const raw = tables.RawColor?.[name]
+		if (typeof raw === "string") return raw
+
+		const semantic = tables.SemanticColor?.[name]
+		if (semantic) {
+			const entry = semantic[currentTheme()] ?? semantic.darker ?? semantic.dark
+			const resolved = entry?.raw ? tables.RawColor?.[entry.raw] : undefined
+			if (typeof resolved === "string") return resolved
+		}
 	} catch {
 		/* fall through to the hardcoded fallback */
 	}

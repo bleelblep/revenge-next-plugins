@@ -28,7 +28,12 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		default: DEFAULTS,
 	},
 
-	start({ cleanup, jsonStorage }) {
+	start({ cleanup, jsonStorage, plugin }) {
+		if (plugin.startedLate) {
+			plugin.requireReload()
+			return
+		}
+
 		setStorage(jsonStorage)
 
 		// Applied independently -- one moved Discord module should cost one tweak, not all three.
@@ -43,6 +48,10 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		apply('settings pages', registerPages)
 		apply('outgoing messages', patchOutgoing)
 		apply('reply mentions', patchReplyMention)
+	},
+
+	stop(api) {
+		api.plugin.requireReload()
 	},
 
 	SettingsComponent: Settings,

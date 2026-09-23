@@ -13,12 +13,13 @@
  */
 export function rowIcon(...names: string[]) {
 	const { getAssetIdByName } = revenge.assets
-	const { TableRow } = revenge.discord.design.Design
+	const { TableRow, TableRowIcon } = revenge.discord.design.Design as any
+	const Icon = TableRow.Icon ?? TableRowIcon
 
 	for (const name of names) {
 		try {
 			const id = getAssetIdByName(name)
-			if (id) return <TableRow.Icon source={id} />
+			if (id && Icon) return <Icon source={id} />
 		} catch {
 			/* try the next name */
 		}

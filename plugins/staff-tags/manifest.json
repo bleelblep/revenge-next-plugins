@@ -4,7 +4,7 @@
 	"name": "Staff Tags",
 	"description": "Shows extra tags for staff members — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK.",
 	"author": "bleelblep, Fiery",
-	"version": "1.2.3",
+	"version": "1.3.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

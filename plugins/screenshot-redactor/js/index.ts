@@ -22,7 +22,15 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 		load: true,
 		default: DEFAULTS,
 	},
-	start({ cleanup, jsonStorage }) {
+	start({ cleanup, jsonStorage, plugin }) {
+		// Enabling a plugin mid-session leaves its hooks half-applied -- Discord modules it patches
+		// may already be initialized and its settings routes are registered too late for the
+		// settings screen. Ask for a reload instead of running in a state we cannot verify.
+		if (plugin.startedLate) {
+			plugin.requireReload()
+			return
+		}
+
 		setStorage(jsonStorage)
 
 		// The Visuals and Debug sub-screens are their own navigator routes, and the root page's
@@ -86,6 +94,10 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 			resetDiagnostics()
 			resetCurrentUserId()
 		})
+	},
+	// Unpatching cannot put back everything a hook changed once Discord has rendered with it.
+	stop(api) {
+		api.plugin.requireReload()
 	},
 	SettingsComponent: Settings,
 })

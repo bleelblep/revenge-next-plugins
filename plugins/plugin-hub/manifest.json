@@ -5,7 +5,7 @@
 	"description": "Adds a Plugin Hub section to Discord's settings: a Hub row with shortcuts straight into the settings of the plugins you choose, and an AI Hub row listing the plugins that use AI Core (shown only while AI Core is installed). Show the Hub as favourites and a list, an icon grid, cards or sideways shelves. Adding plugins needs Revenge's Developer Mode switched on; using the hub does not.",
 	"author": "bleelblep",
 	"icon": "AppsIcon",
-	"version": "0.2.6",
+	"version": "0.2.7",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

@@ -5,7 +5,7 @@
 	"description": "A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder. Also blanks emails, phone numbers, addresses, card numbers and API keys typed into the messages themselves. Everything is matched on this device; nothing is ever sent anywhere.",
 	"author": "bleelblep",
 	"icon": "EyeSlashIcon",
-	"version": "0.27.0",
+	"version": "0.27.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

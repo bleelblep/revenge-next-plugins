@@ -26,39 +26,48 @@ function refreshSettingsUI() {
 }
 
 export function registerPages(): () => void {
-	const { registerSettingsItem } = revenge.discord.modules.settings
+	const { registerSettingsItem, onSettingsModulesLoaded } =
+		revenge.discord.modules.settings
 
-	const unregister = [
-		registerSettingsItem(CHECKS_ROUTE, {
-			parent: null,
-			type: 'route',
-			useTitle: () => 'Checks',
-			screen: { route: CHECKS_ROUTE, getComponent: () => Checks },
-		}),
-		registerSettingsItem(TRY_ROUTE, {
-			parent: null,
-			type: 'route',
-			useTitle: () => 'Try a draft',
-			screen: { route: TRY_ROUTE, getComponent: () => TryDraft },
-		}),
-		registerSettingsItem(PRIVACY_ROUTE, {
-			parent: null,
-			type: 'route',
-			useTitle: () => 'What leaves the device',
-			screen: { route: PRIVACY_ROUTE, getComponent: () => Privacy },
-		}),
-		registerSettingsItem(DEBUG_ROUTE, {
-			parent: null,
-			type: 'route',
-			useTitle: () => 'Debug',
-			screen: { route: DEBUG_ROUTE, getComponent: () => Debug },
-		}),
-	]
+	// Registered inside `onSettingsModulesLoaded`: it fires immediately when Discord's
+	// settings modules are already loaded, and waits when they are not. Registering
+	// before they exist is how a page ends up missing until the app is restarted.
+	let unregister: Array<() => void> = []
+	const unsubscribe = onSettingsModulesLoaded(() => {
+		unregister = [
+			registerSettingsItem(CHECKS_ROUTE, {
+				parent: null,
+				type: 'route',
+				useTitle: () => 'Checks',
+				screen: { route: CHECKS_ROUTE, getComponent: () => Checks },
+			}),
+			registerSettingsItem(TRY_ROUTE, {
+				parent: null,
+				type: 'route',
+				useTitle: () => 'Try a draft',
+				screen: { route: TRY_ROUTE, getComponent: () => TryDraft },
+			}),
+			registerSettingsItem(PRIVACY_ROUTE, {
+				parent: null,
+				type: 'route',
+				useTitle: () => 'What leaves the device',
+				screen: { route: PRIVACY_ROUTE, getComponent: () => Privacy },
+			}),
+			registerSettingsItem(DEBUG_ROUTE, {
+				parent: null,
+				type: 'route',
+				useTitle: () => 'Debug',
+				screen: { route: DEBUG_ROUTE, getComponent: () => Debug },
+			}),
+		]
 
-	refreshSettingsUI()
+		refreshSettingsUI()
+	})
 
 	return () => {
+		unsubscribe()
 		for (const remove of unregister) remove()
+		unregister = []
 		refreshSettingsUI()
 	}
 }

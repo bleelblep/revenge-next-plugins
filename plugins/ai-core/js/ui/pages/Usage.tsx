@@ -4,10 +4,9 @@ import {
 	callsRemaining,
 	getStorage,
 	NO_CAP,
-	resetUsage,
-	today,
 	usageByPlugin,
 } from '../../lib/state'
+import { resetUsage, setCap, useVaultStatus } from '../../lib/vault'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { AiCoreStorage } from '../../types'
@@ -25,71 +24,64 @@ export default function Usage() {
 		TableSwitchRow,
 		TextInput,
 		Slider,
-		AlertModal,
-		AlertActionButton,
+		Card,
 	} = revenge.discord.design.Design
-	const Alerts = revenge.discord.actions.AlertActionCreators
+	const React = revenge.react.React
 
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const set = (patch: Partial<AiCoreStorage>) => storage?.set(patch)
 
-	const fresh = s.usageDay !== today()
-	const used = fresh ? 0 : s.usageCalls
-	const spenders = fresh ? [] : usageByPlugin()
-	const counts: Record<string, number> = fresh ? {} : (s.usageByPlugin ?? {})
+	// The count and the shared cap live in the native vault, not in jsonStorage, so no plugin
+	// can reset them by rewriting a file.
+	const vault = useVaultStatus()
+	const used = vault.calls
+	const spenders = usageByPlugin()
+	const counts: Record<string, number> = vault.byPlugin ?? {}
 	const users = listDependents().map(d => ({ ...d, calls: counts[d.id] ?? 0 }))
 
-	const confirmReset = () => {
-		const key = 'AiCoreResetUsage'
-		Alerts.openAlert(
-			key,
-			<AlertModal
-				title="Reset today's count?"
-				content="The cap starts again from zero. This does not refund anything already spent with the provider."
-				actions={
-					<>
-						<AlertActionButton
-							text="Reset"
-							variant="destructive"
-							onPress={() => {
-								Alerts.dismissAlert(key)
-								resetUsage()
-							}}
-						/>
-						<AlertActionButton
-							text="Cancel"
-							variant="secondary"
-							onPress={() => Alerts.dismissAlert(key)}
-						/>
-					</>
-				}
-			/>,
-		)
-	}
+	// The slider tracks locally and commits on release: raising the cap asks for confirmation
+	// natively, and one prompt per slider step would be unusable.
+	const [draftCap, setDraftCap] = React.useState<number | null>(null)
+	const shownCap = draftCap ?? vault.cap
 
 	return (
 		<Page>
-			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
+			<ScrollView
+				keyboardShouldPersistTaps="handled"
+				contentContainerStyle={{ paddingBottom: useBottomPadding() }}
+			>
 				<Stack spacing={24}>
-					<TableRowGroup title={`Daily cap — ${s.dailyCallCap} calls`}>
-						<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+					{/*
+					 * A slider is a custom control, so it lives in a Card rather than pretending
+					 * to be a row (docs/plugin-design-language.md §3.2).
+					 */}
+					<Card variant="secondary" border="none">
+						<View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}>
+							<Text color="text-default" variant="text-md/semibold">
+								{`Daily cap — ${shownCap} call${shownCap === 1 ? '' : 's'}`}
+							</Text>
 							<Text color="text-muted" variant="text-sm/normal">
-								A hard ceiling shared by every plugin that uses this one. At
-								zero nothing can call out at all, which is the quickest way to
-								switch the whole thing off without deleting your key.
+								A hard ceiling shared by every plugin that uses this one. At zero
+								nothing can call out at all, which is the quickest way to switch
+								the whole thing off without deleting your key. Raising it asks you
+								to confirm in a system prompt, so no other plugin can raise it
+								quietly.
 							</Text>
 							<Slider
 								step={5}
-								value={s.dailyCallCap}
+								value={shownCap}
 								minimumValue={0}
 								maximumValue={200}
-								onValueChange={value =>
-									set({ dailyCallCap: Math.round(value) })
-								}
+								onValueChange={value => setDraftCap(Math.round(value))}
+								onSlidingComplete={async value => {
+									await setCap(Math.round(value))
+									// Snap back to what the vault actually accepted.
+									setDraftCap(null)
+								}}
 							/>
 						</View>
-					</TableRowGroup>
+					</Card>
 
 					<TableRowGroup title="Today" hasIcons>
 						<TableRow
@@ -99,15 +91,19 @@ export default function Usage() {
 						/>
 						<TableRow
 							label="Tokens"
-							subLabel={`${fresh ? 0 : s.usagePromptTokens} in, ${fresh ? 0 : s.usageCompletionTokens} out`}
+							subLabel={`${vault.promptTokens} in, ${vault.completionTokens} out`}
 							icon={rowIcon('TextIcon', 'ic_text')}
 						/>
 						<TableRow
 							label="Reset the count"
-							subLabel="Start the cap again from zero"
+							subLabel={
+								vault.usageTampered
+									? "The usage record was altered or deleted, so nothing can call out until you reset it"
+									: 'Start the cap again from zero. Confirmed in a system prompt.'
+							}
 							icon={rowIcon('TrashIcon', 'ic_trash_24px')}
 							arrow
-							onPress={confirmReset}
+							onPress={() => resetUsage()}
 						/>
 					</TableRowGroup>
 
@@ -131,59 +127,46 @@ export default function Usage() {
 
 					{s.enforcePerPluginCaps ? (
 						users.length ? (
-							<TableRowGroup title="Calls per day, per plugin">
-								<View
-									style={{
-										paddingHorizontal: 16,
-										paddingVertical: 12,
-										gap: 12,
-									}}
-								>
-									<Text color="text-muted" variant="text-sm/normal">
-										Blank means no limit of its own. Zero stops that plugin
-										calling out entirely, which is the way to mute one without
-										uninstalling it.
-									</Text>
-									{users.map(dependent => {
-										const cap = s.perPluginCaps?.[dependent.id]
-										const hasCap = typeof cap === 'number' && cap >= 0
-										return (
-											<TextInput
-												key={dependent.id}
-												label={dependent.name}
-												placeholder="No limit"
-												description={`${dependent.calls} call${dependent.calls === 1 ? '' : 's'} today`}
-												value={hasCap ? `${cap}` : ''}
-												isClearable
-												onChange={value => {
-													const digits = value.replace(/\D/g, '')
-													// An explicit -1 rather than dropping the key: a merge cannot
-													// delete one (porting rule 6), so absence has to be a value.
-													const next =
-														digits === '' ? NO_CAP : Number.parseInt(digits, 10)
-													set({
-														perPluginCaps: {
-															...s.perPluginCaps,
-															[dependent.id]: Number.isFinite(next)
-																? next
-																: NO_CAP,
-														},
-													})
-												}}
-											/>
-										)
-									})}
-								</View>
-							</TableRowGroup>
+							<>
+								<Text color="text-muted" variant="text-sm/normal">
+									Blank means no limit of its own. Zero stops that plugin calling
+									out entirely, which is the way to mute one without uninstalling
+									it.
+								</Text>
+								{users.map(dependent => {
+									const cap = s.perPluginCaps?.[dependent.id]
+									const hasCap = typeof cap === 'number' && cap >= 0
+									return (
+										<TextInput
+											key={dependent.id}
+											label={dependent.name}
+											placeholder="No limit"
+											description={`${dependent.calls} call${dependent.calls === 1 ? '' : 's'} today`}
+											value={hasCap ? `${cap}` : ''}
+											trailingText="a day"
+											returnKeyType="done"
+											isClearable
+											onChange={value => {
+												const digits = value.replace(/\D/g, '')
+												// An explicit -1 rather than dropping the key: a merge cannot
+												// delete one (porting rule 6), so absence has to be a value.
+												const next =
+													digits === '' ? NO_CAP : Number.parseInt(digits, 10)
+												set({
+													perPluginCaps: {
+														...s.perPluginCaps,
+														[dependent.id]: Number.isFinite(next) ? next : NO_CAP,
+													},
+												})
+											}}
+										/>
+									)
+								})}
+							</>
 						) : (
-							<TableRowGroup title="Calls per day, per plugin">
-								<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-									<Text color="text-muted" variant="text-sm/normal">
-										No plugin is using AI Core yet, so there is nothing to
-										limit.
-									</Text>
-								</View>
-							</TableRowGroup>
+							<Text color="text-muted" variant="text-sm/normal">
+								No plugin is using AI Core yet, so there is nothing to limit.
+							</Text>
 						)
 					) : null}
 
@@ -199,25 +182,19 @@ export default function Usage() {
 						</TableRowGroup>
 					) : null}
 
-					<TableRowGroup title="Queue">
-						<View
-							style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}
-						>
-							<TextInput
-								label="Requests at once"
-								placeholder={`${DEFAULTS.concurrency}`}
-								description="Requests above this wait their turn. Raising it makes a rate limit likelier, not answers faster."
-								value={`${s.concurrency}`}
-								onChange={value => {
-									const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
-									set({
-										concurrency:
-											Number.isFinite(parsed) && parsed >= 1 ? parsed : 1,
-									})
-								}}
-							/>
-						</View>
-					</TableRowGroup>
+					<TextInput
+						label="Requests at once"
+						placeholder={`${DEFAULTS.concurrency}`}
+						description="Requests above this wait their turn. Raising it makes a rate limit likelier, not answers faster."
+						value={`${s.concurrency}`}
+						returnKeyType="done"
+						onChange={value => {
+							const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
+							set({
+								concurrency: Number.isFinite(parsed) && parsed >= 1 ? parsed : 1,
+							})
+						}}
+					/>
 				</Stack>
 			</ScrollView>
 		</Page>

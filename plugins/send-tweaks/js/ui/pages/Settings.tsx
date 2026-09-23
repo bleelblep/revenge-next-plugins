@@ -91,7 +91,7 @@ export default function Settings({
 					<TableRowGroup hasIcons>
 						<TableSwitchRow
 							label="Also apply when editing"
-							subLabel="Clean links and apply your rules to messages you edit, not just new ones."
+							subLabel="Clean links and apply your rules to messages you edit, not just new ones. The edit box opens already cleaned, so saving without changes still fixes an old message."
 							icon={rowIcon('PencilIcon', 'ic_edit_24px')}
 							value={!!s.applyToEdits}
 							onValueChange={value => set({ applyToEdits: value })}

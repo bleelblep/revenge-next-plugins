@@ -5,7 +5,7 @@
 	"description": "Long-press any message to translate it in place, and long-press again to put it back. Optionally translates everything not already in your language as it arrives. Four keyless services behind it — Google, Bing, Yandex and MyMemory — tried in turn, so one going down does not take the plugin with it. No key, no account, no AI.",
 	"author": "bleelblep",
 	"icon": "GlobeEarthIcon",
-	"version": "0.5.2",
+	"version": "0.5.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

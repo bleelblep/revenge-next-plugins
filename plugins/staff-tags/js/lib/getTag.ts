@@ -1,3 +1,6 @@
+import { iconById } from "./icons"
+import { overrideFor } from "./state"
+
 // Revenge Next's preInit phase runs before Discord's own module registry is populated --
 // resolving modules/stores at module top level (like classic Revenge/Vendetta code did) can
 // silently and *permanently* cache a "not found" result if it runs too early. Confirmed
@@ -99,7 +102,11 @@ const PERMISSION_BITS: Record<string, bigint> = {
 }
 
 interface Tag {
+	/** Stable key for this tag's own settings. Never change one: it is what storage is keyed by. */
+	id: string
 	text: string
+	/** The colour this tag ships with, used unless the user picked their own. */
+	defaultColor: string
 	textColor?: any
 	backgroundColor?: any
 	verified?: boolean | ((guild: any, channel: any, user: any) => boolean)
@@ -107,36 +114,52 @@ interface Tag {
 	permissions?: string[]
 }
 
-const tags: Tag[] = [
+export const TAGS: Tag[] = [
 	{
+		id: "webhook",
 		text: "WEBHOOK",
+		defaultColor: "#99AAB5",
 		condition: (_guild, _channel, user) => user.isNonUserBot?.() ?? false,
 	},
 	{
+		id: "owner",
 		text: "OWNER",
+		defaultColor: "#F0B232",
 		condition: (guild, _channel, user) => guild?.ownerId === user.id,
 	},
 	{
+		id: "admin",
 		text: "ADMIN",
+		defaultColor: "#F23F42",
 		permissions: ["ADMINISTRATOR"],
 	},
 	{
+		id: "staff",
 		text: "STAFF",
+		defaultColor: "#23A55A",
 		permissions: ["MANAGE_GUILD", "MANAGE_CHANNELS", "MANAGE_ROLES", "MANAGE_WEBHOOKS"],
 	},
 	{
+		id: "mod",
 		text: "MOD",
+		defaultColor: "#5865F2",
 		permissions: ["MANAGE_MESSAGES", "KICK_MEMBERS", "BAN_MEMBERS"],
 	},
 	{
+		id: "vc_mod",
 		text: "VC Mod",
+		defaultColor: "#1ABC9C",
 		permissions: ["MOVE_MEMBERS", "MUTE_MEMBERS", "DEAFEN_MEMBERS"],
 	},
 	{
+		id: "chat_mod",
 		text: "Chat Mod",
+		defaultColor: "#9B59B6",
 		permissions: ["MODERATE_MEMBERS"],
 	},
 ]
+
+const tags = TAGS
 
 // The permission helper's argument order isn't documented anywhere, so try the known call
 // shapes once and remember whichever one answers. -1 means "none of them work", in which
@@ -221,11 +244,19 @@ export default function getTag(
 			tag.condition?.(guild, channel, user) ||
 			(!user.bot && tag.permissions?.some(hasPermission))
 		) {
+			// Everything the user changed about this one tag. Read per call, not captured, so a
+			// settings change shows up on the next row Discord draws.
+			const custom = overrideFor(tag.id)
+			if (custom.enabled === false) continue
+
 			const roleColor = useRoleColor
 				? guildMemberStore()?.getMember?.(guild?.id, user.id)?.colorString
 				: undefined
+			// A colour the user picked wins over the role colour: they asked for that exact one.
+			const chosenColor =
+				custom.useCustomColor && custom.color ? custom.color : undefined
 			const backgroundColor =
-				roleColor || tag.backgroundColor || "#5865F2"
+				chosenColor || roleColor || tag.defaultColor || tag.backgroundColor || "#5865F2"
 			const textColor =
 				roleColor || !tag.textColor
 					? isDarkColor(backgroundColor)
@@ -235,8 +266,17 @@ export default function getTag(
 
 			return {
 				...tag,
+				text: custom.text?.trim() || tag.text,
 				textColor,
 				backgroundColor,
+				gradientColor:
+					custom.useGradient && custom.gradientColor ? custom.gradientColor : undefined,
+				icon: custom.icon && custom.icon !== "none" ? custom.icon : undefined,
+				customSvg: custom.customSvg,
+				iconOnly: !!custom.iconOnly,
+				// Message rows are drawn by native code, which takes a string and no components.
+				// The icon's glyph is the only way an icon can show up there at all.
+				iconGlyph: iconById(custom.icon)?.fallback,
 				verified:
 					typeof tag.verified === "function"
 						? tag.verified(guild, channel, user)

@@ -25,6 +25,7 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **Send Tweaks** | Removes link tracking, lets replies skip the ping, and applies your own find-and-replace rules. |
 | **Second Thoughts** | Stops credentials and card numbers from being sent. With AI Core it also flags angry or oversharing drafts. |
 | **Plugin Hub** | A Plugin Hub section in settings with shortcuts into the plugins you use most, plus an AI Hub for AI Core's plugins. |
+| **Veil** | Blurs messages behind Discord's own spoiler, by word, person or channel. With AI Core it can also blur a category you describe yourself. |
 
 ### AI plugins
 
@@ -32,6 +33,7 @@ https://bleelblep.github.io/revenge-next-plugins/
 | --- | --- |
 | **AI Core** | Shared API key, daily spending cap and request queue for the plugins below. Does nothing on its own. |
 | **Catch Up** | `/catchup` summarises what you missed in a channel, visible only to you. Requires AI Core. |
+| **TL;DR** | Long-press a long message for the gist in a few lines, kept so asking again is free. Requires AI Core. |
 | **Second Thoughts** | Works without AI Core; uses it, if installed, for judgement calls on drafts already flagged locally. |
 
 ## Ports
@@ -69,6 +71,12 @@ repository URL above does not change.
 - **Catch Up** sends the messages it summarises (author ids and text, not attachments) to the AI
   provider configured in AI Core. **Second Thoughts** sends a draft to that provider only when AI
   Core is installed and a local check has already flagged the draft.
+- **TL;DR** sends the message you ask it about to the AI provider configured in AI Core. **Veil**
+  sends messages to that provider only in channels you turn its own category on for; its word,
+  person and channel rules are checked on your device and send nothing.
+- **AI Core** keeps your API key encrypted by Android's keystore and makes its requests natively,
+  so no plugin can read the key back. Other plugins can still ask it to spend calls, so use a key
+  with a spending limit you can revoke.
 - **Translate** sends the text of messages you translate to Google, Bing, Yandex or MyMemory.
 - **Screenshot Redactor** only blanks the personal details it can recognise in message text. A
   name typed into a message is still visible.

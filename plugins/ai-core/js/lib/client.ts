@@ -1,6 +1,9 @@
 /**
  * The one place in this repository that talks to a model.
  *
+ * The request itself is made natively (`lib/vault.ts`), so the key never exists in JS. This side
+ * builds the body, queues it, and bounds the wait.
+ *
  * It speaks the OpenAI chat-completions shape, which DeepSeek, OpenRouter, Groq and a local
  * llama.cpp all accept — hence `baseUrl` being a setting rather than a constant.
  *
@@ -18,7 +21,8 @@
  * same second — and the provider answers that with a rate limit rather than two answers.
  */
 
-import { capFor, debug, recordCall, remainingFor, settings, TAG } from './state'
+import { capFor, debug, remainingFor, settings, TAG } from './state'
+import { nativeRequest, vaultStatus } from './vault'
 import type { AiRequest } from '../types'
 
 // --- a queue with a concurrency limit ---------------------------------------
@@ -83,7 +87,12 @@ async function callOnce(
 	json: boolean,
 ): Promise<RawResult | undefined> {
 	const s = settings()
-	if (!s.apiKey) {
+	const vault = vaultStatus()
+	if (!vault.native) {
+		debug(`${pluginId}: the native half of AI Core is not running`)
+		return undefined
+	}
+	if (!vault.configured) {
 		debug(`${pluginId}: no API key set`)
 		return undefined
 	}
@@ -93,62 +102,56 @@ async function callOnce(
 		const own = capFor(pluginId)
 		debug(
 			own >= 0
-				? `${pluginId}: its own cap of ${own} is spent, or the shared cap of ${s.dailyCallCap} is`
-				: `${pluginId}: the shared daily cap of ${s.dailyCallCap} is spent`,
+				? `${pluginId}: its own cap of ${own} is spent, or the shared cap of ${vault.cap} is`
+				: `${pluginId}: the shared daily cap of ${vault.cap} is spent`,
 		)
 		return undefined
 	}
 
-	const controller = new AbortController()
-	controllers.add(controller)
-	const timer = setTimeout(
-		() => controller.abort(),
-		request.timeoutMs ?? s.timeoutMs,
+	const timeoutMs = request.timeoutMs ?? s.timeoutMs
+	// The native side owns the key, the endpoint and the shared cap. This side only chooses
+	// the model and the messages; the vault forwards nothing else.
+	const pending = nativeRequest(
+		pluginId,
+		{
+			model: s.model,
+			temperature: request.temperature ?? 0,
+			max_tokens: request.maxTokens ?? 256,
+			...(json ? { response_format: { type: 'json_object' } } : {}),
+			messages: request.messages,
+		},
+		timeoutMs,
 	)
 
-	try {
-		const response = await fetch(
-			`${s.baseUrl.replace(/\/+$/, '')}/chat/completions`,
-			{
-				method: 'POST',
-				signal: controller.signal,
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${s.apiKey}`,
-				},
-				body: JSON.stringify({
-					model: s.model,
-					temperature: request.temperature ?? 0,
-					max_tokens: request.maxTokens ?? 256,
-					...(json ? { response_format: { type: 'json_object' } } : {}),
-					messages: request.messages,
-				}),
-			},
-		)
+	// The native call has its own connect and read timeouts, but those are per phase. This
+	// bounds the whole thing, and lets `abortAll` drop the wait at teardown.
+	const controller = new AbortController()
+	controllers.add(controller)
+	let timer: ReturnType<typeof setTimeout> | undefined
+	const gaveUp = new Promise<undefined>(resolve => {
+		timer = setTimeout(() => resolve(undefined), timeoutMs + 1000)
+		controller.signal.addEventListener?.('abort', () => resolve(undefined))
+	})
 
-		if (!response.ok) {
-			// 401 and 402 are the two the user can actually fix, so they are never swallowed.
-			console.error(
-				`${TAG} ${pluginId}: provider returned HTTP ${response.status}`,
-			)
+	try {
+		const result = await Promise.race([pending, gaveUp])
+		if (!result) {
+			debug(`${pluginId}: no answer in time`)
 			return undefined
 		}
-
-		const body: any = await response.json()
-		const usage = body?.usage
-		const promptTokens = usage?.prompt_tokens ?? 0
-		const completionTokens = usage?.completion_tokens ?? 0
-		recordCall(pluginId, promptTokens, completionTokens)
-
-		const content = body?.choices?.[0]?.message?.content
+		if (!result.ok) {
+			// 401 and 402 are the two the user can actually fix, so they are never swallowed.
+			if (result.error === 'http')
+				console.error(`${TAG} ${pluginId}: provider returned HTTP ${result.status}`)
+			else debug(`${pluginId}: refused or failed (${result.error})`)
+			return undefined
+		}
+		const content = result.content
 		if (typeof content !== 'string') return undefined
-
+		const promptTokens = result.promptTokens ?? 0
+		const completionTokens = result.completionTokens ?? 0
 		debug(`${pluginId}: ${promptTokens} in, ${completionTokens} out`)
 		return { content, promptTokens, completionTokens }
-	} catch (error) {
-		// An abort lands here too, which is exactly the fail-open path we want.
-		debug(`${pluginId}: call failed:`, error)
-		return undefined
 	} finally {
 		clearTimeout(timer)
 		controllers.delete(controller)

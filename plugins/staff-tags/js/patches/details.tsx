@@ -39,6 +39,10 @@ const rowPatch =
 					text: tag.text,
 					textColor: tag.textColor,
 					backgroundColor: tag.backgroundColor,
+					gradientColor: tag.gradientColor,
+					icon: tag.icon,
+					customSvg: tag.customSvg,
+					iconOnly: tag.iconOnly,
 					verified: tag.verified,
 				})
 			} else {
@@ -54,6 +58,10 @@ const rowPatch =
 						text={tag.text}
 						textColor={tag.textColor}
 						backgroundColor={tag.backgroundColor}
+						gradientColor={tag.gradientColor}
+						icon={tag.icon}
+						customSvg={tag.customSvg}
+						iconOnly={tag.iconOnly}
 						verified={tag.verified}
 					/>,
 				)

@@ -58,6 +58,10 @@ export async function summarise(
 	const text = await ai.text({
 		temperature: 0.2,
 		maxTokens: 400,
+		// AI Core's default timeout is sized for Second Thoughts' one-word verdicts. Writing a
+		// 400-token summary of a few hundred messages routinely takes 10-20 seconds, so under
+		// the default nearly every run was abandoned as "No answer came back".
+		timeoutMs: 45_000,
 		messages: [
 			{ role: 'system', content: SYSTEM },
 			{ role: 'user', content: transcript.text },

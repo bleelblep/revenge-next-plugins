@@ -1,6 +1,8 @@
 import { DEFAULTS } from '../../defaults'
 import { listDependents } from '../../lib/dependents'
-import { callsRemaining, today } from '../../lib/state'
+import { callsRemaining } from '../../lib/state'
+import { useVaultStatus } from '../../lib/vault'
+import { hostOf } from './Provider'
 import { rowIcon } from '../icon'
 import { DEBUG_ROUTE, PROVIDER_ROUTE, USAGE_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
@@ -27,16 +29,10 @@ export default function Settings({
 	const navigation = useNavigation() as { navigate: (route: string) => void }
 	const s = { ...DEFAULTS, ...(api.jsonStorage.use() ?? {}) }
 
-	const used = s.usageDay === today() ? s.usageCalls : 0
-	const counts = s.usageDay === today() ? s.usageByPlugin : {}
+	const vault = useVaultStatus()
+	const used = vault.calls
+	const counts = vault.byPlugin ?? {}
 	const users = listDependents().map(d => ({ ...d, calls: counts[d.id] ?? 0 }))
-	const host = (() => {
-		try {
-			return s.baseUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-		} catch {
-			return s.baseUrl
-		}
-	})()
 
 	return (
 		<Page>
@@ -62,16 +58,17 @@ export default function Settings({
 					</Card>
 
 					<Text color="text-muted" variant="text-sm/normal">
-						Your key is kept in this plugin's storage in plain text, where any
-						other plugin you install can read it. Use one you can revoke.
+						{vault.native
+							? "Your key is entered in a system prompt, kept encrypted by Android's keystore, and only ever sent to the endpoint you set it for. No plugin can read it back. Other plugins can still ask AI Core to make calls, so a key with a spending limit is still the safest choice."
+							: "AI Core's native part is not running, so it cannot hold a key or call out. Reinstall or update it from the plugin list."}
 					</Text>
 
 					<TableRowGroup hasIcons>
 						<TableRow
 							label="Provider"
 							subLabel={
-								s.apiKey
-									? `${s.model} via ${host}`
+								vault.configured
+									? `${s.model} via ${hostOf(vault.endpoint)}`
 									: 'No key set — nothing can call out'
 							}
 							icon={rowIcon('LinkIcon', 'ic_link')}
@@ -80,7 +77,7 @@ export default function Settings({
 						/>
 						<TableRow
 							label="Usage and limits"
-							subLabel={`${used} of ${s.dailyCallCap} calls today, ${callsRemaining()} left`}
+							subLabel={`${used} of ${vault.cap} calls today, ${callsRemaining()} left`}
 							icon={rowIcon('SpeedometerIcon', 'ic_analytics')}
 							arrow
 							onPress={() => navigation.navigate(USAGE_ROUTE)}

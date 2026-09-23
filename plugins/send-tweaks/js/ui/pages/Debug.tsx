@@ -59,7 +59,7 @@ export default function Debug() {
 					<TableRowGroup title="This session" hasIcons>
 						<TableRow
 							label="Messages changed"
-							subLabel={`${out.sends} sent, ${out.edits} edited`}
+							subLabel={`${out.sends} sent, ${out.edits} edited, ${out.drafts} edit box${out.drafts === 1 ? '' : 'es'} opened cleaned`}
 							icon={rowIcon('ChatIcon', 'ic_message')}
 						/>
 						<TableRow

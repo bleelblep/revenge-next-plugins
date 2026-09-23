@@ -35,6 +35,14 @@ export default plugin<{ jsonStorage: CatchUpStorage }>({
 	},
 
 	start(api) {
+		// Enabling a plugin mid-session leaves its hooks half-applied -- Discord modules it patches
+		// may already be initialized and its settings routes are registered too late for the
+		// settings screen. Ask for a reload instead of running in a state we cannot verify.
+		if (api.plugin.startedLate) {
+			api.plugin.requireReload()
+			return
+		}
+
 		const { cleanup, jsonStorage } = api
 		setStorage(jsonStorage)
 
@@ -73,5 +81,9 @@ export default plugin<{ jsonStorage: CatchUpStorage }>({
 		}
 	},
 
+	// Unpatching cannot put back everything a hook changed once Discord has rendered with it.
+	stop(api) {
+		api.plugin.requireReload()
+	},
 	SettingsComponent: Settings,
 })

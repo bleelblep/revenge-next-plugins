@@ -1,6 +1,8 @@
 import { DEFAULTS } from '../../defaults'
 import { requestText } from '../../lib/client'
-import { getStorage, settings } from '../../lib/state'
+import { getStorage } from '../../lib/state'
+import { useVaultStatus, vaultStatus } from '../../lib/vault'
+import { hostOf } from './Provider'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { AiCoreStorage } from '../../types'
@@ -19,6 +21,7 @@ export default function Debug() {
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const set = (patch: Partial<AiCoreStorage>) => storage?.set(patch)
+	const vault = useVaultStatus()
 
 	const [result, setResult] = React.useState<string | null>(null)
 	const [testing, setTesting] = React.useState(false)
@@ -36,9 +39,11 @@ export default function Debug() {
 			setResult(
 				reply
 					? `Answered: ${reply.trim().slice(0, 80)}`
-					: settings().apiKey
-						? 'No answer. Check the key, the base URL, and logcat under ReactNativeJS.'
-						: 'No key set, so nothing was sent.',
+					: !vaultStatus().native
+						? "AI Core's native part is not running, so nothing was sent."
+						: vaultStatus().configured
+							? 'No answer. Check the key, the endpoint, and logcat under ReactNativeJS.'
+							: 'No key set, so nothing was sent.',
 			)
 		} catch (error) {
 			setResult(`Threw: ${String(error)}`)
@@ -80,13 +85,29 @@ export default function Debug() {
 					<TableRowGroup title="Resolved configuration">
 						<TableRow
 							label="Endpoint"
-							subLabel={`${s.baseUrl.replace(/\/+$/, '')}/chat/completions`}
+							subLabel={
+								vault.endpoint
+									? `${vault.endpoint}/chat/completions`
+									: 'None — set a key first'
+							}
 						/>
 						<TableRow label="Model" subLabel={s.model || '(unset)'} />
 						<TableRow
 							label="Key"
 							subLabel={
-								s.apiKey ? `set, ${s.apiKey.length} characters` : 'not set'
+								vault.configured
+									? `set, in the Android keystore vault, bound to ${hostOf(vault.endpoint)}`
+									: 'not set'
+							}
+						/>
+						<TableRow
+							label="Native vault"
+							subLabel={
+								!vault.native
+									? 'not running'
+									: vault.usageTampered
+										? 'running; usage record was altered, calls blocked until reset'
+										: 'running'
 							}
 						/>
 						<TableRow label="Timeout" subLabel={`${s.timeoutMs} ms`} />

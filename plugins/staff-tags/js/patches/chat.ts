@@ -55,9 +55,17 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 						// (from RawColors or a hardcoded fallback in getTag.ts) -- no need to
 						// normalize through a color library (revenge.discord.common.chroma
 						// doesn't exist; see the note in getTag.ts).
+						// Native rows cannot host an icon component, so the glyph stands in for it.
+						const glyph = tag.iconGlyph
+						const nativeText = glyph
+							? tag.iconOnly
+								? glyph
+								: `${glyph} ${tag.text}`
+							: tag.text
+
 						return {
 							...ret,
-							tagText: tag.text,
+							tagText: nativeText,
 							tagTextColor: tag.textColor ? ReactNative.processColor(tag.textColor) : undefined,
 							tagBackgroundColor: tag.backgroundColor
 								? ReactNative.processColor(tag.backgroundColor)

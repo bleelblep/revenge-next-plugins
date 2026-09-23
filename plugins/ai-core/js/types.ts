@@ -1,9 +1,14 @@
 export interface AiCoreStorage {
+	/**
+	 * Legacy (1.x): the key in plain text. Only read once, to move it into the native vault, and
+	 * then blanked. Nothing writes it any more.
+	 */
 	apiKey: string
+	/** Where the *next* key entered will be bound. The key in the vault is bound to its own. */
 	baseUrl: string
 	model: string
 	timeoutMs: number
-	/** Hard ceiling on calls per local day, across every dependent plugin. Zero disables all. */
+	/** Legacy (1.x). Imported once as the vault's starting cap; the vault owns the cap now. */
 	dailyCallCap: number
 	/** How many requests may be in flight at once. */
 	concurrency: number
@@ -22,7 +27,7 @@ export interface AiCoreStorage {
 	 */
 	perPluginCaps: Record<string, number>
 
-	// Accounting. Written by the plugin, shown read-only in settings.
+	// Legacy (1.x) accounting, superseded by the vault's own and no longer written.
 	usageDay: string
 	usageCalls: number
 	usagePromptTokens: number
