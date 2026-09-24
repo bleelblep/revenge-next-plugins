@@ -81,7 +81,7 @@ export default function Rules() {
 				<Stack spacing={24}>
 					<Text color="text-muted" variant="text-sm/normal">
 						Rules run top to bottom, each on the result of the one before. They
-						never touch text inside code blocks.
+						never touch code blocks, links, mentions, custom emoji or timestamps.
 						{s.textReplace
 							? ''
 							: ' Text replacement is switched off, so none of these run yet.'}
@@ -116,8 +116,8 @@ export default function Rules() {
 										placeholder="Leave empty to delete what was found"
 										description={
 											rule.regex
-												? 'Use $1, $2 … for captured groups.'
-												: undefined
+												? 'Use $1, $2 … for captured groups. Find ^ or $ alone to add text to the start or end of every message.'
+												: 'Used exactly as typed.'
 										}
 										value={rule.replace}
 										onChange={value => update(rule.id, { replace: value })}

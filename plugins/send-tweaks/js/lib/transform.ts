@@ -4,13 +4,13 @@
  * Shared by the send hook, the edit hook and the settings page's "try a message" box, so the
  * preview can never disagree with what actually gets sent.
  *
- * Order matters: links are cleaned before your rules run, so a rule that rewrites a domain sees
- * the clean link, and a rule can never accidentally reintroduce tracking that was just removed
- * without you writing it in yourself.
+ * Links are cleaned first (outside code). Your rules then run over the whole message with code,
+ * links, mentions, custom emoji and timestamps held aside, so a rule for a common word can never
+ * break a link or a mention that happens to contain it, and `^` / `$` still mean the start and end.
  */
 
 import { cleanText } from './cleanUrls'
-import { mapOutsideCode } from './codeSpans'
+import { mapOutsideCode, mapOutsideProtected, transformAroundProtected } from './codeSpans'
 import { settings } from './state'
 import { applyRules } from './textReplace'
 
@@ -26,21 +26,38 @@ export function transform(text: string): TransformResult {
 	const s = settings()
 	let cleaned = 0
 	let replaced = 0
+	let out = text
 
-	const out = mapOutsideCode(text, prose => {
-		let next = prose
-		if (s.cleanUrls) {
-			const result = cleanText(next)
-			next = result.text
+	if (s.cleanUrls) {
+		out = mapOutsideCode(out, prose => {
+			const result = cleanText(prose)
 			cleaned += result.removed
+			return result.text
+		})
+	}
+
+	if (s.textReplace && s.rules.length) {
+		// Over the whole message with code, mentions, emoji, timestamps and links held aside, so
+		// `^` and `$` mean the start and end of the message (see codeSpans.ts).
+		let applied = 0
+		const whole = transformAroundProtected(out, masked => {
+			const result = applyRules(masked, s.rules)
+			applied = result.applied
+			return result.text
+		})
+		if (whole !== undefined) {
+			out = whole
+			replaced += applied
+		} else {
+			// A rule reached into a placeholder. Run the rules between the protected spans
+			// instead: anchors then see each stretch alone, but nothing protected can break.
+			out = mapOutsideProtected(out, words => {
+				const result = applyRules(words, s.rules)
+				replaced += result.applied
+				return result.text
+			})
 		}
-		if (s.textReplace && s.rules.length) {
-			const result = applyRules(next, s.rules)
-			next = result.text
-			replaced += result.applied
-		}
-		return next
-	})
+	}
 
 	return { text: out, cleaned, replaced }
 }

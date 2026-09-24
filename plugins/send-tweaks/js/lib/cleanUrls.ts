@@ -118,12 +118,16 @@ const PER_HOST: Array<[RegExp, Set<string>]> = [
 	],
 	[
 		/(^|\.)reddit\.com$/,
-		new Set(['share_id', 'ref', 'ref_source', 'rdt', 'context']),
+		// Not `context`: on a comment permalink it sets how many parent comments show, so it
+		// changes the page rather than tracking who shared it.
+		new Set(['share_id', 'ref', 'ref_source', 'rdt']),
 	],
 	[/(^|\.)facebook\.com$/, new Set(['mibextid', 'rdid', 'sfnsn', 'share_url'])],
 	[/(^|\.)linkedin\.com$/, new Set(['trackingid', 'lipi', 'refid', 'trk'])],
 	[
 		/(^|\.)amazon\.[a-z.]+$/,
+		// Not `th` or `psc`: on many listings they select the size or colour variant, and removing
+		// them can land the reader on a different product.
 		new Set([
 			'ref',
 			'ref_',
@@ -138,13 +142,11 @@ const PER_HOST: Array<[RegExp, Set<string>]> = [
 			'pf_rd_i',
 			'pf_rd_m',
 			'_encoding',
-			'psc',
 			'qid',
 			'sr',
 			'crid',
 			'sprefix',
 			'content-id',
-			'th',
 			'linkcode',
 			'linkid',
 			'creativeasin',
