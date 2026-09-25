@@ -9,15 +9,18 @@
  * Nothing here touches anything but the text of an outgoing message, and nothing ever runs on
  * text inside a code block. A message this plugin has nothing to say about is sent exactly as it
  * would have been without it.
+ *
+ * AI Core is an **optional** dependency: with it installed, the Ready-made screens can write a rule
+ * from a description (`lib/aiRule.ts`). Without it, `api.ai` is undefined and nothing AI-related shows.
  */
 
 import { DEFAULTS } from './defaults'
-import { setStorage } from './lib/state'
+import { setAi, setStorage } from './lib/state'
 import patchOutgoing from './patches/outgoing'
 import patchReplyMention from './patches/replyMention'
 import Settings from './ui/pages/Settings'
-import { registerPages } from './ui/routes'
-import type { SendTweaksStorage } from './types'
+import { AI_ROUTE, registerPages } from './ui/routes'
+import type { AiHandle, SendTweaksStorage } from './types'
 
 export { DEFAULTS }
 export type { SendTweaksStorage }
@@ -28,13 +31,25 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		default: DEFAULTS,
 	},
 
-	start({ cleanup, jsonStorage, plugin }) {
+	start(api) {
+		const { cleanup, jsonStorage, plugin } = api
 		if (plugin.startedLate) {
 			plugin.requireReload()
 			return
 		}
 
 		setStorage(jsonStorage)
+
+		// Attached by AI Core's `decorate` when it is installed; undefined otherwise.
+		const ai = (api as any).ai as AiHandle | undefined
+		setAi(ai)
+		// The one AI screen: where AI Core's settings and Plugin Hub's AI Hub send people.
+		try {
+			ai?.setSettingsRoute?.(AI_ROUTE)
+		} catch (error) {
+			console.error('[SendTweaks] could not register a settings route with AI Core:', error)
+		}
+		cleanup(() => setAi(undefined))
 
 		// Applied independently -- one moved Discord module should cost one tweak, not all three.
 		const apply = (name: string, patch: () => () => void) => {

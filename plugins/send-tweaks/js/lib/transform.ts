@@ -4,12 +4,13 @@
  * Shared by the send hook, the edit hook and the settings page's "try a message" box, so the
  * preview can never disagree with what actually gets sent.
  *
- * Links are cleaned first (outside code). Your rules then run over the whole message with code,
+ * Links are cleaned first (outside code), then your link rules run inside each link -- the place for
+ * rewrites like twitter.com to fxtwitter.com. Your text rules then run over the whole message with code,
  * links, mentions, custom emoji and timestamps held aside, so a rule for a common word can never
  * break a link or a mention that happens to contain it, and `^` / `$` still mean the start and end.
  */
 
-import { cleanText } from './cleanUrls'
+import { cleanText, mapUrls } from './cleanUrls'
 import { mapOutsideCode, mapOutsideProtected, transformAroundProtected } from './codeSpans'
 import { settings } from './state'
 import { applyRules } from './textReplace'
@@ -18,14 +19,17 @@ export interface TransformResult {
 	text: string
 	/** Tracking parameters removed. */
 	cleaned: number
-	/** Rules that changed something. */
+	/** Text rules that changed something. */
 	replaced: number
+	/** Links a link rule changed. */
+	rewritten: number
 }
 
 export function transform(text: string): TransformResult {
 	const s = settings()
 	let cleaned = 0
 	let replaced = 0
+	let rewritten = 0
 	let out = text
 
 	if (s.cleanUrls) {
@@ -34,6 +38,18 @@ export function transform(text: string): TransformResult {
 			cleaned += result.removed
 			return result.text
 		})
+	}
+
+	const linkRules = s.linkRules ?? []
+	if (s.linkRewrite && linkRules.length) {
+		// Inside links only, never inside code -- the opposite of text rules, which skip links.
+		out = mapOutsideCode(out, prose =>
+			mapUrls(prose, url => {
+				const result = applyRules(url, linkRules)
+				if (result.text !== url) rewritten++
+				return result.text
+			}),
+		)
 	}
 
 	if (s.textReplace && s.rules.length) {
@@ -59,5 +75,5 @@ export function transform(text: string): TransformResult {
 		}
 	}
 
-	return { text: out, cleaned, replaced }
+	return { text: out, cleaned, replaced, rewritten }
 }

@@ -15,11 +15,13 @@
  * ## Sharing these methods with Ghost Log Native Beta
  *
  * Ghost Log Native Beta has an `instead` hook on both methods, to refuse replies to deleted
- * messages. A `before` hook alongside one `instead` is safe; porting rule 2's recursion trap needs
- * two `instead` hooks. Nothing in this plugin may ever become a second `instead` on these.
+ * messages. These are wrapped with a plain function rather than a patcher `before`, for the same
+ * reason as sending (`lib/wrap.ts`): if any other plugin adds a second `instead`, a patcher hook
+ * that started first would make the pair recurse. Nothing here may ever become an `instead` itself.
  */
 
 import { whenModule } from '../lib/finder'
+import { wrapMethod } from '../lib/wrap'
 import { debug, settings, TAG } from '../lib/state'
 
 const METHODS = ['createPendingReply', 'createShallowPendingReply'] as const
@@ -39,7 +41,7 @@ export default function patchReplyMention(): () => void {
 				if (typeof host?.[method] !== 'function') continue
 
 				patches.push(
-					revenge.patcher.before(host, method, (args: any[]) => {
+					wrapMethod(host, method, args => {
 						try {
 							const reply = args?.[0]
 							// Only an object that is plainly a pending reply is touched: it either
@@ -63,7 +65,6 @@ export default function patchReplyMention(): () => void {
 						} catch (error) {
 							console.error(`${TAG} ${method} hook failed:`, error)
 						}
-						return args
 					}),
 				)
 			}

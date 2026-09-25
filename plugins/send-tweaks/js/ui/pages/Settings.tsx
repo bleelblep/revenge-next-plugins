@@ -1,6 +1,6 @@
 import { DEFAULTS } from '../../defaults'
 import { rowIcon } from '../icon'
-import { DEBUG_ROUTE, RULES_ROUTE, TRY_ROUTE } from '../routes'
+import { DEBUG_ROUTE, LINK_RULES_ROUTE, RULES_ROUTE, TRY_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { SendTweaksStorage } from '../../types'
 
@@ -26,6 +26,12 @@ export default function Settings({
 	const set = (patch: Partial<SendTweaksStorage>) => api.jsonStorage.set(patch)
 
 	const activeRules = s.rules.filter(rule => rule.enabled && rule.find).length
+	const linkRules = s.linkRules ?? []
+	const activeLinkRules = linkRules.filter(rule => rule.enabled && rule.find).length
+	const linkRulesLabel = !linkRules.length
+		? 'None yet — add one, pick a ready-made one, or import'
+		: `${activeLinkRules} of ${linkRules.length} rule${linkRules.length === 1 ? '' : 's'} on`
+
 	const rulesLabel = !s.rules.length
 		? 'No rules yet'
 		: `${activeRules} of ${s.rules.length} rule${s.rules.length === 1 ? '' : 's'} on`
@@ -59,6 +65,21 @@ export default function Settings({
 							value={!!s.cleanUrls}
 							onValueChange={value => set({ cleanUrls: value })}
 						/>
+						<TableSwitchRow
+							label="Rewrite links"
+							subLabel="Your own rules that change links as you send them, like twitter.com to fxtwitter.com so they embed properly."
+							icon={rowIcon('LinkIcon', 'ic_link')}
+							value={!!s.linkRewrite}
+							onValueChange={value => set({ linkRewrite: value })}
+						/>
+						<TableRow
+							label="Link rules"
+							subLabel={s.linkRewrite ? linkRulesLabel : 'Turn on Rewrite links to use these'}
+							icon={rowIcon('SettingsIcon', 'ic_settings')}
+							arrow
+							disabled={!s.linkRewrite}
+							onPress={() => navigation.navigate(LINK_RULES_ROUTE)}
+						/>
 					</TableRowGroup>
 
 					<TableRowGroup title="Replies" hasIcons>
@@ -81,9 +102,10 @@ export default function Settings({
 						/>
 						<TableRow
 							label="Rules"
-							subLabel={rulesLabel}
+							subLabel={s.textReplace ? rulesLabel : 'Turn on Replace text as you send to use these'}
 							icon={rowIcon('SettingsIcon', 'ic_settings')}
 							arrow
+							disabled={!s.textReplace}
 							onPress={() => navigation.navigate(RULES_ROUTE)}
 						/>
 					</TableRowGroup>

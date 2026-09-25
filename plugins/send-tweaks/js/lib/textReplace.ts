@@ -15,6 +15,8 @@
 export interface Rule {
 	/** Stable id, so the settings list can key and edit rules without relying on position. */
 	id: string
+	/** Optional label, e.g. from an imported Text Replace rule ("Twitter to fxtwitter"). */
+	name?: string
 	find: string
 	replace: string
 	/** Treat `find` as a regular expression rather than literal text. */
@@ -23,9 +25,14 @@ export interface Rule {
 	/** Only match whole words: "cat" matches "cat" but not "concatenate". Literal rules only. */
 	wholeWord: boolean
 	enabled: boolean
+	/**
+	 * Regex flags beyond `g` and `i`, kept from an imported rule: `m`, `s` or `u`. `g` is always on
+	 * and `i` follows `caseSensitive`, so neither is stored here.
+	 */
+	extraFlags?: string
 }
 
-export function newRule(): Rule {
+export function newRule(overrides: Partial<Rule> = {}): Rule {
 	return {
 		id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
 		find: '',
@@ -34,7 +41,13 @@ export function newRule(): Rule {
 		caseSensitive: false,
 		wholeWord: true,
 		enabled: true,
+		...overrides,
 	}
+}
+
+/** Only flags that change what matches; `y` (sticky) would stop a global replace after one miss. */
+export function sanitizeFlags(flags: string | undefined): string {
+	return [...new Set((flags ?? '').replace(/[^msu]/g, ''))].join('')
 }
 
 /** A repeat at `at` (`+`, `*`, `{n,}`, `{n,m}`, each optionally lazy), or undefined. */
@@ -101,7 +114,7 @@ export type Compiled =
 export function compileRule(rule: Rule): Compiled {
 	if (!rule.find) return { error: 'Nothing to find' }
 
-	const flags = rule.caseSensitive ? 'g' : 'gi'
+	const flags = `g${rule.caseSensitive ? '' : 'i'}${rule.regex ? sanitizeFlags(rule.extraFlags) : ''}`
 	try {
 		if (rule.regex) {
 			// Rules run synchronously on the send path, and this engine has no regex time limit:

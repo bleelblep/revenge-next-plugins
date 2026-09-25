@@ -13,6 +13,9 @@ export const DEFAULTS: SendTweaksStorage = {
 	// On, with no rules: harmless until you add one, and adding one should just work.
 	textReplace: true,
 	rules: [],
+	// On, with no rules: nothing happens until you add or import one.
+	linkRewrite: true,
+	linkRules: [],
 	applyToEdits: true,
 	debugLogging: false,
 }

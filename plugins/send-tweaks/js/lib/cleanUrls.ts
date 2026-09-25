@@ -260,20 +260,27 @@ export function cleanUrl(raw: string): CleanResult {
 }
 
 /**
- * Cleans every URL in a stretch of prose.
+ * Runs `change` on every URL in a stretch of prose.
  *
- * Trailing sentence punctuation is split off before cleaning and put back after, so "see
- * https://x.com/a?s=20." keeps its full stop and does not lose it into the query string.
+ * Trailing sentence punctuation is split off first and put back after, so "see
+ * https://x.com/a?s=20." keeps its full stop and a change never sees it as part of the link.
  */
-export function cleanText(text: string): { text: string; removed: number } {
-	let removed = 0
+export function mapUrls(text: string, change: (url: string) => string): string {
 	URL_PATTERN.lastIndex = 0
-	const cleaned = text.replace(URL_PATTERN, match => {
+	return text.replace(URL_PATTERN, match => {
 		const tail = TRAILING.exec(match)?.[0] ?? ''
 		const url = tail ? match.slice(0, -tail.length) : match
+		return change(url) + tail
+	})
+}
+
+/** Cleans every URL in a stretch of prose. */
+export function cleanText(text: string): { text: string; removed: number } {
+	let removed = 0
+	const cleaned = mapUrls(text, url => {
 		const result = cleanUrl(url)
 		removed += result.removed.length
-		return result.url + tail
+		return result.url
 	})
 	return { text: cleaned, removed }
 }

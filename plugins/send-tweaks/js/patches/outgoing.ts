@@ -1,12 +1,16 @@
 /**
  * Rewriting a message's text on its way out -- both new messages and edits.
  *
- * ## `before`, alongside Second Thoughts
+ * ## A plain wrapper, not a patcher hook
  *
- * Second Thoughts owns the one `instead` hook on `sendMessage`. A `before` hook composes with it
- * safely (porting rule 2: the recursion trap needs *two* `instead` hooks), and runs first, which
- * is the order wanted: Second Thoughts then judges the text that will actually be sent, cleaned
- * links and replaced words included, rather than the draft before this changed it.
+ * `sendMessage` and `editMessage` are `instead`-hooked by other plugins (fake-nitro, Zipline,
+ * message-tweaks, and our own Second Thoughts). A patcher `before` registered ahead of two of those
+ * made them recurse forever, and edits failed to save for anyone with that combination. So both
+ * methods are wrapped with a plain function instead; `lib/wrap.ts` explains why that cannot recurse.
+ *
+ * The cost: when Second Thoughts' `instead` is added after this wrapper, it judges the draft before
+ * links are cleaned rather than after. Tracking parameters and your rules do not change what it looks
+ * for, so the verdict is the same.
  *
  * ## Only the text is touched
  *
@@ -14,9 +18,8 @@
  * references and allowed mentions pass through exactly as Discord built them. A hook that returns
  * without changing anything leaves the send identical to one without this plugin installed.
  *
- * Every path returns the args array, including when something throws: a `before` hook that
- * returns nothing sets the arguments to `undefined` for every later hook (porting rule 2), which
- * on this method would break sending outright.
+ * The rewrite changes the message object in place and never throws out of the wrapper, so a failure
+ * sends the message exactly as typed.
  *
  * ## Edits are cleaned when the edit box opens, not only when it is saved
  *
@@ -34,6 +37,7 @@
  */
 
 import { whenModule } from '../lib/finder'
+import { wrapMethod } from '../lib/wrap'
 import { debug, settings, TAG } from '../lib/state'
 import { transform } from '../lib/transform'
 
@@ -46,6 +50,8 @@ const status = {
 	drafts: 0,
 	cleaned: 0,
 	replaced: 0,
+	/** Links changed by a link rule. */
+	rewritten: 0,
 }
 
 export function outgoingStatus() {
@@ -62,11 +68,12 @@ function rewrite(message: any, kind: 'send' | 'edit' | 'draft') {
 	message.content = result.text
 	status.cleaned += result.cleaned
 	status.replaced += result.replaced
+	status.rewritten += result.rewritten
 	if (kind === 'send') status.sends++
 	else if (kind === 'edit') status.edits++
 	else status.drafts++
 	debug(
-		`${kind}: ${result.cleaned} tracking param(s) removed, ${result.replaced} rule(s) applied`,
+		`${kind}: ${result.cleaned} tracking param(s) removed, ${result.rewritten} link(s) rewritten, ${result.replaced} rule(s) applied`,
 	)
 }
 
@@ -95,27 +102,13 @@ export default function patchOutgoing(): () => void {
 		whenModule(
 			['sendMessage', 'editMessage', 'startEditMessage'],
 			(host, id) => {
-				patches.push(
-					revenge.patcher.before(host, 'sendMessage', (args: any[]) => {
-						try {
-							// sendMessage(channelId, message, ...)
-							rewrite(args?.[1], 'send')
-						} catch (error) {
-							console.error(`${TAG} send rewrite failed:`, error)
-						}
-						return args
-					}),
-				)
+				// sendMessage(channelId, message, ...)
+				patches.push(wrapMethod(host, 'sendMessage', args => rewrite(args[1], 'send')))
 
+				// editMessage(channelId, messageId, { content })
 				patches.push(
-					revenge.patcher.before(host, 'editMessage', (args: any[]) => {
-						try {
-							// editMessage(channelId, messageId, { content })
-							if (settings().applyToEdits) rewrite(args?.[2], 'edit')
-						} catch (error) {
-							console.error(`${TAG} edit rewrite failed:`, error)
-						}
-						return args
+					wrapMethod(host, 'editMessage', args => {
+						if (settings().applyToEdits) rewrite(args[2], 'edit')
 					}),
 				)
 

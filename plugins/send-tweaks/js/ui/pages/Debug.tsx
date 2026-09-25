@@ -68,6 +68,11 @@ export default function Debug() {
 							icon={rowIcon('LinkIcon', 'ic_link')}
 						/>
 						<TableRow
+							label="Links rewritten"
+							subLabel={`${out.rewritten} link${out.rewritten === 1 ? '' : 's'}`}
+							icon={rowIcon('LinkIcon', 'ic_link')}
+						/>
+						<TableRow
 							label="Rules applied"
 							subLabel={`${out.replaced} time${out.replaced === 1 ? '' : 's'}`}
 							icon={rowIcon('PencilIcon', 'ic_edit_24px')}

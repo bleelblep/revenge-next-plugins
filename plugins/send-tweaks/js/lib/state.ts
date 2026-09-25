@@ -1,11 +1,21 @@
 import { DEFAULTS } from '../defaults'
-import type { SendTweaksStorage } from '../types'
+import type { AiHandle, SendTweaksStorage } from '../types'
 
 export const TAG = '[SendTweaks]'
 
 type Storage = RevengeJsonStorageApi<SendTweaksStorage>
 
 let storage: Storage | undefined
+let ai: AiHandle | undefined
+
+/** AI Core's handle, or undefined when AI Core is not installed. */
+export function getAi(): AiHandle | undefined {
+	return ai
+}
+
+export function setAi(handle: AiHandle | undefined) {
+	ai = handle
+}
 
 export function setStorage(value: Storage) {
 	storage = value

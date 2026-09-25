@@ -7,6 +7,7 @@ const EXAMPLES = [
 	'https://youtu.be/dQw4w9WgXcQ?si=Abc123xyz',
 	'look https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=3f9a2b',
 	'https://x.com/user/status/123?s=20&t=Zk9q',
+	'https://twitter.com/user/status/123 — a link rule can turn this into fxtwitter',
 	'https://www.amazon.com/dp/B0ABC/ref=sr_1_3?keywords=mug&qid=1&sr=8-3',
 	'`https://x.com/a?s=20` — inside code, left alone',
 ]
@@ -39,6 +40,8 @@ export default function TryIt() {
 			: [
 					result.cleaned &&
 						`${result.cleaned} tracking parameter${result.cleaned === 1 ? '' : 's'} removed`,
+					result.rewritten &&
+						`${result.rewritten} link${result.rewritten === 1 ? '' : 's'} rewritten`,
 					result.replaced &&
 						`${result.replaced} rule${result.replaced === 1 ? '' : 's'} applied`,
 				]
