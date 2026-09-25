@@ -9,7 +9,7 @@
       "author": "bleelblep",
       "icon": "MagicWandIcon",
       "channels": {
-        "latest": "2.0.2"
+        "latest": "2.1.3"
       },
       "versions": {
         "1.2.0": {
@@ -42,6 +42,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.0.2.zip",
           "sha256": "4f3b5a4c03067feb812b776315e9215ff8164943a8a707069c81aa0502094590",
           "size": 35635,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "2.1.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.1.3.zip",
+          "sha256": "56c6652127d654cbd0a50e920980eb80d38d6355821b44443a17f7ea8c5739fd",
+          "size": 45120,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -313,11 +326,11 @@
     },
     "bleelblep.plugin-hub": {
       "name": "Plugin Hub",
-      "description": "Adds a Plugin Hub section to Discord's settings: a Hub row with shortcuts straight into the settings of the plugins you choose, and an AI Hub row listing the plugins that use AI Core (shown only while AI Core is installed). Show the Hub as favourites and a list, an icon grid, cards or sideways shelves. Adding plugins needs Revenge's Developer Mode switched on; using the hub does not.",
+      "description": "Adds a Plugin Hub section to Discord's settings: a Hub row with shortcuts straight into the settings of the plugins you choose, and an AI Hub row listing the plugins that use AI Core (shown only while AI Core is installed). Show the Hub as favourites and a list, an icon grid, cards or sideways shelves. A hidden Plugin Doctor (tap the version in Hub settings seven times) checks that every installed plugin loaded, what each needs and what uses it, and whether any has an update, and copies a report for bug reports. Adding plugins to the Hub needs Revenge's Developer Mode switched on; using the hub does not.",
       "author": "bleelblep",
       "icon": "AppsIcon",
       "channels": {
-        "latest": "0.2.7"
+        "latest": "0.5.1"
       },
       "versions": {
         "0.2.1": {
@@ -358,6 +371,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.2.7.zip",
           "sha256": "63dc9fc1262d27b80e84810c8500b639905ce0ddaa42b237d7740e06afd9fd48",
           "size": 5220,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "revenge.api.hidden": {
+              "version": "*",
+              "optional": true
+            }
+          }
+        },
+        "0.5.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.5.1.zip",
+          "sha256": "3b0097e89cd0710ba850ddff6a906d4601cc30321ef393d080f01b8ab25da941",
+          "size": 12807,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -533,11 +563,11 @@
     },
     "bleelblep.send-tweaks": {
       "name": "Send Tweaks",
-      "description": "Small fixes to what you send. Removes tracking from links (?si=, utm_source, fbclid and friends), lets replies start without pinging, and applies your own find-and-replace rules. Text inside code blocks is never touched.",
+      "description": "Small fixes to what you send. Removes tracking from links (?si=, utm_source, fbclid and friends), rewrites links with your own rules (twitter.com to fxtwitter.com, ready-made rules from the Text Replace thread, or your own imports), lets replies start without pinging, and applies your own find-and-replace rules. With AI Core installed, it can also write a rule from a description. Text inside code blocks is never touched.",
       "author": "bleelblep",
       "icon": "SendMessageIcon",
       "channels": {
-        "latest": "0.1.5"
+        "latest": "0.2.1"
       },
       "versions": {
         "0.1.0": {
@@ -576,6 +606,23 @@
             },
             "discord": {
               "version": "*"
+            }
+          }
+        },
+        "0.2.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.2.1.zip",
+          "sha256": "096e652cb58a3e3a6015c5fd3a655468f5a6fd1f360dad135257bc2f5b2addf8",
+          "size": 13790,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
             }
           }
         }
