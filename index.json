@@ -522,7 +522,7 @@
       "author": "bleelblep",
       "icon": "ShieldIcon",
       "channels": {
-        "latest": "0.2.6"
+        "latest": "0.2.7"
       },
       "versions": {
         "0.2.3": {
@@ -546,6 +546,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.second-thoughts@0.2.6.zip",
           "sha256": "103ef645964c3e0f25337baba3fda984af91499f4e95b246579d788cd7c6d15f",
           "size": 12840,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.2.7": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.second-thoughts@0.2.7.zip",
+          "sha256": "b9950204cb8b9f9bd09280aff879a7362ca64c81489526c98021a7aca106011c",
+          "size": 12926,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
