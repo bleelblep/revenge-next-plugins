@@ -77,7 +77,11 @@ export default function Settings({
 						/>
 						<TableRow
 							label="Usage and limits"
-							subLabel={`${used} of ${vault.cap} calls today, ${callsRemaining()} left`}
+							subLabel={
+								vault.unlimited
+									? `${used} calls today, no daily cap`
+									: `${used} of ${vault.cap} calls today, ${callsRemaining()} left`
+							}
 							icon={rowIcon('SpeedometerIcon', 'ic_analytics')}
 							arrow
 							onPress={() => navigation.navigate(USAGE_ROUTE)}

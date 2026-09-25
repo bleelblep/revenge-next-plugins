@@ -30,7 +30,7 @@
 
 import { DEFAULTS } from './defaults'
 import { abortAll, requestJson, requestText } from './lib/client'
-import { rememberDependent, setDependentRoute } from './lib/dependents'
+import { listDependents, rememberDependent, setDependentRoute } from './lib/dependents'
 import { debug, remainingFor, setStorage, TAG } from './lib/state'
 import { importLegacy, refreshStatus, vaultStatus } from './lib/vault'
 import Settings from './ui/pages/Settings'
@@ -45,8 +45,9 @@ function budget(pluginId: string): AiBudget {
 	return {
 		configured: v.configured,
 		used: v.calls,
-		cap: v.cap,
+		cap: v.unlimited ? Number.POSITIVE_INFINITY : v.cap,
 		remaining: remainingFor(pluginId),
+		unlimited: v.unlimited,
 		promptTokens: v.promptTokens,
 		completionTokens: v.completionTokens,
 	}
@@ -130,8 +131,17 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 		// Plugin Hub shows its AI Hub row on this. Declaring a dependency instead would run them
 		// through `decorate` and list them here as AI plugins, which they are not.
 		;(globalThis as any).__bleelblepAiCore = true
+		// Read-only lookup for the same plugins: is this id one of AI Core's dependents, and where is
+		// its AI screen (the route it gave `setSettingsRoute`)? Plugin Hub uses it to list a plugin on
+		// the AI Hub and open the right screen, without Developer Mode. It returns a copy, so nothing
+		// outside can change the registry.
+		;(globalThis as any).__bleelblepAiCoreDependent = (id: string) => {
+			const found = listDependents().find(dependent => dependent.id === id)
+			return found ? { id: found.id, route: found.route } : undefined
+		}
 		cleanup(() => {
 			delete (globalThis as any).__bleelblepAiCore
+			delete (globalThis as any).__bleelblepAiCoreDependent
 		})
 
 		// Synchronous, because teardown is given five seconds before the plugin is flagged.

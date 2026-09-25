@@ -58,8 +58,12 @@ export interface AiRequest {
 export interface AiBudget {
 	configured: boolean
 	used: number
+	/** `Infinity` when `unlimited`. */
 	cap: number
+	/** `Infinity` when `unlimited`. */
 	remaining: number
+	/** The user removed the daily cap. */
+	unlimited: boolean
 	promptTokens: number
 	completionTokens: number
 }

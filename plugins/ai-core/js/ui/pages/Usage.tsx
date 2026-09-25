@@ -6,7 +6,7 @@ import {
 	NO_CAP,
 	usageByPlugin,
 } from '../../lib/state'
-import { resetUsage, setCap, useVaultStatus } from '../../lib/vault'
+import { resetUsage, setCap, setUnlimited, useVaultStatus } from '../../lib/vault'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { AiCoreStorage } from '../../types'
@@ -53,9 +53,24 @@ export default function Usage() {
 			>
 				<Stack spacing={24}>
 					{/*
+					 * The switch shows the vault's answer, not the tap: cancelling the native dialog
+					 * leaves it off, and the next status refresh snaps it back.
+					 */}
+					<TableRowGroup hasIcons>
+						<TableSwitchRow
+							label="No daily cap"
+							subLabel="Lets every plugin call out as often as it likes. Turning it on means typing a word to confirm; your provider's spending limit becomes the only backstop."
+							icon={rowIcon('FireIcon', 'ic_warning_24px')}
+							value={!!vault.unlimited}
+							onValueChange={value => setUnlimited(value)}
+						/>
+					</TableRowGroup>
+
+					{/*
 					 * A slider is a custom control, so it lives in a Card rather than pretending
 					 * to be a row (docs/plugin-design-language.md §3.2).
 					 */}
+					{vault.unlimited ? null : (
 					<Card variant="secondary" border="none">
 						<View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}>
 							<Text color="text-default" variant="text-md/semibold">
@@ -82,11 +97,16 @@ export default function Usage() {
 							/>
 						</View>
 					</Card>
+					)}
 
 					<TableRowGroup title="Today" hasIcons>
 						<TableRow
 							label="Calls"
-							subLabel={`${used} used, ${callsRemaining()} left`}
+							subLabel={
+								vault.unlimited
+									? `${used} used, no cap`
+									: `${used} used, ${callsRemaining()} left`
+							}
 							icon={rowIcon('ChatIcon', 'ic_message')}
 						/>
 						<TableRow

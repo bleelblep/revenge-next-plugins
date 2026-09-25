@@ -47,7 +47,10 @@ export function today(): string {
  * jsonStorage, so no plugin can reset them by writing a file.
  */
 export function callsRemaining(): number {
-	return vaultStatus().remaining
+	const v = vaultStatus()
+	// Tampering fails closed even with no cap; native reports 0 for it.
+	if (v.unlimited && !v.usageTampered) return Number.POSITIVE_INFINITY
+	return v.remaining
 }
 
 /** No limit. Also the tombstone for "never set" -- see the note on `perPluginCaps`. */

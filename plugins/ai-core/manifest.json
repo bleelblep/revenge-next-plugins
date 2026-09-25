@@ -5,7 +5,7 @@
 	"description": "Shared AI plumbing for this repository's plugins. Holds one API key, one daily spending cap and one request queue, so the plugins that use a model do not each ask for their own. The key is typed into a system prompt, kept encrypted by Android's keystore and never visible to other plugins. Does nothing on its own — install it only if a plugin asks for it.",
 	"author": "bleelblep",
 	"icon": "MagicWandIcon",
-	"version": "2.0.2",
+	"version": "2.1.3",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

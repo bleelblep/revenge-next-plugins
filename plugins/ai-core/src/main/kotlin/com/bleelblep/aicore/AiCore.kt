@@ -3,11 +3,23 @@
 package com.bleelblep.aicore
 
 import android.app.Activity
-import android.app.AlertDialog
+import android.app.Dialog
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.util.Base64
+import android.view.Gravity
+import android.view.View
+import android.view.Window
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -146,66 +158,254 @@ private fun hostOf(endpoint: String): String = runCatching { URI(endpoint).host 
 
 // --- native dialogs ------------------------------------------------------------
 
-private fun PluginScope.onActivity(block: (Activity) -> Unit) {
-	withAppActivity { activity -> activity.runOnUiThread { block(activity) } }
+/**
+ * Runs [block] on the UI thread with a live activity. Everything inside is guarded: an exception on
+ * the UI thread is fatal to the whole app, and `Dialog.show()` throws `BadTokenException`
+ * when the activity is being torn down between the check and the call. [onFailure] lets the caller
+ * resolve its pending result instead of waiting out the full timeout.
+ */
+private fun PluginScope.onActivity(onFailure: () -> Unit, block: (Activity) -> Unit) {
+	withAppActivity { activity ->
+		activity.runOnUiThread {
+			try {
+				if (activity.isFinishing || activity.isDestroyed) onFailure() else block(activity)
+			} catch (error: Throwable) {
+				log.e("AI Core dialog failed", error)
+				onFailure()
+			}
+		}
+	}
 }
 
 private fun dp(activity: Activity, value: Int): Int =
 	(value * activity.resources.displayMetrics.density).toInt()
 
-/** Resolves the typed key, or null on cancel / no activity within the timeout. */
-private suspend fun PluginScope.askForKey(endpoint: String): String? {
-	val result = CompletableDeferred<String?>()
-	onActivity { activity ->
-		if (activity.isFinishing) {
-			result.complete(null)
-			return@onActivity
-		}
-		val pad = dp(activity, 20)
-		val input = EditText(activity).apply {
-			hint = "sk-..."
-			inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-			isSingleLine = true
-		}
-		val note = TextView(activity).apply {
-			text = "Only ever sent to ${hostOf(endpoint)}. Stored encrypted by Android's " +
-				"keystore; no plugin can read it back, including this one's settings screen."
-			setPadding(0, 0, 0, dp(activity, 12))
-		}
-		val layout = LinearLayout(activity).apply {
-			orientation = LinearLayout.VERTICAL
-			setPadding(pad, dp(activity, 8), pad, 0)
-			addView(note)
-			addView(input)
-		}
-		AlertDialog.Builder(activity)
-			.setTitle("AI Core: API key")
-			.setView(layout)
-			.setPositiveButton("Save") { _, _ -> result.complete(input.text.toString().trim().ifEmpty { null }) }
-			.setNegativeButton("Cancel") { _, _ -> result.complete(null) }
-			.setOnCancelListener { result.complete(null) }
-			.show()
-	}
-	return withTimeoutOrNull(5 * 60_000L) { result.await() }
+/**
+ * The colours of whichever Discord theme is active (Ash, Dark, Onyx, Light), read from the app's
+ * own `ThemeManager` so the dialogs match without guessing. Reflection because the plugin is not
+ * compiled against Discord; any miss falls back to the stock dark palette rather than failing.
+ */
+private class Palette(
+	val surface: Int,
+	val heading: Int,
+	val text: Int,
+	val muted: Int,
+	val inputBackground: Int,
+	val inputBorder: Int,
+	val inputBorderActive: Int,
+	val primaryBackground: Int,
+	val primaryText: Int,
+	val criticalBackground: Int,
+	val criticalText: Int,
+	val secondaryBackground: Int,
+	val secondaryText: Int,
+)
+
+private fun discordPalette(activity: Activity): Palette {
+	val theme = runCatching {
+		val manager = Class.forName("com.discord.theme.ThemeManager", true, activity.classLoader)
+		manager.getMethod("getEffectiveTheme").invoke(manager.getField("INSTANCE").get(null))
+	}.getOrNull()
+	fun color(getter: String, fallback: Long): Int =
+		runCatching { theme!!.javaClass.getMethod(getter).invoke(theme) as Int }.getOrElse { fallback.toInt() }
+	return Palette(
+		surface = color("getBackgroundSurfaceHigh", 0xFF2B2D31),
+		heading = color("getMobileTextHeadingPrimary", 0xFFF2F3F5),
+		text = color("getTextDefault", 0xFFDBDEE1),
+		muted = color("getTextMuted", 0xFF949BA4),
+		inputBackground = color("getInputBackgroundDefault", 0xFF1E1F22),
+		inputBorder = color("getInputBorderDefault", 0x33FFFFFF),
+		inputBorderActive = color("getInputBorderActive", 0xFF5865F2),
+		primaryBackground = color("getControlPrimaryBackgroundDefault", 0xFF5865F2),
+		primaryText = color("getControlPrimaryTextDefault", 0xFFFFFFFF),
+		criticalBackground = color("getControlCriticalPrimaryBackgroundDefault", 0xFFDA373C),
+		criticalText = color("getControlCriticalPrimaryTextDefault", 0xFFFFFFFF),
+		secondaryBackground = color("getControlSecondaryBackgroundDefault", 0xFF4E5058),
+		secondaryText = color("getControlSecondaryTextDefault", 0xFFFFFFFF),
+	)
 }
 
-private suspend fun PluginScope.confirm(title: String, message: String, action: String): Boolean {
-	val result = CompletableDeferred<Boolean>()
-	onActivity { activity ->
-		if (activity.isFinishing) {
-			result.complete(false)
-			return@onActivity
-		}
-		AlertDialog.Builder(activity)
-			.setTitle(title)
-			.setMessage(message)
-			.setPositiveButton(action) { _, _ -> result.complete(true) }
-			.setNegativeButton("Cancel") { _, _ -> result.complete(false) }
-			.setOnCancelListener { result.complete(false) }
-			.show()
-	}
-	return withTimeoutOrNull(2 * 60_000L) { result.await() } ?: false
+private val fonts = mutableMapOf<String, Typeface?>()
+
+/** gg sans from Discord's own assets; null (system font) if a build ever drops the file. */
+private fun ggSans(activity: Activity, weight: String): Typeface? = fonts.getOrPut(weight) {
+	runCatching { Typeface.createFromAsset(activity.assets, "fonts/ggsans-$weight.ttf") }.getOrNull()
 }
+
+private class DialogInput(
+	val label: String? = null,
+	val hint: String = "",
+	val password: Boolean = false,
+	/**
+	 * When set, the action stays disabled until exactly this is typed, capitals included. Surrounding
+	 * spaces are ignored, since a keyboard can add one after a word.
+	 */
+	val required: String? = null,
+)
+
+/**
+ * A native dialog laid out like Discord's own alert: centred heading and body, a filled input,
+ * and full-width pill buttons with the action above Cancel. Resolves the typed text (or "" with
+ * no input) on the action, null on cancel, dismissal or timeout.
+ *
+ * Deliberately not a JS modal: the confirmations here are what stop another plugin raising the
+ * cap on its own, and anything drawn in JS another plugin could draw, or skip, too.
+ */
+private suspend fun PluginScope.discordDialog(
+	title: String,
+	message: String,
+	action: String,
+	destructive: Boolean = false,
+	input: DialogInput? = null,
+	timeoutMs: Long = 2 * 60_000L,
+): String? {
+	val result = CompletableDeferred<String?>()
+	onActivity({ result.complete(null) }) { activity ->
+		val p = discordPalette(activity)
+		fun px(value: Int) = dp(activity, value)
+		fun shape(color: Int, radius: Int, stroke: Int? = null) = GradientDrawable().apply {
+			setColor(color)
+			cornerRadius = px(radius).toFloat()
+			if (stroke != null) setStroke(px(1), stroke)
+		}
+		fun label(value: String, size: Float, color: Int, weight: String, fallback: Typeface) =
+			TextView(activity).apply {
+				text = value
+				textSize = size
+				setTextColor(color)
+				typeface = ggSans(activity, weight) ?: fallback
+			}
+		fun button(value: String, background: Int, foreground: Int) =
+			label(value, 16f, foreground, "Semibold", Typeface.DEFAULT_BOLD).apply {
+				gravity = Gravity.CENTER
+				minHeight = px(48)
+				setPadding(px(16), 0, px(16), 0)
+				this.background = RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), shape(background, 999), null)
+				isClickable = true
+				isFocusable = true
+			}
+
+		val dialog = Dialog(activity)
+		val column = LinearLayout(activity).apply {
+			orientation = LinearLayout.VERTICAL
+			setPadding(px(24), px(24), px(24), px(20))
+			background = shape(p.surface, 16)
+		}
+		fun add(view: View, top: Int) = column.addView(
+			view,
+			LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+				.apply { topMargin = px(top) },
+		)
+
+		add(label(title, 20f, p.heading, "ExtraBold", Typeface.DEFAULT_BOLD).apply { gravity = Gravity.CENTER }, 0)
+		add(
+			label(message, 16f, p.muted, "Medium", Typeface.DEFAULT).apply {
+				gravity = Gravity.CENTER
+				setLineSpacing(px(2).toFloat(), 1f)
+			},
+			8,
+		)
+
+		val field = input?.let { spec ->
+			spec.label?.let { add(label(it, 14f, p.text, "Semibold", Typeface.DEFAULT_BOLD), 20) }
+			EditText(activity).apply {
+				hint = spec.hint
+				isSingleLine = true
+				inputType = InputType.TYPE_CLASS_TEXT or
+					if (spec.password) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+				textSize = 16f
+				setTextColor(p.text)
+				setHintTextColor(p.muted)
+				typeface = ggSans(activity, "Medium") ?: Typeface.DEFAULT
+				setPadding(px(14), px(12), px(14), px(12))
+				background = shape(p.inputBackground, 12, p.inputBorder)
+				setOnFocusChangeListener { _, focused ->
+					background = shape(p.inputBackground, 12, if (focused) p.inputBorderActive else p.inputBorder)
+				}
+				add(this, if (spec.label != null) 8 else 20)
+			}
+		}
+
+		val confirm = if (destructive) {
+			button(action, p.criticalBackground, p.criticalText)
+		} else {
+			button(action, p.primaryBackground, p.primaryText)
+		}
+		val cancel = button("Cancel", p.secondaryBackground, p.secondaryText)
+		add(confirm, 24)
+		add(cancel, 8)
+
+		fun typed() = field?.text?.toString()?.trim().orEmpty()
+		fun allowed(): Boolean {
+			val required = input?.required ?: return input == null || typed().isNotEmpty()
+			return typed() == required
+		}
+		fun refresh() {
+			val ok = allowed()
+			confirm.isEnabled = ok
+			confirm.alpha = if (ok) 1f else 0.5f
+		}
+		field?.addTextChangedListener(object : TextWatcher {
+			override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+			override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+			override fun afterTextChanged(s: Editable?) = refresh()
+		})
+		refresh()
+
+		confirm.setOnClickListener {
+			if (!allowed()) return@setOnClickListener
+			result.complete(typed())
+			dialog.dismiss()
+		}
+		cancel.setOnClickListener {
+			result.complete(null)
+			dialog.dismiss()
+		}
+		dialog.setOnCancelListener { result.complete(null) }
+
+		dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+		dialog.setContentView(column)
+		dialog.window?.apply {
+			setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+			val width = activity.resources.displayMetrics.widthPixels - px(32)
+			setLayout(minOf(width, px(420)), WindowManager.LayoutParams.WRAP_CONTENT)
+			if (field != null) setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+		}
+		dialog.show()
+		field?.requestFocus()
+	}
+	return withTimeoutOrNull(timeoutMs) { result.await() }
+}
+
+/** Resolves the typed key, or null on cancel / no activity within the timeout. */
+private suspend fun PluginScope.askForKey(endpoint: String): String? = discordDialog(
+	title = "API key",
+	message = "Only ever sent to ${hostOf(endpoint)}. Stored encrypted by Android's keystore; " +
+		"no plugin can read it back, including this one's settings screen.",
+	action = "Save",
+	input = DialogInput(hint = "sk-...", password = true),
+	timeoutMs = 5 * 60_000L,
+)?.ifEmpty { null }
+
+private suspend fun PluginScope.confirm(
+	title: String,
+	message: String,
+	action: String,
+	destructive: Boolean = false,
+): Boolean = discordDialog(title, message, action, destructive) != null
+
+/**
+ * A confirmation that has to be earned: [action] stays disabled until [word] is typed. For choices
+ * where a reflexive tap would be a real mistake, not just an undo.
+ */
+private suspend fun PluginScope.confirmTyped(title: String, message: String, word: String, action: String): Boolean =
+	discordDialog(
+		title,
+		message,
+		action,
+		destructive = true,
+		input = DialogInput(label = "Type $word to confirm", required = word),
+	) != null
 
 // --- the plugin ----------------------------------------------------------------
 
@@ -224,6 +424,8 @@ val aiCore = plugin {
 		// Usage and the cap. Encrypted too -- not because they are secret, but so a plugin with
 		// `fs` cannot simply rewrite the count to zero or the cap to a thousand.
 		var cap = 40
+		// No daily ceiling at all. Calls are still counted; only the check against `cap` is skipped.
+		var unlimited = false
 		var day = ""
 		var calls = 0
 		var promptTokens = 0L
@@ -264,6 +466,7 @@ val aiCore = plugin {
 				seal(
 					JSONObject()
 						.put("cap", cap)
+						.put("unlimited", unlimited)
 						.put("day", day)
 						.put("calls", calls)
 						.put("promptTokens", promptTokens)
@@ -292,6 +495,7 @@ val aiCore = plugin {
 				} else {
 					val obj = JSONObject(plain)
 					cap = obj.optInt("cap", cap).coerceIn(0, MAX_CAP)
+					unlimited = obj.optBoolean("unlimited", false)
 					day = obj.optString("day")
 					calls = obj.optInt("calls")
 					promptTokens = obj.optLong("promptTokens")
@@ -318,8 +522,11 @@ val aiCore = plugin {
 				.put("usageTampered", usageTampered)
 				.put("migrated", vaultFile.exists() || usageFile.exists())
 				.put("cap", cap)
+				.put("unlimited", unlimited)
 				.put("day", day)
 				.put("calls", calls)
+				// JSON has no Infinity, so an unlimited day reports the cap's remainder and the JS
+				// side reads `unlimited` first. Tampering still fails closed either way.
 				.put("remaining", if (usageTampered) 0 else (cap - calls).coerceAtLeast(0))
 				.put("promptTokens", promptTokens)
 				.put("completionTokens", completionTokens)
@@ -399,11 +606,35 @@ val aiCore = plugin {
 			}
 		}
 
+		// Turning the ceiling off is the one change here that can cost real money with no upper
+		// bound, so it needs the word typed, not a tap. Turning it back on applies at once.
+		registerNativeAsyncMethod("$id.setUnlimited") { args ->
+			val wanted = args.getOrNull(0) as? Boolean ?: return@registerNativeAsyncMethod mutex.withLock { status() }
+			if (wanted && !mutex.withLock { unlimited } &&
+				!confirmTyped(
+					"Remove the AI Core daily cap?",
+					"Every plugin using AI Core will be able to make as many calls as it likes, every day. " +
+						"Each one is billed to your key. Nothing here will stop a plugin stuck in a loop; " +
+						"only a spending limit set with your provider will.",
+					"UNLIMITED",
+					"Remove cap",
+				)
+			) {
+				return@registerNativeAsyncMethod mutex.withLock { status() }
+			}
+			mutex.withLock {
+				unlimited = wanted
+				persistUsage()
+				status()
+			}
+		}
+
 		registerNativeAsyncMethod("$id.resetUsage") { _ ->
 			val ok = confirm(
 				"Reset today's AI Core count?",
 				"The cap starts again from zero. This does not refund anything already spent with the provider.",
 				"Reset",
+				destructive = true,
 			)
 			mutex.withLock {
 				if (ok) {
@@ -437,7 +668,7 @@ val aiCore = plugin {
 				when {
 					k == null || e == null -> return@registerNativeAsyncMethod JSONObject().put("ok", false).put("error", "no-key").toString()
 					usageTampered -> return@registerNativeAsyncMethod JSONObject().put("ok", false).put("error", "usage-tampered").toString()
-					calls >= cap -> return@registerNativeAsyncMethod JSONObject().put("ok", false).put("error", "cap").toString()
+					!unlimited && calls >= cap -> return@registerNativeAsyncMethod JSONObject().put("ok", false).put("error", "cap").toString()
 				}
 				// Counted up front, so parallel requests cannot all slip in under the last call.
 				calls++

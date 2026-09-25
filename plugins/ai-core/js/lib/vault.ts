@@ -27,6 +27,8 @@ export interface VaultStatus {
 	/** The vault has been written at least once, so the legacy import is closed. */
 	migrated: boolean
 	cap: number
+	/** No daily ceiling. Calls are still counted. */
+	unlimited: boolean
 	day: string
 	calls: number
 	remaining: number
@@ -45,6 +47,7 @@ const OFFLINE: VaultStatus = {
 	usageTampered: false,
 	migrated: false,
 	cap: 0,
+	unlimited: false,
 	day: '',
 	calls: 0,
 	remaining: 0,
@@ -92,6 +95,8 @@ export const promptForKey = (endpoint: string) => statusCall('promptForKey', [en
 export const clearKey = () => statusCall('clearKey')
 /** Raising asks for confirmation natively; lowering applies at once. */
 export const setCap = (cap: number) => statusCall('setCap', [cap])
+/** Turning it on needs a word typed into a native dialog; turning it off applies at once. */
+export const setUnlimited = (value: boolean) => statusCall('setUnlimited', [value])
 /** Always asks for confirmation natively. */
 export const resetUsage = () => statusCall('resetUsage')
 
