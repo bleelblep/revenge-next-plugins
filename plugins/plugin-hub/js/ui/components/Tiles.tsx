@@ -1,18 +1,19 @@
 /**
- * The pieces every layout is built from: a tile, a card, and a grid that lays either out.
+ * The favourites tile, and the grid that lays four of them out as a 2×2 block.
  *
  * ## Icons
  *
  * Tiles want a bigger icon than a settings row, but the row icon (`TableRow.Icon`, via `rowIcon`)
  * is the one that already gets the theme's tint right in light and dark mode. Drawing icons
  * directly would mean resolving theme colours by hand, which is exactly the kind of guess that
- * rendered `text-normal` black in this repository. So the row icon is reused and scaled up.
+ * rendered `text-normal` black in this repository. So the row icon is reused and scaled up, and
+ * sits in a circle washed with a neutral translucent grey -- a colour that reads on both themes
+ * without resolving any theme token.
  *
  * ## Sizing
  *
- * Grid tiles are sized from the measured width of the container rather than from percentages,
- * so a row with fewer tiles than columns keeps them the same width instead of stretching or
- * spreading them.
+ * Tiles are sized from the measured width of the container rather than from percentages. The one
+ * favourite left without a partner on its row is drawn wide, spanning both columns and the gap.
  *
  * Every `revenge.*` read happens inside a render, never at module scope (porting rule 1).
  */
@@ -25,133 +26,164 @@ export interface TileState {
 	note?: string
 }
 
-const GAP = 8
+/** Space between tiles. Exported so a wide card can span two tiles and the gap between them. */
+export const GRID_GAP = 10
+const GAP = GRID_GAP
+const CIRCLE = 52
+/** Neutral on both themes: grey at low alpha lightens a dark card and darkens a light one. */
+const CIRCLE_WASH = 'rgba(128, 132, 142, 0.18)'
 
-function Icon({ name, scale }: { name?: string; scale: number }) {
+/** The tinted circle with the plugin's icon in it. Smaller on the wide card, which sits among rows. */
+function IconCircle({ icon, size = CIRCLE }: { icon?: string; size?: number }) {
 	const { View } = revenge.react.ReactNative
 	return (
 		<View
 			style={{
-				transform: [{ scale }],
+				width: size,
+				height: size,
+				borderRadius: size / 2,
+				backgroundColor: CIRCLE_WASH,
 				alignItems: 'center',
 				justifyContent: 'center',
 			}}
 		>
-			{rowIcon(name ?? 'PuzzlePieceIcon', 'PuzzlePieceIcon') ?? null}
+			<View style={{ transform: [{ scale: size === CIRCLE ? 1.5 : 1.2 }] }}>
+				{rowIcon(icon ?? 'PuzzlePieceIcon', 'PuzzlePieceIcon') ?? null}
+			</View>
 		</View>
 	)
 }
 
-/** The surface a tile or card sits on: a pressable Card, dimmed when it cannot open. */
-function Surface({
-	state,
-	onPress,
-	style,
-	children,
-}: {
-	state: TileState
-	onPress: () => void
-	style?: any
-	children: any
-}) {
-	const { Pressable } = revenge.react.ReactNative
-	const { Card } = revenge.discord.design.Design
-	return (
-		<Pressable
-			disabled={!state.openable}
-			onPress={onPress}
-			style={({ pressed }: { pressed: boolean }) => [
-				style,
-				{ opacity: state.openable ? (pressed ? 0.6 : 1) : 0.4 },
-			]}
-		>
-			<Card variant="secondary" border="none" style={{ flex: 1 }}>
-				{children}
-			</Card>
-		</Pressable>
-	)
+const WIDE_CIRCLE = 40
+const ARROW_PATH = 'design/components/TableRow/native/TableRowArrow.native.tsx'
+
+/**
+ * The chevron Discord's own rows end in (`TableRowArrow`), so the wide card's › is the same glyph,
+ * size and colour as the list under it. Found by its source path; if that ever moves, a chevron
+ * icon by name stands in, and failing that there is simply no arrow.
+ */
+let TableRowArrow: any
+function RowArrow() {
+	if (TableRowArrow === undefined) {
+		try {
+			const [exports] =
+				revenge.discord.utils.modules.finders.lookupModuleWithImportedPath<any>(ARROW_PATH)
+			TableRowArrow = typeof exports?.TableRowArrow === 'function' ? exports.TableRowArrow : null
+		} catch {
+			TableRowArrow = null
+		}
+	}
+	if (TableRowArrow) return <TableRowArrow />
+	return rowIcon('ChevronSmallRightIcon', 'ArrowSmallRightIcon') ?? null
 }
 
-/** Icon on top, name underneath. Used by Icon grid, Shelves and the Favourites tiles. */
+/**
+ * A favourite: the icon in a tinted circle, the name under it, a note if it cannot open.
+ *
+ * `wide` is for a favourite with no partner on its row -- the only one, or the last of an odd
+ * number. It spans the row as a card shaped like the list below it, only a little taller: a
+ * smaller circle on the left, the name with the plugin's one-line description under it, and the
+ * same chevron the rows end in. A square tile there left half the row empty; a first attempt at a
+ * wide card was twice a row's height with nothing on its right, and read as unfinished.
+ */
 export function Tile({
 	entry,
 	state,
 	onPress,
 	width,
-	big,
-}: {
-	entry: Entry
-	state: TileState
-	onPress: () => void
-	width: number
-	big?: boolean
-}) {
-	const { View } = revenge.react.ReactNative
-	const { Text } = revenge.discord.design.Design
-	return (
-		<Surface state={state} onPress={onPress} style={{ width }}>
-			<View
-				style={{
-					alignItems: 'center',
-					paddingVertical: big ? 18 : 14,
-					paddingHorizontal: 6,
-					gap: big ? 14 : 10,
-				}}
-			>
-				<Icon name={entry.icon} scale={big ? 1.8 : 1.4} />
-				<Text
-					color="text-default"
-					variant={big ? 'text-md/semibold' : 'text-sm/semibold'}
-					style={{ textAlign: 'center' }}
-					numberOfLines={2}
-				>
-					{entry.name}
-				</Text>
-				{state.note ? (
-					<Text color="text-muted" variant="text-xs/normal" numberOfLines={1}>
-						{state.note}
-					</Text>
-				) : null}
-			</View>
-		</Surface>
-	)
-}
-
-/** Icon and name side by side, with the description underneath. The Cards layout. */
-export function PluginCard({
-	entry,
-	state,
-	onPress,
-	width,
+	wide,
 	description,
 }: {
 	entry: Entry
 	state: TileState
 	onPress: () => void
 	width: number
+	wide?: boolean
+	/** Shown under the name on the wide card only. */
 	description?: string
 }) {
-	const { View } = revenge.react.ReactNative
-	const { Text } = revenge.discord.design.Design
+	const { View, Pressable } = revenge.react.ReactNative
+	const { Text, Card } = revenge.discord.design.Design
+
+	if (wide) {
+		const detail = state.note ?? description
+		return (
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel={`Open ${entry.name} settings`}
+				disabled={!state.openable}
+				onPress={onPress}
+				style={({ pressed }: { pressed: boolean }) => ({
+					width,
+					opacity: state.openable ? (pressed ? 0.6 : 1) : 0.4,
+				})}
+			>
+				<Card variant="secondary" border="none">
+					<View
+						style={{
+							flexDirection: 'row',
+							alignItems: 'center',
+							paddingVertical: 10,
+							paddingLeft: 12,
+							gap: 12,
+						}}
+					>
+						<IconCircle icon={entry.icon} size={WIDE_CIRCLE} />
+						<View style={{ flex: 1, gap: 2 }}>
+							<Text color="text-default" variant="text-md/semibold" numberOfLines={1}>
+								{entry.name}
+							</Text>
+							{detail ? (
+								<Text color="text-muted" variant="text-sm/normal" numberOfLines={1}>
+									{detail}
+								</Text>
+							) : null}
+						</View>
+						{state.openable ? <RowArrow /> : null}
+					</View>
+				</Card>
+			</Pressable>
+		)
+	}
+
 	return (
-		<Surface state={state} onPress={onPress} style={{ width }}>
-			<View style={{ padding: 12, gap: 8 }}>
-				<View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-					<Icon name={entry.icon} scale={1.2} />
+		<Pressable
+			accessibilityRole="button"
+			accessibilityLabel={`Open ${entry.name} settings`}
+			disabled={!state.openable}
+			onPress={onPress}
+			style={({ pressed }: { pressed: boolean }) => ({
+				width,
+				opacity: state.openable ? (pressed ? 0.6 : 1) : 0.4,
+			})}
+		>
+			<Card variant="secondary" border="none" style={{ flex: 1 }}>
+				<View
+					style={{
+						alignItems: 'center',
+						paddingTop: 18,
+						paddingBottom: 16,
+						paddingHorizontal: 8,
+						gap: 12,
+					}}
+				>
+					<IconCircle icon={entry.icon} />
 					<Text
 						color="text-default"
-						variant="text-sm/semibold"
-						numberOfLines={2}
-						style={{ flex: 1 }}
+						variant="text-md/semibold"
+						style={{ textAlign: 'center' }}
+						numberOfLines={1}
 					>
 						{entry.name}
 					</Text>
+					{state.note ? (
+						<Text color="text-muted" variant="text-xs/normal" numberOfLines={1}>
+							{state.note}
+						</Text>
+					) : null}
 				</View>
-				<Text color="text-muted" variant="text-xs/normal" numberOfLines={3}>
-					{state.note ?? description ?? ' '}
-				</Text>
-			</View>
-		</Surface>
+			</Card>
+		</Pressable>
 	)
 }
 
@@ -182,19 +214,3 @@ export function Grid({
 		</View>
 	)
 }
-
-/** One sideways-scrolling row of tiles. The Shelves layout. */
-export function Shelf({ children }: { children: any }) {
-	const { ScrollView } = revenge.react.ReactNative
-	return (
-		<ScrollView
-			horizontal
-			showsHorizontalScrollIndicator={false}
-			contentContainerStyle={{ gap: GAP, paddingRight: 16 }}
-		>
-			{children}
-		</ScrollView>
-	)
-}
-
-export const SHELF_TILE_WIDTH = 96

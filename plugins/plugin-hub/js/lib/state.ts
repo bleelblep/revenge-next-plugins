@@ -14,6 +14,17 @@ export function getStorage(): Storage | undefined {
 	return storage
 }
 
+let ownVersion = 'unknown'
+
+/** This plugin's version, for the row in Hub settings that unlocks Plugin Doctor. Set at start. */
+export function setOwnVersion(value: string) {
+	ownVersion = value
+}
+
+export function getOwnVersion(): string {
+	return ownVersion
+}
+
 /** Never reads `cache` without a fallback. */
 export function settings(): HubStorage {
 	return { ...DEFAULTS, ...(storage?.cache ?? {}) }

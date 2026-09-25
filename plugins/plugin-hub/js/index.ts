@@ -14,8 +14,9 @@
  */
 
 import { DEFAULTS } from './defaults'
-import { setStorage } from './lib/state'
-import Manage from './ui/pages/Manage'
+import { asVersion, formatVersion } from './lib/doctor'
+import { setOwnVersion, setStorage } from './lib/state'
+import HubSettings from './ui/pages/Settings'
 import { registerHub } from './ui/register'
 import type { HubStorage } from './types'
 
@@ -38,6 +39,11 @@ export default plugin<{ jsonStorage: HubStorage }>({
 		}
 
 		setStorage(jsonStorage)
+		try {
+			setOwnVersion(formatVersion(asVersion((plugin as any).manifest?.version)))
+		} catch {
+			/* the version row just says unknown */
+		}
 
 		try {
 			cleanup(registerHub())
@@ -46,10 +52,12 @@ export default plugin<{ jsonStorage: HubStorage }>({
 		}
 	},
 
-	// The plugin's own settings page, from Revenge's Plugins list, is the chooser.
 	// Unpatching cannot put back everything a hook changed once Discord has rendered with it.
 	stop(api) {
 		api.plugin.requireReload()
 	},
-	SettingsComponent: Manage,
+
+	// The plugin's own settings page, from Revenge's Plugins list, is Hub settings -- the same screen
+	// the Hub's settings icon opens. It links on to Choose plugins and to AI Hub settings.
+	SettingsComponent: HubSettings,
 })

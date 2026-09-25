@@ -10,15 +10,23 @@ export interface Entry {
 	id: string
 	name: string
 	icon?: string
-	/** Depends on AI Core, or is AI Core. Listed on the AI Hub page instead of the Hub. */
+	/** Depends on AI Core, or is AI Core. Listed on the AI Hub page. */
 	ai: boolean
-	/** The manifest's one-liner, for the Cards layout. Missing on entries added before 0.2.0. */
+	/** Uses AI Core only when it is there: listed on the Hub as well (see `onPage`). Missing before 0.5.1. */
+	aiOptional?: boolean
+	/** The manifest's one-liner. Missing on entries added before 0.2.0; not shown at the moment. */
 	description?: string
-	/** Shown as a big tile at the top of the Favourites layout. At most four per page are used. */
+	/**
+	 * Shown as a big tile at the top of its page (Hub or AI Hub). At most four per page are used, in
+	 * the order they sit in `entries` -- which is what rearranging favourites changes.
+	 */
 	favourite?: boolean
+	/**
+	 * Also a row of its own in Discord's settings, in the Shortcuts section under Plugin Hub, so the
+	 * plugin is one tap from Settings rather than two (see `ui/register.tsx`).
+	 */
+	inSettings?: boolean
 }
-
-export type Layout = 'favourites' | 'grid' | 'cards' | 'shelves'
 
 export interface HubStorage {
 	/**
@@ -27,5 +35,9 @@ export interface HubStorage {
 	 * only bites keyed objects).
 	 */
 	entries: Entry[]
-	layout: Layout
+	/**
+	 * Plugin Doctor's row is shown. Off until the version row in Hub settings is tapped seven times,
+	 * like Android's developer options; switched back off from the Doctor itself.
+	 */
+	doctorUnlocked?: boolean
 }

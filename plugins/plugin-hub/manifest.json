@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "bleelblep.plugin-hub",
 	"name": "Plugin Hub",
-	"description": "Adds a Plugin Hub section to Discord's settings: a Hub row with shortcuts straight into the settings of the plugins you choose, and an AI Hub row listing the plugins that use AI Core (shown only while AI Core is installed). Show the Hub as favourites and a list, an icon grid, cards or sideways shelves. Adding plugins needs Revenge's Developer Mode switched on; using the hub does not.",
+	"description": "Adds a Plugin Hub section to Discord's settings: a Hub row with shortcuts straight into the settings of the plugins you choose, and an AI Hub row listing the plugins that use AI Core (shown only while AI Core is installed). Show the Hub as favourites and a list, an icon grid, cards or sideways shelves. A hidden Plugin Doctor (tap the version in Hub settings seven times) checks that every installed plugin loaded, what each needs and what uses it, and whether any has an update, and copies a report for bug reports. Adding plugins to the Hub needs Revenge's Developer Mode switched on; using the hub does not.",
 	"author": "bleelblep",
 	"icon": "AppsIcon",
-	"version": "0.2.7",
+	"version": "0.5.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

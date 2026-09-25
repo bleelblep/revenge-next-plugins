@@ -6,24 +6,21 @@ import {
 } from '../../lib/installed'
 import { getStorage } from '../../lib/state'
 import { rowIcon } from '../icon'
-import { placement } from '../routes'
 import { useBottomPadding } from '../safeArea'
-import { MAX_FAVOURITES } from './Hub'
 import type { Installed } from '../../lib/installed'
-import type { Entry, Layout } from '../../types'
+import type { Entry } from '../../types'
 
 /**
  * Choosing what the hub shows.
  *
  * Every installed plugin is a switch, grouped the way the hub groups them. Bleelblep's plugins can
  * be added or removed all at once. AI Core and the plugins that use it go on the AI Hub page, the
- * rest on the Hub. Favourites are a Hub thing: the AI Hub is always a list.
+ * rest on the Hub. How the pages look -- favourites, their order, shortcuts in Discord's settings --
+ * is on the Settings screen, not here.
  *
  * Without Developer Mode there is no list of installed plugins to show (see `lib/installed.ts`),
  * so the page says so plainly -- and still lists what is already in the hub, so removing things
  * never needs Developer Mode even though adding them does.
- *
- * This is also the plugin's own settings page, reached from Revenge's Plugins list.
  */
 export default function Manage() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
@@ -36,8 +33,6 @@ export default function Manage() {
 		TableRowGroup,
 		TableRow,
 		TableSwitchRow,
-		TableRadioGroup,
-		TableRadioRow,
 		AlertModal,
 		AlertActionButton,
 	} = revenge.discord.design.Design
@@ -56,6 +51,7 @@ export default function Manage() {
 		name: plugin.name,
 		icon: plugin.icon,
 		ai: plugin.ai,
+		aiOptional: plugin.aiOptional,
 		description: plugin.description,
 	})
 
@@ -140,49 +136,6 @@ export default function Manage() {
 		/>
 	)
 
-	/** Stars for one page. The limit is per page, since each page draws its own tiles. */
-	const favouritesGroup = (ai: boolean, title: string) => {
-		const own = entries.filter(entry => usesAiCore(entry) === ai)
-		if (!own.length) return null
-		const starredCount = own.filter(entry => entry.favourite).length
-		return (
-			<View style={{ gap: 8 }}>
-				<TableRowGroup title={title} hasIcons>
-					{own.map(entry => {
-						const starred = !!entry.favourite
-						// Past the limit, unstarred ones are locked rather than silently
-						// ignored -- a switch that turns on and does nothing is worse.
-						const full = !starred && starredCount >= MAX_FAVOURITES
-						return (
-							<TableSwitchRow
-								key={entry.id}
-								label={entry.name}
-								subLabel={
-									full ? `Up to ${MAX_FAVOURITES} — unstar one first` : undefined
-								}
-								icon={rowIcon(entry.icon ?? 'PuzzlePieceIcon', 'PuzzlePieceIcon')}
-								disabled={full}
-								value={starred}
-								onValueChange={value =>
-									write(
-										entries.map(e =>
-											e.id === entry.id ? { ...e, favourite: value } : e,
-										),
-									)
-								}
-							/>
-						)
-					})}
-				</TableRowGroup>
-				{starredCount ? null : (
-					<Text color="text-muted" variant="text-sm/normal">
-						None starred, so the first four on this page are shown as favourites.
-					</Text>
-				)}
-			</View>
-		)
-	}
-
 	return (
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
@@ -206,42 +159,6 @@ export default function Manage() {
 								</Text>
 							</View>
 						</Card>
-					) : null}
-
-					{/* `defaultValue`: TableRadioGroup is uncontrolled, and onChange must return void. */}
-					<TableRadioGroup
-						title="Layout"
-						defaultValue={s.layout}
-						onChange={(value: string) => {
-							storage?.set({ layout: value as Layout })
-						}}
-					>
-						<TableRadioRow
-							label="Favourites and list"
-							subLabel="Your top four as big tiles, everything else as a list underneath."
-							value="favourites"
-						/>
-						<TableRadioRow
-							label="Icon grid"
-							subLabel="Three tiles to a row, icon and name."
-							value="grid"
-						/>
-						<TableRadioRow
-							label="Cards"
-							subLabel="Two wide cards to a row, each with what the plugin does."
-							value="cards"
-						/>
-						<TableRadioRow
-							label="Shelves"
-							subLabel="One row per section that scrolls sideways. Compact with lots of plugins."
-							value="shelves"
-						/>
-					</TableRadioGroup>
-
-					{s.layout === 'favourites' ? (
-						<>
-							{favouritesGroup(false, 'Hub favourites')}
-						</>
 					) : null}
 
 					{available ? (
@@ -303,10 +220,6 @@ export default function Manage() {
 						</TableRowGroup>
 					) : null}
 
-					<Text color="text-muted" variant="text-sm/normal">
-						The Hub rows are {placement.where}. AI Hub only appears while AI Core is
-						running.
-					</Text>
 				</Stack>
 			</ScrollView>
 		</Page>

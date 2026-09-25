@@ -38,10 +38,12 @@ export interface Installed {
 	enabled: boolean
 	/** Depends on AI Core, or is AI Core. */
 	ai: boolean
+	/** Uses AI Core only if it is there: listed on both the Hub and the AI Hub. */
+	aiOptional: boolean
 	mine: boolean
 }
 
-function internals(): any {
+export function internals(): any {
 	try {
 		return (revenge as any).hidden?.plugins?.internal
 	} catch {
@@ -87,6 +89,7 @@ export function listInstalled(): Installed[] | undefined {
 			hasSettings: typeof plugin.SettingsComponent === 'function',
 			enabled: isEnabled(plugin),
 			ai: id === AI_CORE_ID || !!manifest.dependencies?.[AI_CORE_ID],
+			aiOptional: id !== AI_CORE_ID && !!manifest.dependencies?.[AI_CORE_ID]?.optional,
 			mine: id.startsWith(MY_PREFIX),
 		})
 	}
@@ -109,4 +112,50 @@ export function aiCoreRunning(): boolean {
 /** Belongs on the AI Hub page: AI Core itself, or a plugin that depends on it. */
 export function usesAiCore(plugin: { id: string; ai: boolean }): boolean {
 	return plugin.ai
+}
+
+/**
+ * AI Core's own record of a plugin that depends on it, and the route of that plugin's AI screen if
+ * it gave one (`setSettingsRoute`). Read from a lookup AI Core sets on start, so it works without
+ * Developer Mode; undefined when AI Core is not running or the plugin is not one of its dependents.
+ */
+export function aiCoreDependent(id: string): { route?: string } | undefined {
+	try {
+		const lookup = (globalThis as any).__bleelblepAiCoreDependent
+		return typeof lookup === 'function' ? lookup(id) : undefined
+	} catch {
+		return undefined
+	}
+}
+
+/** Where the AI Hub should open a plugin: its AI screen when it named one, otherwise its settings. */
+export function aiRouteOf(id: string): string | undefined {
+	const route = aiCoreDependent(id)?.route
+	return typeof route === 'string' && route ? route : undefined
+}
+
+type Classified = { id: string; ai: boolean; aiOptional?: boolean }
+
+/**
+ * Whether a plugin is listed on the Hub (`ai` false) or the AI Hub (`ai` true).
+ *
+ * - Plugins that need AI Core (Catch-up, TL;DR, AI Core itself): the AI Hub only.
+ * - Plugins that use it only if it is there (Send Tweaks, Veil, Second Thoughts): **both**. Most of
+ *   what they do has nothing to do with AI, so they stay on the Hub, and the AI Hub opens their AI
+ *   screen rather than their settings.
+ * - Everything else: the Hub only.
+ *
+ * The saved entry is a snapshot from when it was added, so it can predate a plugin gaining AI
+ * features. The live list (Developer Mode) wins when it is there, and AI Core's own record of its
+ * dependents counts too, so a plugin can reach the AI Hub without being added again.
+ */
+export function onPage(entry: Classified, ai: boolean): boolean {
+	const live = listInstalled()?.find(plugin => plugin.id === entry.id)
+	const snapshot = live ?? entry
+	const aiListed = snapshot.ai || !!aiCoreDependent(entry.id)
+	if (ai) return aiListed
+	if (!aiListed) return true
+	// AI Core knows it, but it was saved as not-AI: it gained optional AI features since.
+	if (!snapshot.ai) return true
+	return !!snapshot.aiOptional
 }

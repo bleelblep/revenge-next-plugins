@@ -2,6 +2,10 @@
 export const HUB_ROUTE = 'BleelblepHub'
 export const AI_HUB_ROUTE = 'BleelblepHubAi'
 export const MANAGE_ROUTE = 'BleelblepHubManage'
+export const SETTINGS_ROUTE = 'BleelblepHubSettings'
+export const AI_SETTINGS_ROUTE = 'BleelblepHubAiSettings'
+export const DOCTOR_ROUTE = 'BleelblepHubDoctor'
+export const DOCTOR_PLUGIN_ROUTE = 'BleelblepHubDoctorPlugin'
 
-/** Where the Hub rows actually ended up, for the Manage page to report. Porting rule 3. */
+/** Where the Hub rows actually ended up, for the Settings page to report. Porting rule 3. */
 export const placement = { where: 'not yet registered' }
