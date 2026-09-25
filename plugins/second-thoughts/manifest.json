@@ -5,7 +5,7 @@
 	"description": "A send-guard that stays quiet. Credentials, API keys and card numbers are caught by pattern alone -- no key, no network, no AI -- and never reach the wire. Install AI Core as well and it also weighs up anger, drunk-posting and oversharing, but only on a draft a free local check has already flagged. Everything else sends untouched, at full speed.",
 	"author": "bleelblep",
 	"icon": "ShieldIcon",
-	"version": "0.2.6",
+	"version": "0.2.7",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

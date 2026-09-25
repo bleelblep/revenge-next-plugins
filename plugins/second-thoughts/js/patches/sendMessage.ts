@@ -11,12 +11,19 @@
  * It is also early enough to matter: the optimistic message row is created *inside* `sendMessage`,
  * so refusing here means nothing is ever drawn in the channel, not even for a frame.
  *
- * ## Why `instead`
+ * ## A plain wrapper, not a patcher `instead`
  *
- * `before` can rewrite arguments but cannot decline to call the original, and declining is the
- * entire feature. Nothing else in this repo patches `sendMessage`, so the two-`instead` recursion
- * trap in porting rule 2 does not apply -- but that is a fact about this repo, and it has to be
- * rechecked before any other plugin here touches this method.
+ * The guard has to be able to decline to call the original, which a patcher `before` cannot do. It
+ * used to be a patcher `instead`, and that made sending fail with "Maximum call stack size exceeded"
+ * for some people: fake-nitro and Zipline also `instead`-hook `sendMessage`, and when any plugin had
+ * put a `before` or `after` on it first (Send Tweaks did, up to 0.2.0), the patcher's two-`instead`
+ * bug made the chain call itself forever (docs/debugging/api-contracts.md). Reproduced against the
+ * patcher's source.
+ *
+ * So `sendMessage` is replaced with a plain function that runs the guard and calls what was there
+ * before. A plain function is not a patcher proxy, so it cannot be part of that loop, and it breaks
+ * the loop even when another plugin's hooks were there first. Send Tweaks does the same
+ * (`lib/wrap.ts` there).
  *
  * ## The fast path stays synchronous
  *
@@ -58,7 +65,9 @@ export default function patchSendMessage(): () => void {
 			typeof exports?.sendMessage === 'function' ? exports : exports?.default
 		if (typeof host?.sendMessage !== 'function') return
 
-		cleanups.push(revenge.patcher.instead(host, 'sendMessage', guard))
+		const unwrap = wrapSendMessage(host)
+		if (!unwrap) return
+		cleanups.push(unwrap)
 		installed = true
 		status.installed = true
 		status.moduleId = id
@@ -103,6 +112,36 @@ export default function patchSendMessage(): () => void {
 				console.error(`${TAG} cleanup failed:`, error)
 			}
 		}
+	}
+}
+
+/**
+ * Replaces `host.sendMessage` with a plain function that runs `guard`. Returns the undo, or undefined
+ * when the property would not take the new function. Undo puts the original back only if nothing
+ * has wrapped it since; otherwise the wrapper stays and just passes every send straight through.
+ */
+function wrapSendMessage(host: any): (() => void) | undefined {
+	const original = host.sendMessage
+	let active = true
+	const wrapper = function (this: unknown, ...args: any[]) {
+		if (!active) return Reflect.apply(original, this, args)
+		try {
+			return guard.call(this, args, original)
+		} catch (error) {
+			// The guard handles its own failures and sends; reaching here means something threw
+			// before it could. Fail open, as everywhere else: the check must never cost a message.
+			console.error(`${TAG} guard threw; sending anyway:`, error)
+			return Reflect.apply(original, this, args)
+		}
+	}
+	host.sendMessage = wrapper
+	if (host.sendMessage !== wrapper) {
+		console.error(`${TAG} could not wrap sendMessage`)
+		return undefined
+	}
+	return () => {
+		active = false
+		if (host.sendMessage === wrapper) host.sendMessage = original
 	}
 }
 
