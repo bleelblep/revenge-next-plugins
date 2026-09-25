@@ -16,6 +16,11 @@ export const DEFAULTS: VeilStorage = {
 	aiChannelIds: [],
 	aiMinLength: 20,
 
+	sheetActions: true,
+	sheetBlurPerson: true,
+	sheetBlurChannel: true,
+	sheetAiCheck: true,
+
 	blurMedia: true,
 	showReason: true,
 	skipOwn: true,

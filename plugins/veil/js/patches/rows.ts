@@ -70,14 +70,24 @@ function veil(row: any, reason: string) {
 		// `{ isSpoiler: false, spoiler: "", obscure: false }` -- an empty *string*, not null, so
 		// `??=` never assigned and the label was never set. Assign outright, and only leave a
 		// label Discord already put there alone.
-		for (const attachment of Array.isArray(message.attachments) ? message.attachments : []) {
-			if (!attachment || typeof attachment !== 'object') continue
-			attachment.isSpoiler = true
-			if (!attachment.spoiler) attachment.spoiler = SPOILER_LABEL
+		//
+		// Copied rather than edited in place: the row object is fresh per generation, but what it
+		// points at may be shared with Discord's caches -- the text content provably is
+		// (`parseMessageMarkup` memoizes it per record), and a blur written into a cache would
+		// outlive un-veiling. Copies cost nothing and make that impossible.
+		if (Array.isArray(message.attachments)) {
+			message.attachments = message.attachments.map((attachment: any) =>
+				attachment && typeof attachment === 'object'
+					? { ...attachment, isSpoiler: true, spoiler: attachment.spoiler || SPOILER_LABEL }
+					: attachment,
+			)
 		}
-		for (const embed of Array.isArray(message.embeds) ? message.embeds : []) {
-			if (!embed || typeof embed !== 'object') continue
-			if (!embed.spoiler) embed.spoiler = SPOILER_LABEL
+		if (Array.isArray(message.embeds)) {
+			message.embeds = message.embeds.map((embed: any) =>
+				embed && typeof embed === 'object' && !embed.spoiler
+					? { ...embed, spoiler: SPOILER_LABEL }
+					: embed,
+			)
 		}
 	}
 

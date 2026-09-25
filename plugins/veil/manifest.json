@@ -5,7 +5,7 @@
 	"description": "Blurs messages like a spoiler, revealed with a tap. Blur a person, a channel, or messages mentioning words you choose, all checked on your device. Install AI Core as well to blur a category you describe in your own words, in channels you pick.",
 	"author": "bleelblep",
 	"icon": "EyeSlashIcon",
-	"version": "0.3.3",
+	"version": "0.3.5",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

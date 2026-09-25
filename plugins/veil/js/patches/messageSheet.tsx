@@ -5,6 +5,9 @@
  * the person and channel rules are set from the message that prompted them. The settings page
  * only lists them for removal.
  *
+ * Each row can be switched off in settings (`sheetBlurPerson`, `sheetBlurChannel`, `sheetAiCheck`),
+ * and the whole group with `sheetActions`. With every row off, no group is added at all.
+ *
  * Same `openLazy` technique as Translate's `patches/messageActionSheet.tsx`, which documents why
  * (the sheet is found by its key, and `props` carries the message). Translate and Screenshot
  * Redactor hook the same method with `before`, which composes safely (porting rule 2).
@@ -92,7 +95,7 @@ function buildGroup(target: Target) {
 			/>,
 		)
 
-	if (authorId && authorId !== currentUserId()) {
+	if (s.sheetBlurPerson && authorId && authorId !== currentUserId()) {
 		const on = s.userIds.includes(authorId)
 		act(
 			on ? `Stop blurring ${userName(authorId)}` : `Blur messages from ${userName(authorId)}`,
@@ -102,16 +105,18 @@ function buildGroup(target: Target) {
 		)
 	}
 
-	const channelOn = s.channelIds.includes(channelId)
-	act(
-		channelOn ? `Stop blurring ${channelName(channelId)}` : `Blur everything in ${channelName(channelId)}`,
-		channelOn ? 'Show this channel normally again' : 'Every message here, until you undo it',
-		channelOn ? 'EyeIcon' : 'EyeSlashIcon',
-		() => toggleId('channelIds', channelId, !channelOn),
-	)
+	if (s.sheetBlurChannel) {
+		const channelOn = s.channelIds.includes(channelId)
+		act(
+			channelOn ? `Stop blurring ${channelName(channelId)}` : `Blur everything in ${channelName(channelId)}`,
+			channelOn ? 'Show this channel normally again' : 'Every message here, until you undo it',
+			channelOn ? 'EyeIcon' : 'EyeSlashIcon',
+			() => toggleId('channelIds', channelId, !channelOn),
+		)
+	}
 
 	const category = s.customCategory.trim()
-	if (category) {
+	if (s.sheetAiCheck && category) {
 		const aiOn = s.aiChannelIds.includes(channelId)
 		act(
 			aiOn ? 'Stop checking this channel' : `Check this channel for “${category}”`,
@@ -123,6 +128,7 @@ function buildGroup(target: Target) {
 		)
 	}
 
+	if (!rows.length) return null
 	return <ActionSheetRow.Group key="veil">{rows}</ActionSheetRow.Group>
 }
 
@@ -190,6 +196,7 @@ export default function patchMessageSheet(): () => void {
 				const channelId = message?.channel_id ?? props?.channel?.id
 				if (
 					settings().enabled &&
+					settings().sheetActions &&
 					typeof key === 'string' &&
 					isMessageSheet(key) &&
 					typeof channelId === 'string' &&

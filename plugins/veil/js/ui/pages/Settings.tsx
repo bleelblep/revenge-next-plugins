@@ -41,7 +41,9 @@ export default function Settings({
 				]
 					.filter(Boolean)
 					.join(', ')
-			: 'None yet — long-press a message to add one'
+			: s.sheetActions && (s.sheetBlurPerson || s.sheetBlurChannel)
+				? 'None yet — long-press a message to add one'
+				: 'None yet — turn on the long-press options below to add one'
 
 	return (
 		<Page>
@@ -99,6 +101,45 @@ export default function Settings({
 							arrow
 							onPress={() => navigation.navigate(CATEGORY_ROUTE)}
 						/>
+					</TableRowGroup>
+
+					<TableRowGroup title="Long-press menu" hasIcons>
+						<TableSwitchRow
+							label="Veil options in the long-press menu"
+							subLabel="Rows to blur a person or channel when you long-press a message. It's the only way to add those, so off means no new ones — existing ones keep working."
+							icon={rowIcon('EyeSlashIcon', 'ic_hide')}
+							value={!!s.sheetActions}
+							onValueChange={value => patch({ sheetActions: value })}
+						/>
+						{s.sheetActions ? (
+							<>
+								<TableSwitchRow
+									label="Blur this person"
+									subLabel="“Blur messages from …” on other people's messages"
+									icon={rowIcon('UserIcon', 'ic_profile_24px')}
+									value={!!s.sheetBlurPerson}
+									onValueChange={value => patch({ sheetBlurPerson: value })}
+								/>
+								<TableSwitchRow
+									label="Blur this channel"
+									subLabel="“Blur everything in …” for the channel you're in"
+									icon={rowIcon('TextIcon', 'ic_text')}
+									value={!!s.sheetBlurChannel}
+									onValueChange={value => patch({ sheetBlurChannel: value })}
+								/>
+								<TableSwitchRow
+									label="Check this channel with AI"
+									subLabel={
+										s.customCategory
+											? `“Check this channel for ${s.customCategory}”. The only way to add a channel to your own category.`
+											: 'Appears once you describe your own category'
+									}
+									icon={rowIcon('MagicWandIcon', 'ic_star')}
+									value={!!s.sheetAiCheck}
+									onValueChange={value => patch({ sheetAiCheck: value })}
+								/>
+							</>
+						) : null}
 					</TableRowGroup>
 
 					<TableRowGroup title="Settings" hasIcons>

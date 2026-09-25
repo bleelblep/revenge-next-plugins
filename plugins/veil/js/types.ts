@@ -34,6 +34,21 @@ export interface VeilStorage {
 	/** Messages shorter than this are never sent for checking. */
 	aiMinLength: number
 
+	// --- the long-press menu ---------------------------------------------------
+
+	/**
+	 * Veil's rows in a message's long-press menu at all. The menu is the only way to add person,
+	 * channel and AI-channel rules, so switching a row off freezes that list: existing rules keep
+	 * working and can still be removed from settings, but new ones cannot be added until it is on.
+	 */
+	sheetActions: boolean
+	/** "Blur messages from <person>". */
+	sheetBlurPerson: boolean
+	/** "Blur everything in <channel>". */
+	sheetBlurChannel: boolean
+	/** "Check this channel for <category>", shown only while a custom category is set. */
+	sheetAiCheck: boolean
+
 	// --- presentation --------------------------------------------------------
 
 	/** Also spoiler the attachments and embeds of a blurred message. */
