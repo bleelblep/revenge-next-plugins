@@ -27,10 +27,53 @@ import { rowStateFor, toggleTranslation } from '../lib/translate'
 const SYM_PATCHED = Symbol.for('Patched by Translate')
 
 /** Records what actually happened, for the Debug page. Porting rule 3. */
-const status = { lastKey: '', injected: false }
+const status = { lastKey: '', injected: false, lastError: '' }
 
-export function sheetStatus(): { lastKey: string; injected: boolean } {
+export function sheetStatus(): {
+	lastKey: string
+	injected: boolean
+	lastError: string
+} {
 	return { ...status }
+}
+
+/**
+ * Keeps a failure inside our row from taking the whole sheet -- and the app -- with it.
+ *
+ * A render error in an action sheet has no boundary of Discord's above it, and on a release
+ * build an uncaught render error is fatal: the app closes to the home screen. Users on 348.1
+ * reported exactly that on every long-press with Translate enabled, from a setup we could not
+ * reproduce. With this in place the worst case is a missing row, and the error lands on the
+ * Debug page instead of in a crash.
+ *
+ * Built on first use rather than at module scope (porting rule 1), and cached so every sheet
+ * reuses one class: a new class per render would remount the row each time.
+ */
+let RowBoundary: any
+function getRowBoundary(): any {
+	if (RowBoundary) return RowBoundary
+	const { React } = revenge.react
+
+	RowBoundary = class TranslateRowBoundary extends React.Component<
+		{ children?: any },
+		{ failed: boolean }
+	> {
+		state = { failed: false }
+
+		static getDerivedStateFromError() {
+			return { failed: true }
+		}
+
+		componentDidCatch(error: unknown) {
+			status.lastError = String((error as any)?.stack ?? error).slice(0, 500)
+			console.error('[Translate] sheet row failed to render:', error)
+		}
+
+		render() {
+			return this.state.failed ? null : this.props.children
+		}
+	}
+	return RowBoundary
 }
 
 /**
@@ -124,18 +167,29 @@ function buildRow(channelId: string, messageId: string, text: string) {
 	const Icon = ActionSheetRow.Icon ?? TableRowIcon
 	const icon = Icon && source ? <Icon source={source} /> : undefined
 
+	const row = (
+		<ActionSheetRow
+			label={label}
+			subLabel={subLabel}
+			icon={icon}
+			onPress={onPress}
+		/>
+	)
+
 	// Wrapped in a Group, which is what draws the rounded card around a row. Without it the row
 	// renders square-cornered against every other group in the sheet -- 0.5.3 dropped the wrapper
-	// and that is exactly how it looked.
+	// and that is exactly how it looked. A build without `Group` gets the bare row rather than
+	// an element of type `undefined`, which React refuses to render at all.
+	const Group = ActionSheetRow.Group
+	const Boundary = getRowBoundary()
 	return (
-		<ActionSheetRow.Group>
-			<ActionSheetRow
-				label={label}
-				subLabel={subLabel}
-				icon={icon}
-				onPress={onPress}
-			/>
-		</ActionSheetRow.Group>
+		<Boundary key="translate">
+			{typeof Group === 'function' || typeof Group === 'object' ? (
+				<Group>{row}</Group>
+			) : (
+				row
+			)}
+		</Boundary>
 	)
 }
 

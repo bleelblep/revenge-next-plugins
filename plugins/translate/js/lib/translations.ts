@@ -34,6 +34,21 @@ const translations = new Map<string, Translation>()
 const showing = new Set<string>()
 /** Messages currently being fetched, so a double tap cannot fire two requests. */
 const inFlight = new Set<string>()
+/**
+ * Messages every provider refused this session. The auto sweep skips them -- otherwise each new
+ * message in a busy channel re-queued the same doomed requests. A tap on the sheet row still
+ * retries, since that is someone asking on purpose.
+ */
+const failed = new Set<string>()
+
+export function hasFailed(messageId: string): boolean {
+	return failed.has(messageId)
+}
+
+export function markFailed(messageId: string, value: boolean) {
+	if (value) failed.add(messageId)
+	else failed.delete(messageId)
+}
 
 export function translationFor(messageId: string): Translation | undefined {
 	return translations.get(messageId)
@@ -82,4 +97,5 @@ export function resetTranslations() {
 	translations.clear()
 	showing.clear()
 	inFlight.clear()
+	failed.clear()
 }

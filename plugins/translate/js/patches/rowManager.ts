@@ -19,7 +19,7 @@
 
 import { nameForDetected } from '../lib/languages'
 import { providerById } from '../lib/providers'
-import { readText, writeText } from '../lib/rewrite'
+import { readText } from '../lib/rewrite'
 import { debug, settings } from '../lib/state'
 import { activeTranslation } from '../lib/translations'
 import type { Translation } from '../lib/translations'
@@ -70,15 +70,6 @@ function noteFor(translation: Translation): string | undefined {
 
 const SUBTEXT = 'subtext'
 
-function isOurSubtext(node: any): boolean {
-	return (
-		node?.type === SUBTEXT &&
-		Array.isArray(node.content) &&
-		typeof node.content[0] === 'string' &&
-		node.content[0].startsWith('🌐')
-	)
-}
-
 /**
  * Android colour ints, as signed 32-bit values.
  *
@@ -119,19 +110,21 @@ function apply(row: any): void {
 
 	const note = noteFor(translation)
 
-	// A trailing newline in the text, not a separate line-break node: the text node is a
-	// confirmed shape and a newline inside it is already known to render, where the line-break
-	// node's serial name has not been checked.
-	const changed = writeText(
-		message.content,
-		note ? `${translation.text}\n` : translation.text,
-	)
+	// A brand-new content array, never an edit of the old one. `message.content` is Discord's
+	// per-message parse cache (`parseMessageMarkup` memoizes it per record); writing into it is
+	// what made "Show original" stick. The row object is fresh per generation, so replacing the
+	// property leaves the cache -- and every later regeneration without a translation -- untouched.
+	//
+	// One plain string rather than the original nodes with their text swapped: the translation
+	// already carries mentions, emoji and links in readable form (`lib/tokens.ts`), so keeping the
+	// original nodes as well showed each of them twice. A bare string is a confirmed shape --
+	// `ContentNodeSerializer.deserialize` turns any JSON primitive into a TextContentNode -- and a
+	// newline inside it is known to render, so the note needs no separate line-break node.
+	const content: any[] = [note ? `${translation.text}\n` : translation.text]
+	if (note) content.push({ type: SUBTEXT, content: [note] })
 
-	// Idempotent: a row generated twice must not collect two notes.
-	const last = message.content[message.content.length - 1]
-	if (note && !isOurSubtext(last)) {
-		message.content.push({ type: SUBTEXT, content: [note] })
-	}
+	const changed = readText(message.content) !== translation.text
+	message.content = content
 
 	highlight(row)
 

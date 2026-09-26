@@ -12,9 +12,12 @@
 
 import { PROVIDERS, providerById, translateWithChain } from './providers'
 import { repaintMessage } from './repaint'
+import { mask } from './tokens'
 import { debug, settings, toast } from './state'
 import {
+	hasFailed,
 	isInFlight,
+	markFailed,
 	isShowing,
 	markInFlight,
 	remember,
@@ -78,6 +81,7 @@ export async function fetchTranslation(
 ): Promise<boolean> {
 	if (translationFor(messageId)) return true
 	if (isInFlight(messageId)) return false
+	if (automatic && hasFailed(messageId)) return false
 
 	const trimmed = typeof text === 'string' ? text.trim() : ''
 	if (!trimmed) return false
@@ -85,9 +89,17 @@ export async function fetchTranslation(
 	const s = settings()
 	markInFlight(messageId, true)
 
+	// Mentions, emoji, links, code and spoilers never reach the service (see `tokens.ts`).
+	const masked = mask(trimmed.slice(0, 2000))
+	// Nothing but markup: there is no prose to translate.
+	if (!masked.text.replace(/⟦\s*\d+\s*⟧/g, '').trim()) {
+		markInFlight(messageId, false)
+		return false
+	}
+
 	try {
 		const { result, attempts } = await translateWithChain(
-			trimmed.slice(0, 2000),
+			masked.text,
 			s.target,
 			'auto',
 			orderFor(s.provider),
@@ -98,8 +110,10 @@ export async function fetchTranslation(
 
 		if (!result) {
 			lastOutcome = `all providers failed (${trail})`
+			markFailed(messageId, true)
 			return false
 		}
+		markFailed(messageId, false)
 
 		// Same language in and out means the service found nothing to do. Worth remembering so
 		// the auto sweep does not ask about it again, but not worth showing.
@@ -111,7 +125,7 @@ export async function fetchTranslation(
 
 		lastOutcome = `${result.provider} answered (${trail})`
 		remember(messageId, {
-			text: result.text,
+			text: masked.restore(result.text),
 			detected: result.detected,
 			provider: result.provider,
 			automatic,

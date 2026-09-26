@@ -56,6 +56,14 @@ export default function Debug() {
 							icon={rowIcon('ChatIcon', 'ic_message')}
 						/>
 						<TableRow
+							label="Sheet row error"
+							subLabel={
+								sheet.lastError ||
+								'None. The row has never failed to render this session.'
+							}
+							icon={rowIcon('WarningIcon', 'ic_warning')}
+						/>
+						<TableRow
 							label="Row rewriting"
 							subLabel={
 								row.installed

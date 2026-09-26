@@ -12,6 +12,29 @@
 
 const MAX_DEPTH = 12
 
+/**
+ * A private copy of a row's content tree, safe to rewrite.
+ *
+ * The array a generated row carries is **Discord's parse cache**, not a fresh parse:
+ * `parseMessageMarkup` (`modules/messages/native/renderer/MarkupParsers.tsx`, 348.x) memoizes its
+ * result per message record and hands the same object back on every regeneration. Rewriting it in
+ * place wrote the translation into the cache itself, so "Show original" redrew the message from a
+ * cache that still held the translation -- the revert stuck, for as long as the store kept the same
+ * record. Every edit goes into a copy instead.
+ *
+ * Content nodes cross to native as JSON, so a plain structural copy of arrays and objects is
+ * complete; anything else (strings, numbers, booleans, null) is shared as-is.
+ */
+export function cloneContent<T>(value: T, depth = 0): T {
+	if (depth > MAX_DEPTH * 2 || value === null || typeof value !== 'object') return value
+	if (Array.isArray(value))
+		return value.map(entry => cloneContent(entry, depth + 1)) as unknown as T
+	const copy: Record<string, unknown> = {}
+	for (const key of Object.keys(value as object))
+		copy[key] = cloneContent((value as Record<string, unknown>)[key], depth + 1)
+	return copy as T
+}
+
 /** Content-node types that must survive untranslated. */
 function isUntouchable(node: any): boolean {
 	if (typeof node?.userId === 'string' && node.userId) return true
