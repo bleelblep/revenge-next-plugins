@@ -2,73 +2,70 @@ import getTag, { isBuiltInTag } from "../lib/getTag"
 import { findInReactTree } from "../lib/findInReactTree"
 import { DEFAULTS, type StaffTagsStorage } from "../index"
 
-// instead, not after: after's hook only receives the return value, not the original
-// arguments (confirmed from revenge-bundle-next's own patcher source).
-const rowPatch =
-	(jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>, getTagModule: () => any, GuildStore: any) =>
-	(args: any[], original: any) => {
-		// Confirmed on-device crash (this exact surface, opening a server's member list):
-		// "undefined is not a function" when the captured original wasn't actually a
-		// function yet at patch time (a getModules match on partially-populated exports, or
-		// the "type" property genuinely not being callable for this particular match). Never
-		// assume it's callable.
-		if (typeof original !== "function") return undefined
-		const res = original(...args)
-		const [{ guildId, user }] = args
-		const label = res?.props?.label
-		const nameContainer = findInReactTree(
-			label,
-			(c: any) =>
-				Array.isArray(c?.props?.children) &&
-				c.props.children.some(
-					(ch: any) => typeof ch === "string" || typeof ch?.props?.children === "string",
-				),
-		)
+// Applies the tag to one rendered UserRow. Split out of the hooks below so the `before` half can
+// stash the props and the `after` half can use them: `after` only receives the return value.
+const applyRowTag = (
+	res: any,
+	props: any,
+	jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>,
+	getTagModule: () => any,
+	GuildStore: any,
+) => {
+	const { guildId, user } = props ?? {}
+	const label = res?.props?.label
+	const nameContainer = findInReactTree(
+		label,
+		(c: any) =>
+			Array.isArray(c?.props?.children) &&
+			c.props.children.some(
+				(ch: any) => typeof ch === "string" || typeof ch?.props?.children === "string",
+			),
+	)
 
-		const existingTag = findInReactTree(nameContainer, (c: any) => c?.type?.Types)
-		if (existingTag && isBuiltInTag(existingTag.props.type)) return res
-		if (!nameContainer) return res
+	const existingTag = findInReactTree(nameContainer, (c: any) => c?.type?.Types)
+	if (existingTag && isBuiltInTag(existingTag.props.type)) return res
+	if (!nameContainer) return res
 
-		const guild = GuildStore.getGuild(guildId)
-		const tag = getTag(guild, undefined, user, !!(jsonStorage.cache ?? DEFAULTS).useRoleColor)
+	const guild = GuildStore.getGuild(guildId)
+	const tag = getTag(guild, undefined, user, !!(jsonStorage.cache ?? DEFAULTS).useRoleColor)
 
-		if (tag) {
-			if (existingTag) {
-				Object.assign(existingTag.props, {
-					type: 0,
-					text: tag.text,
-					textColor: tag.textColor,
-					backgroundColor: tag.backgroundColor,
-					gradientColor: tag.gradientColor,
-					icon: tag.icon,
-					customSvg: tag.customSvg,
-					iconOnly: tag.iconOnly,
-					verified: tag.verified,
-				})
-			} else {
-				const TagModule = getTagModule()
-				if (!TagModule?.default) return res
+	if (tag) {
+		if (existingTag) {
+			Object.assign(existingTag.props, {
+				type: 0,
+				text: tag.text,
+				textColor: tag.textColor,
+				backgroundColor: tag.backgroundColor,
+				gradientColor: tag.gradientColor,
+				icon: tag.icon,
+				customSvg: tag.customSvg,
+				iconOnly: tag.iconOnly,
+				verified: tag.verified,
+			})
+		} else {
+			const TagModule = getTagModule()
+			if (typeof TagModule?.default !== "function") return res
 
-				if (!Array.isArray(nameContainer.props.children)) {
-					nameContainer.props.children = [nameContainer.props.children]
-				}
-				nameContainer.props.children.push(
-					<TagModule.default
-						type={0}
-						text={tag.text}
-						textColor={tag.textColor}
-						backgroundColor={tag.backgroundColor}
-						gradientColor={tag.gradientColor}
-						icon={tag.icon}
-						customSvg={tag.customSvg}
-						iconOnly={tag.iconOnly}
-						verified={tag.verified}
-					/>,
-				)
+			if (!Array.isArray(nameContainer.props.children)) {
+				nameContainer.props.children = [nameContainer.props.children]
 			}
+			nameContainer.props.children.push(
+				<TagModule.default
+					type={0}
+					text={tag.text}
+					textColor={tag.textColor}
+					backgroundColor={tag.backgroundColor}
+					gradientColor={tag.gradientColor}
+					icon={tag.icon}
+					customSvg={tag.customSvg}
+					iconOnly={tag.iconOnly}
+					verified={tag.verified}
+				/>,
+			)
 		}
-		return res
 	}
+	return res
+}
 
 /**
  * A raw custom filter, built by hand instead of via `filters.withName` etc: matches a module
@@ -128,9 +125,40 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	const patchedAlready = new Set<any>()
 
 	function patchUserRow(UserRow: any) {
-		if (!UserRow || patchedAlready.has(UserRow)) return
-		patchedAlready.add(UserRow)
-		patches.push(revenge.patcher.instead(UserRow, "type", rowPatch(jsonStorage, getTagModule, GuildStore)))
+		// Guarded end to end: when the module is already initialized, Revenge runs this callback
+		// as a bare engine job, and an uncaught throw there can close the app.
+		try {
+			// `withName` can hand back a plain function, which has no `.type` to patch --
+			// patching it anyway throws while building the proxy.
+			if (typeof UserRow?.type !== "function" || patchedAlready.has(UserRow)) return
+			patchedAlready.add(UserRow)
+
+			// `before` + `after`, not `instead`: other plugins `instead`-hook this same render
+			// function (Platform Indicators does), and two `instead` hooks on one method can
+			// recurse until the stack overflows. React calls a row's render synchronously and never
+			// re-enters it mid-call, so one stash slot per row type is enough.
+			let pendingProps: any
+			patches.push(
+				revenge.patcher.before(UserRow, "type", (args: any[]) => {
+					pendingProps = args?.[0]
+					return args
+				}),
+			)
+			patches.push(
+				revenge.patcher.after(UserRow, "type", (res: any) => {
+					const props = pendingProps
+					pendingProps = undefined
+					try {
+						return applyRowTag(res, props, jsonStorage, getTagModule, GuildStore)
+					} catch (error) {
+						console.error("[StaffTags] member row tag failed:", error)
+						return res
+					}
+				}),
+			)
+		} catch (error) {
+			console.error("[StaffTags] could not patch UserRow:", error)
+		}
 	}
 
 	// Try both: withName covers a build where UserRow isn't memo-wrapped (a plain named

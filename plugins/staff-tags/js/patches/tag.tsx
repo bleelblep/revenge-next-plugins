@@ -56,7 +56,10 @@ export default () => {
 	let unpatch: (() => void) | undefined
 
 	const unsubscribe = getModules(withProps('getBotLabel'), (Tag: any) => {
-		if (!Tag) return
+		// Must be a function: patching a missing `default` throws while building the proxy, and
+		// here that throw is uncaught (Revenge runs this callback as a bare engine job when the
+		// module is already initialized), which can close the app.
+		if (typeof Tag?.default !== "function") return
 
 		// instead, not after: after's hook only receives the return value, not the original
 		// arguments (confirmed from revenge-bundle-next's own patcher source).

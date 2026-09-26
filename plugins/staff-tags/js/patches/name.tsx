@@ -30,7 +30,7 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	const unsubscribeHeader = getModules(
 		withName("HeaderName"),
 		(HeaderName: any) => {
-			if (!HeaderName?.default) return
+			if (typeof HeaderName?.default !== "function") return
 			// instead, not after: after's hook only receives the return value, not the
 			// original arguments (confirmed from revenge-bundle-next's own patcher source).
 			patches.push(
@@ -52,7 +52,7 @@ export default (jsonStorage: RevengeJsonStorageApi<StaffTagsStorage>) => {
 	const unsubscribeDisplay = getModules(
 		withName("DisplayName"),
 		(DisplayName: any) => {
-			if (!DisplayName?.default) return
+			if (typeof DisplayName?.default !== "function") return
 			// instead, not after: after's hook only receives the return value, not the
 			// original arguments (confirmed from revenge-bundle-next's own patcher source).
 			patches.push(
