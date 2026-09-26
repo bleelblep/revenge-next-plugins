@@ -220,6 +220,20 @@ export default function patchCallButtons(
 		}
 	}
 
+	/**
+	 * For the finder callbacks below. When a module is already initialized, Revenge runs the
+	 * callback as a bare engine job with no try around it, so a throw there (patching a missing
+	 * export builds a proxy on `undefined`) is uncaught and can close the app. Later loads are
+	 * swallowed silently instead. Guarding here turns both into one logged line.
+	 */
+	const guarded = (label: string, fn: () => void) => {
+		try {
+			fn()
+		} catch (error) {
+			console.error(`[HideCallButtons] failed to patch ${label}:`, error)
+		}
+	}
+
 	// NOTE: this patcher's `after` hook receives only the return value, and its return value is
 	// assigned unconditionally -- so every hook below must return `component`. Vendetta's
 	// `after` treated `undefined` as "keep the original", which is why the source these are
@@ -229,7 +243,10 @@ export default function patchCallButtons(
 	apply("UserProfileActions", () => {
 		patches.push(
 			getModules(withName("UserProfileActions"), (mod: any) => {
-				patches.push(after(mod, "default", hideProfileButtons))
+				guarded("UserProfileActions", () => {
+					if (typeof mod?.default !== "function") return
+					patches.push(after(mod, "default", hideProfileButtons))
+				})
 			}, { returnNamespace: true }),
 		)
 	})
@@ -240,7 +257,10 @@ export default function patchCallButtons(
 	apply("UserProfileContactButtons", () => {
 		patches.push(
 			getModules(withName("UserProfileContactButtons"), (mod: any) => {
-				patches.push(after(mod, "default", hideProfileButtons))
+				guarded("UserProfileContactButtons", () => {
+					if (typeof mod?.default !== "function") return
+					patches.push(after(mod, "default", hideProfileButtons))
+				})
 			}, { returnNamespace: true }),
 		)
 	})
@@ -248,7 +268,8 @@ export default function patchCallButtons(
 	// --- Voice channel video button ---
 	apply("VideoButton", () => {
 		patches.push(
-			getModules(withName("VideoButton"), (mod: any) => {
+			getModules(withName("VideoButton"), (mod: any) => guarded("VideoButton", () => {
+				if (typeof mod?.default !== "function") return
 				patches.push(
 					instead(mod, "default", function (this: any, args: any[], original: any) {
 						if (s().hideVCVideoButton) return undefined
@@ -256,7 +277,7 @@ export default function patchCallButtons(
 						return Reflect.apply(original, this, args)
 					}),
 				)
-			}, { returnNamespace: true }),
+			}), { returnNamespace: true }),
 		)
 	})
 
@@ -264,7 +285,10 @@ export default function patchCallButtons(
 	apply("PrivateChannelButtons", () => {
 		patches.push(
 			getModules(withTypeName("PrivateChannelButtons"), (mod: any) => {
-				patches.push(after(mod, "type", hideDMButtons))
+				guarded("PrivateChannelButtons", () => {
+					if (typeof mod?.type !== "function") return
+					patches.push(after(mod, "type", hideDMButtons))
+				})
 			}),
 		)
 	})
@@ -273,7 +297,10 @@ export default function patchCallButtons(
 	apply("ChannelButtons", () => {
 		patches.push(
 			getModules(withProps("ChannelButtons"), (mod: any) => {
-				patches.push(after(mod, "ChannelButtons", hideDMButtons))
+				guarded("ChannelButtons", () => {
+					if (typeof mod?.ChannelButtons !== "function") return
+					patches.push(after(mod, "ChannelButtons", hideDMButtons))
+				})
 			}, { returnNamespace: true }),
 		)
 	})
