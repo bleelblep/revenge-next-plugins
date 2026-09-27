@@ -154,6 +154,26 @@ function guard(this: any, args: any[], original: any) {
 		return Reflect.apply(original, this, args)
 	}
 
+	/**
+	 * A send made after the check -- once the model answered, or from the hold dialog. By then the
+	 * caller has long had its answer and the chat input is empty, so a failure here would lose the
+	 * message without a trace. Instead the text goes back in the box and a toast says so. The fast
+	 * path above keeps calling `send` directly: its failures reach the caller as they always did.
+	 */
+	const sendLater = () => {
+		const failed = (error: unknown) => {
+			console.error(`${TAG} sending after the check failed:`, error)
+			restoreDraft(channelId, content)
+			toast("Couldn't send that. It's back in the message box.")
+		}
+		try {
+			const result: any = send()
+			if (result && typeof result.then === 'function') result.then(undefined, failed)
+		} catch (error) {
+			failed(error)
+		}
+	}
+
 	const channelId: string = args?.[0]
 	const content = args?.[1]?.content
 
@@ -174,7 +194,7 @@ function guard(this: any, args: any[], original: any) {
 	if (outcome.kind === 'pass') return send()
 
 	if (outcome.kind === 'hold') {
-		hold(outcome.verdict, channelId, content, send)
+		hold(outcome.verdict, channelId, content, sendLater)
 		return Promise.resolve(undefined)
 	}
 
@@ -192,17 +212,17 @@ function guard(this: any, args: any[], original: any) {
 			clearTimeout(announce)
 			if (!verdict.hold) {
 				debug(announced ? 'model passed it (late)' : 'model passed it')
-				send()
+				sendLater()
 				return
 			}
-			hold(verdict, channelId, content, send)
+			hold(verdict, channelId, content, sendLater)
 		})
 		.catch(error => {
 			// judgeRemotely swallows its own failures, so this is a bug in our own code rather
 			// than a network problem. Still fail open.
 			clearTimeout(announce)
 			console.error(`${TAG} remote check threw; sending anyway:`, error)
-			send()
+			sendLater()
 		})
 
 	return Promise.resolve(undefined)

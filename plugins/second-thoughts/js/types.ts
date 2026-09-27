@@ -26,6 +26,8 @@ export interface Verdict {
  */
 export interface SecondThoughtsStorage {
 	enabled: boolean
+	/** Leave DMs and group DMs alone entirely: no checks of any kind there. */
+	skipDms: boolean
 
 	// --- Patterns: always available, no AI involved ---------------------------
 	/** Tokens, API keys, private keys, Luhn-valid card numbers. */

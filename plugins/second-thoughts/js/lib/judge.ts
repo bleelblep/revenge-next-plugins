@@ -46,6 +46,7 @@ export function judgeLocally(text: string, channelId: string): LocalOutcome {
 	const s = settings()
 
 	if (!s.enabled) return { kind: 'pass', why: 'disabled' }
+	if (s.skipDms && isPrivateChannel(channelId)) return { kind: 'pass', why: 'dm' }
 	if (typeof text !== 'string' || !text.trim())
 		return { kind: 'pass', why: 'empty' }
 

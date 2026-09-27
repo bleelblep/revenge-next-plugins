@@ -6,6 +6,8 @@ import type { SecondThoughtsStorage } from './types'
  */
 export const DEFAULTS: SecondThoughtsStorage = {
 	enabled: true,
+	// Off by default: a leaked key hurts in a DM too.
+	skipDms: false,
 
 	checkCredentials: true,
 	// Off by default. People post their own email and number on purpose constantly; a guard that

@@ -43,6 +43,16 @@ export default function Checks() {
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
 				<Stack spacing={24}>
+					<TableRowGroup title="Where" hasIcons>
+						<TableSwitchRow
+							label="Skip DMs"
+							subLabel="Never check messages in DMs and group DMs, not even for credentials. Servers are still checked."
+							icon={rowIcon('ChatIcon', 'ic_message')}
+							value={!!s.skipDms}
+							onValueChange={value => set({ skipDms: value })}
+						/>
+					</TableRowGroup>
+
 					<TableRowGroup title="Patterns — free, nothing else needed" hasIcons>
 						<TableSwitchRow
 							label="Credentials"
@@ -62,7 +72,7 @@ export default function Checks() {
 							label="Personal details in DMs too"
 							subLabel="Off means the check only applies in servers, where the audience is larger. Handing a friend your number is not the case worth stopping."
 							icon={rowIcon('GroupIcon')}
-							disabled={!s.checkPersonalDetails}
+							disabled={!s.checkPersonalDetails || !!s.skipDms}
 							value={!!s.personalDetailsInDms}
 							onValueChange={value => set({ personalDetailsInDms: value })}
 						/>
