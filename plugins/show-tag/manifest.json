@@ -2,9 +2,9 @@
 	"format": 1,
 	"id": "bleelblep.show-tag",
 	"name": "Show Tag",
-	"description": "Shows the username (or full Discord tag on legacy accounts) in the message header, including reply previews.",
+	"description": "Shows usernames next to display names in chat, including in replies.",
 	"author": "Cynosphere, bleelblep",
-	"version": "1.2.2",
+	"version": "1.2.3",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
