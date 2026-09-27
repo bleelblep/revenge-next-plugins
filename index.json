@@ -127,10 +127,10 @@
     },
     "bleelblep.custom-timestamps": {
       "name": "Custom Timestamps",
-      "description": "Customize the format of timestamps in chat — calendar, relative, ISO 8601, or a custom format string.",
+      "description": "Choose how chat timestamps look: calendar, relative, ISO 8601 or your own format.",
       "author": "bleelblep, Fiery",
       "channels": {
-        "latest": "1.2.3"
+        "latest": "1.2.4"
       },
       "versions": {
         "1.2.2": {
@@ -150,6 +150,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.custom-timestamps@1.2.3.zip",
           "sha256": "f7678cf28b6932e7e3207ec61f0480d6739814f1133defbe28be701612c81566",
           "size": 2782,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.2.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.custom-timestamps@1.2.4.zip",
+          "sha256": "fcc4a5ebc69b6494f83090a4d86eb9bc2fdb40f22d8eaa788de2d9f2a09fe27a",
+          "size": 2772,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -544,11 +557,11 @@
     },
     "bleelblep.second-thoughts": {
       "name": "Second Thoughts",
-      "description": "A send-guard that stays quiet. Credentials, API keys and card numbers are caught by pattern alone -- no key, no network, no AI -- and never reach the wire. Install AI Core as well and it also weighs up anger, drunk-posting and oversharing, but only on a draft a free local check has already flagged. Everything else sends untouched, at full speed.",
+      "description": "Stops passwords, API keys and card numbers from being sent. Optional AI checks with AI Core.",
       "author": "bleelblep",
       "icon": "ShieldIcon",
       "channels": {
-        "latest": "0.2.8"
+        "latest": "0.3.1"
       },
       "versions": {
         "0.2.3": {
@@ -606,6 +619,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.second-thoughts@0.2.8.zip",
           "sha256": "a5421100f3e42b0ef63c36d713ff3aa7f8eca3799d6d028b9c70e9d10bf5960a",
           "size": 12993,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.3.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.second-thoughts@0.3.1.zip",
+          "sha256": "584caebceca1de6712d5f7257a640156c5cf5fcf930b8148b9fab5aad6ddd38e",
+          "size": 13028,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -690,10 +720,10 @@
     },
     "bleelblep.show-tag": {
       "name": "Show Tag",
-      "description": "Shows the username (or full Discord tag on legacy accounts) in the message header, including reply previews.",
+      "description": "Shows usernames next to display names in chat, including in replies.",
       "author": "Cynosphere, bleelblep",
       "channels": {
-        "latest": "1.2.2"
+        "latest": "1.2.3"
       },
       "versions": {
         "1.2.1": {
@@ -713,6 +743,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.show-tag@1.2.2.zip",
           "sha256": "563d395ed50c123bcb5401faecba81216f597b1b72b9dfb0a811daabf08d79ea",
           "size": 1572,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.2.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.show-tag@1.2.3.zip",
+          "sha256": "ef78a90b658d7d6450e083598433ecfe82549d0cdaa927a19e9e0076e937bb8d",
+          "size": 1546,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -775,17 +818,33 @@
     },
     "bleelblep.tldr": {
       "name": "TL;DR",
-      "description": "Long-press a long message and tap TL;DR for the gist in a few short lines. Only you see it, nothing is posted, and each message is summarised once. Needs AI Core for the key and the spending cap.",
+      "description": "Long-press a long message for a short summary only you can see. Needs AI Core.",
       "author": "bleelblep",
       "icon": "TextIcon",
       "channels": {
-        "latest": "0.2.0"
+        "latest": "0.2.1"
       },
       "versions": {
         "0.2.0": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.tldr@0.2.0.zip",
           "sha256": "a0b01bde343463aa497562f36bf2983706d0164b4055cef496998b61ab327b4f",
           "size": 5819,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3"
+            }
+          }
+        },
+        "0.2.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.tldr@0.2.1.zip",
+          "sha256": "87693f369fd32c6ee2245c5cdb1349e474ff55fca3a3b08146e707d9d7d43cb7",
+          "size": 5830,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -865,11 +924,11 @@
     },
     "bleelblep.veil": {
       "name": "Veil",
-      "description": "Blurs messages like a spoiler, revealed with a tap. Blur a person, a channel, or messages mentioning words you choose, all checked on your device. Install AI Core as well to blur a category you describe in your own words, in channels you pick.",
+      "description": "Blur messages from chosen people, channels or keywords like spoilers, and tap to reveal.",
       "author": "bleelblep",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "0.3.5"
+        "latest": "0.3.6"
       },
       "versions": {
         "0.3.3": {
@@ -893,6 +952,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.veil@0.3.5.zip",
           "sha256": "65764c5a587f66e6fe9dbaec97d31d19356f1638d93259ba88452ad36fa1a361",
           "size": 9080,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.3.6": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.veil@0.3.6.zip",
+          "sha256": "1c8becceafa9bfd1c38c2e3efd0e857a88953d94105edc514e6f4bf9b60c293b",
+          "size": 9078,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
