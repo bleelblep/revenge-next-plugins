@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "bleelblep.tldr",
 	"name": "TL;DR",
-	"description": "Long-press a long message and tap TL;DR for the gist in a few short lines. Only you see it, nothing is posted, and each message is summarised once. Needs AI Core for the key and the spending cap.",
+	"description": "Long-press a long message for a short summary only you can see. Needs AI Core.",
 	"author": "bleelblep",
 	"icon": "TextIcon",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
