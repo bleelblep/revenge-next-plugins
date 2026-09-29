@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "bleelblep.send-tweaks",
 	"name": "Send Tweaks",
-	"description": "Small fixes to what you send. Removes tracking from links (?si=, utm_source, fbclid and friends), rewrites links with your own rules (twitter.com to fxtwitter.com, ready-made rules from the Text Replace thread, or your own imports), lets replies start without pinging, and applies your own find-and-replace rules. With AI Core installed, it can also write a rule from a description. Text inside code blocks is never touched.",
+	"description": "Strips link tracking, rewrites links, sends silently and applies your own find-and-replace rules.",
 	"author": "bleelblep",
 	"icon": "SendMessageIcon",
-	"version": "0.2.1",
+	"version": "0.4.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

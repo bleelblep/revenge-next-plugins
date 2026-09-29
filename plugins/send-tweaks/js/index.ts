@@ -15,9 +15,11 @@
  */
 
 import { DEFAULTS } from './defaults'
+import { refreshClearUrlsIfStale } from './lib/clearurls'
 import { setAi, setStorage } from './lib/state'
 import patchOutgoing from './patches/outgoing'
 import patchReplyMention from './patches/replyMention'
+import patchSendButton from './patches/sendButton'
 import Settings from './ui/pages/Settings'
 import { AI_ROUTE, registerPages } from './ui/routes'
 import type { AiHandle, SendTweaksStorage } from './types'
@@ -63,6 +65,19 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		apply('settings pages', registerPages)
 		apply('outgoing messages', patchOutgoing)
 		apply('reply mentions', patchReplyMention)
+		apply('send button', patchSendButton)
+
+		// The ClearURLs rules refresh themselves about weekly. Checked a little after start: storage is
+		// read without being awaited (`load: true`), and until it lands the defaults say "never
+		// downloaded", which would fetch on every launch.
+		const refresh = setTimeout(() => {
+			try {
+				refreshClearUrlsIfStale()
+			} catch (error) {
+				console.error('[SendTweaks] ClearURLs refresh failed:', error)
+			}
+		}, 8000)
+		cleanup(() => clearTimeout(refresh))
 	},
 
 	stop(api) {

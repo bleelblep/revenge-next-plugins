@@ -21,6 +21,12 @@
  * The rewrite changes the message object in place and never throws out of the wrapper, so a failure
  * sends the message exactly as typed.
  *
+ * ## Silent messages are new messages only
+ *
+ * With Silent messages on, a new message gets Discord's own `@silent ` prefix after every other change
+ * (`lib/silent.ts`), so your rules never see it and it is always the very first thing in the text.
+ * Edits are left alone: flags cannot change after sending, and an edit would keep the literal text.
+ *
  * ## Edits are cleaned when the edit box opens, not only when it is saved
  *
  * Discord skips `editMessage` entirely when the edited text is identical to the original, so a
@@ -40,6 +46,8 @@ import { whenModule } from '../lib/finder'
 import { wrapMethod } from '../lib/wrap'
 import { debug, settings, TAG } from '../lib/state'
 import { transform } from '../lib/transform'
+import { type OneOff, takeNextSend } from '../lib/nextSend'
+import { makeSilent } from '../lib/silent'
 
 const status = {
 	installed: false,
@@ -52,6 +60,10 @@ const status = {
 	replaced: 0,
 	/** Links changed by a link rule. */
 	rewritten: 0,
+	/** New messages sent with @silent added. */
+	silenced: 0,
+	/** Messages sent unchanged from the send button's long-press sheet. */
+	untouched: 0,
 }
 
 export function outgoingStatus() {
@@ -75,6 +87,18 @@ function rewrite(message: any, kind: 'send' | 'edit' | 'draft') {
 	debug(
 		`${kind}: ${result.cleaned} tracking param(s) removed, ${result.rewritten} link(s) rewritten, ${result.replaced} rule(s) applied`,
 	)
+}
+
+/** Last, after `rewrite`: see "Silent messages are new messages only" above. */
+function silence(message: any, once?: OneOff) {
+	const wanted = once === 'silent' ? true : once === 'loud' ? false : settings().silentMessages
+	if (!wanted) return
+	if (!message || typeof message.content !== 'string') return
+	const silent = makeSilent(message.content)
+	if (silent === message.content) return
+	message.content = silent
+	status.silenced++
+	debug('send: @silent added')
 }
 
 export default function patchOutgoing(): () => void {
@@ -103,7 +127,20 @@ export default function patchOutgoing(): () => void {
 			['sendMessage', 'editMessage', 'startEditMessage'],
 			(host, id) => {
 				// sendMessage(channelId, message, ...)
-				patches.push(wrapMethod(host, 'sendMessage', args => rewrite(args[1], 'send')))
+				patches.push(
+					wrapMethod(host, 'sendMessage', args => {
+						// Taken first and always, so a one-off from the long-press sheet is used up by
+						// this send and never carried to the next one.
+						const once = takeNextSend()
+						if (once === 'raw') {
+							status.untouched++
+							debug('send: sent unchanged, as asked from the send button')
+							return
+						}
+						rewrite(args[1], 'send')
+						silence(args[1], once)
+					}),
+				)
 
 				// editMessage(channelId, messageId, { content })
 				patches.push(

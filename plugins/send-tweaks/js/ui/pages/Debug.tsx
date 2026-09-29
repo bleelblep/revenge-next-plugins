@@ -1,7 +1,7 @@
-import { DEFAULTS } from '../../defaults'
-import { getStorage } from '../../lib/state'
+import { getStorage, useSettings } from '../../lib/state'
 import { outgoingStatus } from '../../patches/outgoing'
 import { replyStatus } from '../../patches/replyMention'
+import { sendButtonStatus } from '../../patches/sendButton'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { SendTweaksStorage } from '../../types'
@@ -15,11 +15,12 @@ export default function Debug() {
 		revenge.discord.design.Design
 
 	const storage = getStorage()
-	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
+	const s = useSettings()
 	const set = (patch: Partial<SendTweaksStorage>) => storage?.set(patch)
 
 	const out = outgoingStatus()
 	const reply = replyStatus()
+	const button = sendButtonStatus()
 
 	return (
 		<Page>
@@ -42,6 +43,15 @@ export default function Debug() {
 								out.installed
 									? `Hooked on module ${out.moduleId}`
 									: 'Not hooked yet — send a message, then look again'
+							}
+							icon={rowIcon('SendMessageIcon', 'ic_send')}
+						/>
+						<TableRow
+							label="Send button long-press"
+							subLabel={
+								button.installed
+									? `Hooked on module ${button.moduleId}, opened ${button.opened} time${button.opened === 1 ? '' : 's'}, ${button.swiped} swipe${button.swiped === 1 ? '' : 's'} sent. Touches ${button.touchesSeen ? 'seen' : 'not seen yet'}.`
+									: 'Not hooked yet — open a chat, then look again'
 							}
 							icon={rowIcon('SendMessageIcon', 'ic_send')}
 						/>
@@ -76,6 +86,16 @@ export default function Debug() {
 							label="Rules applied"
 							subLabel={`${out.replaced} time${out.replaced === 1 ? '' : 's'}`}
 							icon={rowIcon('PencilIcon', 'ic_edit_24px')}
+						/>
+						<TableRow
+							label="Sent unchanged from the send button"
+							subLabel={`${out.untouched}`}
+							icon={rowIcon('SendMessageIcon', 'ic_send')}
+						/>
+						<TableRow
+							label="Sent silently"
+							subLabel={`${out.silenced} message${out.silenced === 1 ? '' : 's'}`}
+							icon={rowIcon('BellZIcon', 'BellSlashIcon')}
 						/>
 						<TableRow
 							label="Replies started without a ping"

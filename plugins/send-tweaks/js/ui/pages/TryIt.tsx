@@ -1,5 +1,5 @@
-import { DEFAULTS } from '../../defaults'
-import { getStorage } from '../../lib/state'
+import { makeSilent } from '../../lib/silent'
+import { getStorage, useSettings } from '../../lib/state'
 import { transform } from '../../lib/transform'
 import { useBottomPadding } from '../safeArea'
 
@@ -28,15 +28,17 @@ export default function TryIt() {
 
 	// Subscribing re-renders the preview when a setting or rule changes elsewhere.
 	const storage = getStorage()
-	void { ...DEFAULTS, ...(storage?.use() ?? {}) }
+	const s = useSettings()
 
 	const [draft, setDraft] = React.useState('')
 	const result = draft ? transform(draft) : undefined
+	// The send hook adds @silent after every other change; Discord strips it, so show it as a note.
+	const silent = !!result && s.silentMessages && makeSilent(result.text) !== result.text
 
 	const summary = !result
 		? undefined
 		: result.text === draft
-			? 'Nothing would change — this would be sent exactly as typed.'
+			? `Nothing would change — this would be sent exactly as typed${silent ? ', but silently' : ''}.`
 			: [
 					result.cleaned &&
 						`${result.cleaned} tracking parameter${result.cleaned === 1 ? '' : 's'} removed`,
@@ -44,6 +46,7 @@ export default function TryIt() {
 						`${result.rewritten} link${result.rewritten === 1 ? '' : 's'} rewritten`,
 					result.replaced &&
 						`${result.replaced} rule${result.replaced === 1 ? '' : 's'} applied`,
+					silent && 'sent silently',
 				]
 					.filter(Boolean)
 					.join(', ')

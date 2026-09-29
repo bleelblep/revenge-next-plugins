@@ -31,6 +31,30 @@ export function settings(): SendTweaksStorage {
 	return { ...DEFAULTS, ...(storage?.cache ?? {}) }
 }
 
+/**
+ * The settings, re-rendering whenever they change -- from this page, the send sheet, or anywhere.
+ * Call like a hook.
+ *
+ * Every page and the sheet read through this one handle, the one `start()` was given. The root page
+ * used to read the `api.jsonStorage` Revenge hands a settings component, and a switch flipped in the
+ * send sheet did not show there. It also subscribes directly as well as calling `use()`, so a change
+ * made elsewhere always redraws the page.
+ */
+export function useSettings(): SendTweaksStorage {
+	const React = revenge.react.React
+	const [, redraw] = React.useReducer((n: number) => n + 1, 0)
+	const handle = storage
+	const value = handle?.use()
+	React.useEffect(() => {
+		try {
+			return handle?.subscribe?.(() => redraw())
+		} catch {
+			return undefined
+		}
+	}, [handle])
+	return { ...DEFAULTS, ...(value ?? handle?.cache ?? {}) }
+}
+
 export function debug(...args: unknown[]) {
 	if (settings().debugLogging) console.log(TAG, ...args)
 }

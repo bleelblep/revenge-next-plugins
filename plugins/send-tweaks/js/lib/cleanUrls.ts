@@ -19,7 +19,13 @@
  * everywhere. Parameters that are only tracking on one site — `si` on YouTube and Spotify, `s`
  * and `t` on X — are removed only there, because on another site the same name can be the
  * content itself.
+ *
+ * With "ClearURLs rules" on, the community rule set (lib/clearurls.ts) is consulted as well, and a
+ * redirect link it knows is replaced by its destination. A few parameters are kept whatever either
+ * list says, where they change the page (`keptOn`).
  */
+
+import { clearUrlsRedirect, clearUrlsTracks, keptOn } from './clearurls'
 
 /** Tracking on every site. */
 const GLOBAL = new Set([
@@ -63,6 +69,27 @@ const GLOBAL = new Set([
 	'trkcampaign',
 	'sc_channel',
 	'sc_campaign',
+	// Also stripped everywhere by Firefox's query stripping and/or the ClearURLs global rules.
+	'srsltid',
+	'ysclid',
+	'_openstat',
+	'__hsfp',
+	'__hssc',
+	'__hstc',
+	'mc_tc',
+	'ml_subscriber',
+	'ml_subscriber_hash',
+	'os_ehash',
+	'wtrid',
+	'tracking_source',
+	'fb_action_ids',
+	'fb_action_types',
+	'fb_source',
+	'fb_ref',
+	'action_object_map',
+	'action_type_map',
+	'action_ref_map',
+	'__twitter_impression',
 ])
 
 /** Tracking prefixes on every site. */
@@ -74,22 +101,26 @@ const GLOBAL_PREFIXES = [
 	'matomo_',
 	'mtm_',
 	'stm_',
+	'hmb_',
+	'otm_',
+	'itm_',
 ]
 
 /** Tracking only on particular sites, where the same name elsewhere may mean something. */
 const PER_HOST: Array<[RegExp, Set<string>]> = [
 	[
 		/(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/,
-		new Set(['si', 'feature', 'pp', 'ab_channel']),
+		new Set(['si', 'feature', 'pp', 'ab_channel', 'kw']),
 	],
 	[/(^|\.)spotify\.com$/, new Set(['si', 'context', 'nd', 'dlsi'])],
 	[
 		/(^|\.)(twitter\.com|x\.com|fxtwitter\.com|vxtwitter\.com)$/,
-		new Set(['s', 't', 'ref_src']),
+		new Set(['s', 't', 'ref_src', 'src', 'cn', 'ref_url']),
 	],
 	[
 		/(^|\.)instagram\.com$/,
-		new Set(['igsh', 'igshid', 'img_index', 'utm_source']),
+		// `stkn` and `igsi` are share tokens tying the click to whoever shared it (ClearURLs issue #534).
+		new Set(['igsh', 'igshid', 'img_index', 'utm_source', 'stkn', 'igsi']),
 	],
 	[
 		/(^|\.)tiktok\.com$/,
@@ -114,14 +145,34 @@ const PER_HOST: Array<[RegExp, Set<string>]> = [
 			'timestamp',
 			'enable_checksum',
 			'preview_pb',
+			'_d',
+			'share_app_name',
+			'share_iid',
 		]),
 	],
 	[
 		/(^|\.)reddit\.com$/,
 		// Not `context`: on a comment permalink it sets how many parent comments show, so it
 		// changes the page rather than tracking who shared it.
-		new Set(['share_id', 'ref', 'ref_source', 'rdt']),
+		new Set([
+			'share_id',
+			'ref',
+			'ref_source',
+			'ref_campaign',
+			'rdt',
+			'correlation_id',
+			'$deep_link',
+			'$3p',
+			'$original_url',
+			'_branch_match_id',
+		]),
 	],
+	[/(^|\.)twitch\.(tv|com)$/, new Set(['tt_medium', 'tt_content'])],
+	[/(^|\.)(steampowered|steamcommunity)\.com$/, new Set(['snr'])],
+	[/(^|\.)netflix\.com$/, new Set(['trackid', 'tctx'])],
+	[/(^|\.)etsy\.com$/, new Set(['click_key', 'click_sum', 'organic_search_click'])],
+	[/(^|\.)medium\.com$/, new Set(['source'])],
+	[/(^|\.)nytimes\.com$/, new Set(['smid'])],
 	[/(^|\.)facebook\.com$/, new Set(['mibextid', 'rdid', 'sfnsn', 'share_url'])],
 	[/(^|\.)linkedin\.com$/, new Set(['trackingid', 'lipi', 'refid', 'trk'])],
 	[
@@ -219,9 +270,19 @@ export interface CleanResult {
 }
 
 /** Cleans one URL. Returns it unchanged, with nothing removed, when there is nothing to do. */
-export function cleanUrl(raw: string): CleanResult {
+export function cleanUrl(raw: string, unwrapped = false): CleanResult {
 	const host = hostOf(raw)
 	if (!host) return { url: raw, removed: [] }
+
+	// A redirect link ClearURLs knows (Google's /url?q=, for one) becomes its destination, which is
+	// then cleaned in turn. Once only, so a redirect that points at another can't loop.
+	if (!unwrapped) {
+		const target = clearUrlsRedirect(raw)
+		if (target && target !== raw) {
+			const inner = cleanUrl(target, true)
+			return { url: inner.url, removed: ['redirect', ...inner.removed] }
+		}
+	}
 
 	// Split off the fragment first; it is never touched.
 	const hashAt = raw.indexOf('#')
@@ -249,7 +310,10 @@ export function cleanUrl(raw: string): CleanResult {
 		} catch {
 			/* a malformed key is compared as written */
 		}
-		if (isTracking(name, host)) removed.push(name)
+		const tracking =
+			!keptOn(host, name) &&
+			(isTracking(name, host) || clearUrlsTracks(raw, name) || (key !== name && clearUrlsTracks(raw, key)))
+		if (tracking) removed.push(name)
 		else kept.push(pair)
 	}
 
