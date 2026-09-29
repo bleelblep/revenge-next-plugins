@@ -7,8 +7,12 @@
  */
 
 import { backfill } from './backfill'
-import { showClientMessage } from './clientMessage'
-import { argument, OptionType, registerCommand } from './commands'
+import {
+	argument,
+	OptionType,
+	registerCommand,
+	showClientMessage,
+} from './commands'
 import { debug, settings, toast } from './state'
 import { keepKnownMentions } from './mentions'
 import { summarise } from './summarise'

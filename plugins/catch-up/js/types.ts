@@ -8,6 +8,11 @@ export interface CatchUpStorage {
 	/** Show a toast while the call is in flight. */
 	announce: boolean
 	debugLogging: boolean
+	/**
+	 * How long to wait for AI Core before giving up with "No answer came back", in seconds.
+	 * Set on the Debug page. AI Core's native side clamps requests to 0.5-120 s.
+	 */
+	aiTimeoutSeconds: number
 }
 
 /**

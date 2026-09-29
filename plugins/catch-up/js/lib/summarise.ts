@@ -9,7 +9,7 @@
  * the channel name is not interpolated into the system prompt, tempting as it is.
  */
 
-import { getAi } from './state'
+import { getAi, settings } from './state'
 import type { Transcript } from './transcript'
 
 const SYSTEM = [
@@ -36,6 +36,13 @@ export interface SummaryResult {
 	problem?: string
 }
 
+/** The wait before "No answer came back", from settings, clamped to what AI Core accepts. */
+export function aiTimeoutMs(): number {
+	const seconds = Number(settings().aiTimeoutSeconds)
+	const safe = Number.isFinite(seconds) ? seconds : 45
+	return Math.round(Math.min(120, Math.max(5, safe)) * 1000)
+}
+
 export async function summarise(
 	transcript: Transcript,
 ): Promise<SummaryResult> {
@@ -55,13 +62,16 @@ export async function summarise(
 		}
 	}
 
+	const timeoutMs = aiTimeoutMs()
+	const started = Date.now()
 	const text = await ai.text({
 		temperature: 0.2,
 		maxTokens: 400,
 		// AI Core's default timeout is sized for Second Thoughts' one-word verdicts. Writing a
 		// 400-token summary of a few hundred messages routinely takes 10-20 seconds, so under
-		// the default nearly every run was abandoned as "No answer came back".
-		timeoutMs: 45_000,
+		// the default nearly every run was abandoned as "No answer came back". Adjustable on the
+		// Debug page for slow providers; kept inside AI Core's native 0.5-120 s clamp.
+		timeoutMs,
 		messages: [
 			{ role: 'system', content: SYSTEM },
 			{ role: 'user', content: transcript.text },
@@ -69,9 +79,14 @@ export async function summarise(
 	})
 
 	if (!text?.trim()) {
+		// AI Core returns nothing for every failure, not only a timeout. Only blame the timeout
+		// when the wait actually ran out, so a request that failed at once does not send people
+		// off to raise a setting that would not have helped.
+		const timedOut = Date.now() - started >= timeoutMs - 500
 		return {
-			problem:
-				'No answer came back. Check AI Core > Debug for what went wrong.',
+			problem: timedOut
+				? `No answer came back within ${Math.round(timeoutMs / 1000)} s. Raise the timeout in Catch Up > Debug if your provider is slow.`
+				: 'No answer came back. Check AI Core > Debug for what went wrong.',
 		}
 	}
 

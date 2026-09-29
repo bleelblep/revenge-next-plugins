@@ -11,4 +11,7 @@ export const DEFAULTS: CatchUpStorage = {
 	skipBots: true,
 	announce: true,
 	debugLogging: false,
+	// A 400-token summary of a few hundred messages routinely takes 10-20 s; 45 leaves room for a
+	// slow provider without leaving someone staring at nothing for minutes.
+	aiTimeoutSeconds: 45,
 }

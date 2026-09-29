@@ -9,8 +9,8 @@ import type { CatchUpStorage } from '../../types'
 export default function Debug() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
-	const { ScrollView } = revenge.react.ReactNative
-	const { Stack, Text, TableRowGroup, TableRow, TableSwitchRow } =
+	const { ScrollView, View } = revenge.react.ReactNative
+	const { Stack, Text, TableRowGroup, TableRow, TableSwitchRow, Slider } =
 		revenge.discord.design.Design
 
 	const storage = getStorage()
@@ -31,6 +31,27 @@ export default function Debug() {
 							value={!!s.debugLogging}
 							onValueChange={value => set({ debugLogging: value })}
 						/>
+					</TableRowGroup>
+
+					<TableRowGroup
+						title={`AI timeout — ${Math.round(Number(s.aiTimeoutSeconds) || DEFAULTS.aiTimeoutSeconds)} seconds`}
+					>
+						<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+							<Text color="text-muted" variant="text-sm/normal">
+								How long to wait for AI Core before giving up with "No answer
+								came back". Raise it if summaries of long stretches time out on a
+								slow provider. AI Core never waits longer than 120 seconds.
+							</Text>
+							<Slider
+								step={5}
+								value={Number(s.aiTimeoutSeconds) || DEFAULTS.aiTimeoutSeconds}
+								minimumValue={5}
+								maximumValue={120}
+								onValueChange={value =>
+									set({ aiTimeoutSeconds: Math.round(value) })
+								}
+							/>
+						</View>
 					</TableRowGroup>
 
 					<TableRowGroup title="Status" hasIcons>
