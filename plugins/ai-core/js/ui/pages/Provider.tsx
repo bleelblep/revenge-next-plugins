@@ -1,6 +1,7 @@
 import { DEFAULTS } from '../../defaults'
 import { getStorage } from '../../lib/state'
 import { clearKey, promptForKey, useVaultStatus } from '../../lib/vault'
+import { CUSTOM, PROVIDERS, providerFor } from '../../lib/providers'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { AiCoreStorage } from '../../types'
@@ -18,8 +19,8 @@ export default function Provider() {
 	const { Page } = revenge.components
 	const { ScrollView } = revenge.react.ReactNative
 	const React = revenge.react.React
-	const { Stack, Text, TableRowGroup, TableRow, TextInput } =
-		revenge.discord.design.Design
+	const { Stack, Text, TableRowGroup, TableRow, TextInput, TableRadioGroup, TableRadioRow } =
+		revenge.discord.design.Design as any
 
 	// A plain navigator route, so there is no plugin `api` prop here.
 	const storage = getStorage()
@@ -27,6 +28,15 @@ export default function Provider() {
 	const set = (patch: Partial<AiCoreStorage>) => storage?.set(patch)
 	const vault = useVaultStatus()
 	const [error, setError] = React.useState<string | null>(null)
+	// Custom is remembered here so picking it keeps showing the URL field even while the URL still
+	// belongs to one of the listed providers.
+	const [picked, setPicked] = React.useState<string>(() => providerFor(s.baseUrl))
+	const selected = picked === CUSTOM ? CUSTOM : providerFor(s.baseUrl)
+	const pick = (id: string) => {
+		setPicked(id)
+		const preset = PROVIDERS.find(p => p.id === id)
+		if (preset) set({ baseUrl: preset.baseUrl, model: preset.model })
+	}
 	const mismatch =
 		vault.configured &&
 		!!vault.endpoint &&
@@ -39,6 +49,22 @@ export default function Provider() {
 				contentContainerStyle={{ paddingBottom: useBottomPadding() }}
 			>
 				<Stack spacing={24}>
+					<TableRadioGroup
+						title="Provider"
+						description="Pick where AI Core sends requests, then set that provider's API key below."
+						defaultValue={selected}
+						onChange={(id: string) => pick(id)}
+					>
+						{PROVIDERS.map(p => (
+							<TableRadioRow key={p.id} label={p.label} subLabel={`Keys at ${p.keysAt}`} value={p.id} />
+						))}
+						<TableRadioRow
+							label="Custom"
+							subLabel="Any other OpenAI-compatible endpoint, like Groq or your own server"
+							value={CUSTOM}
+						/>
+					</TableRadioGroup>
+
 					{/*
 					 * No text field for the key. It is typed into a native Android dialog, so it
 					 * never exists in JS where another plugin could read it -- see AiCore.kt.
@@ -102,22 +128,24 @@ export default function Provider() {
 						Endpoint
 					</Text>
 
-					<TextInput
-						label="Base URL"
-						placeholder={DEFAULTS.baseUrl}
-						description="Any OpenAI-compatible endpoint: DeepSeek, OpenRouter, Groq, or your own. Must be https://, except to this device or your local network. Takes effect when you next set the key."
-						value={s.baseUrl}
-						returnKeyType="done"
-						onChange={value => set({ baseUrl: value.trim() })}
-					/>
+					{selected === CUSTOM ? (
+						<TextInput
+							label="Base URL"
+							placeholder={DEFAULTS.baseUrl}
+							description="Any OpenAI-compatible endpoint: Groq, a local server, or anything else that speaks the OpenAI chat format. Must be https://, except to this device or your local network. Takes effect when you next set the key."
+							value={s.baseUrl}
+							returnKeyType="done"
+							onChange={(value: string) => set({ baseUrl: value.trim() })}
+						/>
+					) : null}
 
 					<TextInput
 						label="Model"
 						placeholder={DEFAULTS.model}
-						description="Whatever the endpoint calls it, like deepseek-chat."
+						description="Filled in when you pick a provider; change it to use another of that provider's models."
 						value={s.model}
 						returnKeyType="done"
-						onChange={value => set({ model: value.trim() })}
+						onChange={(value: string) => set({ model: value.trim() })}
 					/>
 
 					<TextInput
@@ -127,7 +155,7 @@ export default function Provider() {
 						value={`${s.timeoutMs}`}
 						trailingText="ms"
 						returnKeyType="done"
-						onChange={value => {
+						onChange={(value: string) => {
 							const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
 							set({
 								timeoutMs:

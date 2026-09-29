@@ -30,6 +30,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -155,6 +156,97 @@ private fun isPrivateHost(host: String): Boolean {
 }
 
 private fun hostOf(endpoint: String): String = runCatching { URI(endpoint).host }.getOrNull() ?: endpoint
+
+// --- Anthropic ---------------------------------------------------------------------
+
+/**
+ * A key bound to Anthropic's API is spoken to in Anthropic's own Messages API rather than the
+ * OpenAI chat-completions shape every other provider here accepts. Decided by the endpoint the key
+ * is bound to, never by anything the caller sends.
+ */
+private fun isAnthropic(endpoint: String): Boolean =
+	runCatching { URI(endpoint).host.equals("api.anthropic.com", ignoreCase = true) }.getOrDefault(false)
+
+/** Models that take `output_config.effort`; older and Haiku models reject it. */
+private val EFFORT_MODELS = Regex("^claude-(fable-5|mythos-5|opus-5|opus-4-[678]|sonnet-5|sonnet-4-6)")
+
+/** Models whose declined requests Anthropic can re-run on its recommended fallback. */
+private val DEFAULT_FALLBACK_MODELS = Regex("^claude-(opus-5|fable-5)")
+
+private const val FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+// --- OpenAI --------------------------------------------------------------------------
+
+private fun isOpenAi(endpoint: String): Boolean =
+	runCatching { URI(endpoint).host.equals("api.openai.com", ignoreCase = true) }.getOrDefault(false)
+
+/** OpenAI's reasoning models (GPT-5, o-series): no custom temperature, and reasoning spends tokens. */
+private val OPENAI_REASONING = Regex("^(gpt-5|o[0-9])")
+
+/**
+ * OpenAI takes `max_completion_tokens` (every chat model accepts it; reasoning models reject the
+ * old `max_tokens`). Reasoning models also reject a custom temperature, and their thinking spends
+ * from the same allowance, so they get a floor and low effort, as Anthropic's models do.
+ */
+private fun adaptForOpenAi(payload: JSONObject) {
+	val model = payload.optString("model")
+	val requested = if (payload.has("max_tokens")) payload.optInt("max_tokens", 256) else 256
+	payload.remove("max_tokens")
+	if (OPENAI_REASONING.containsMatchIn(model)) {
+		payload.remove("temperature")
+		payload.put("max_completion_tokens", maxOf(requested, 2048))
+		payload.put("reasoning_effort", "low")
+	} else {
+		payload.put("max_completion_tokens", requested)
+	}
+}
+
+/**
+ * Translates the OpenAI-shaped body AI Core's JS sends into a Messages API request:
+ * - system messages become the top-level `system`, and consecutive turns from one role are merged
+ *   (the API wants user and assistant to alternate, starting with the user);
+ * - no `temperature`: current models reject sampling parameters;
+ * - `max_tokens` has a floor, because thinking (on by default on current models) spends from the
+ *   same allowance and a small cap could leave nothing for the answer. Only tokens used are billed;
+ * - low effort where the model takes it: these are short checks and summaries;
+ * - JSON mode becomes an instruction, since the API has no schema-less JSON mode;
+ * - `fallbacks: "default"` where supported, so a declined request is retried server-side.
+ */
+private fun anthropicPayload(body: JSONObject): JSONObject {
+	val model = body.optString("model")
+	val system = StringBuilder()
+	val messages = JSONArray()
+	val input = body.optJSONArray("messages") ?: JSONArray()
+	for (i in 0 until input.length()) {
+		val message = input.optJSONObject(i) ?: continue
+		val content = message.optString("content")
+		if (message.optString("role") == "system") {
+			if (system.isNotEmpty()) system.append("\n\n")
+			system.append(content)
+			continue
+		}
+		val role = if (message.optString("role") == "assistant") "assistant" else "user"
+		val last = if (messages.length() > 0) messages.getJSONObject(messages.length() - 1) else null
+		if (last != null && last.optString("role") == role) {
+			last.put("content", last.optString("content") + "\n\n" + content)
+		} else {
+			if (last == null && role == "assistant") messages.put(JSONObject().put("role", "user").put("content", "Continue."))
+			messages.put(JSONObject().put("role", role).put("content", content))
+		}
+	}
+	if (body.optJSONObject("response_format")?.optString("type") == "json_object") {
+		if (system.isNotEmpty()) system.append("\n\n")
+		system.append("Reply with a single JSON object and nothing else.")
+	}
+	val payload = JSONObject()
+		.put("model", model)
+		.put("max_tokens", maxOf(body.optInt("max_tokens", 256), 2048))
+		.put("messages", messages)
+	if (system.isNotEmpty()) payload.put("system", system.toString())
+	if (EFFORT_MODELS.containsMatchIn(model)) payload.put("output_config", JSONObject().put("effort", "low"))
+	if (DEFAULT_FALLBACK_MODELS.containsMatchIn(model)) payload.put("fallbacks", "default")
+	return payload
+}
 
 // --- native dialogs ------------------------------------------------------------
 
@@ -650,6 +742,67 @@ val aiCore = plugin {
 			}
 		}
 
+		/** The Messages API version of the request below, for a key bound to Anthropic. */
+		suspend fun anthropicRequest(key: String, ep: String, body: JSONObject, timeout: Int): String {
+			val payload = anthropicPayload(body)
+			val base = ep.trimEnd('/').removeSuffix("/v1")
+			return runCatching {
+				val connection = URL("$base/v1/messages").openConnection() as HttpURLConnection
+				try {
+					connection.instanceFollowRedirects = false
+					connection.requestMethod = "POST"
+					connection.connectTimeout = timeout
+					connection.readTimeout = timeout
+					connection.doOutput = true
+					connection.setRequestProperty("Content-Type", "application/json")
+					connection.setRequestProperty("x-api-key", key)
+					connection.setRequestProperty("anthropic-version", "2023-06-01")
+					if (payload.has("fallbacks")) connection.setRequestProperty("anthropic-beta", FALLBACK_BETA)
+					connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+
+					val code = connection.responseCode
+					if (code !in 200..299) {
+						return@runCatching JSONObject().put("ok", false).put("status", code).put("error", "http").toString()
+					}
+					val response = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+					val usage = response.optJSONObject("usage")
+					val pt = usage?.optLong("input_tokens") ?: 0L
+					val ct = usage?.optLong("output_tokens") ?: 0L
+					mutex.withLock {
+						rollDay()
+						promptTokens += pt
+						completionTokens += ct
+						persistUsage()
+					}
+					// A decline (even after the fallback) is HTTP 200 with stop_reason "refusal";
+					// check that before reading content. Only text blocks are the answer: thinking
+					// and fallback blocks are skipped.
+					if (response.optString("stop_reason") == "refusal") {
+						return@runCatching JSONObject().put("ok", false).put("error", "refusal")
+							.put("promptTokens", pt).put("completionTokens", ct).toString()
+					}
+					val blocks = response.optJSONArray("content") ?: JSONArray()
+					val text = StringBuilder()
+					for (i in 0 until blocks.length()) {
+						val block = blocks.optJSONObject(i) ?: continue
+						if (block.optString("type") == "text") text.append(block.optString("text"))
+					}
+					val content = text.toString().takeIf { it.isNotEmpty() }
+					JSONObject()
+						.put("ok", content != null)
+						.put("content", content ?: JSONObject.NULL)
+						.put("promptTokens", pt)
+						.put("completionTokens", ct)
+						.toString()
+				} finally {
+					connection.disconnect()
+				}
+			}.getOrElse { error ->
+				// Never the message: an exception from the HTTP stack can quote the request.
+				JSONObject().put("ok", false).put("error", error.javaClass.simpleName).toString()
+			}
+		}
+
 		/**
 		 * request(pluginId, body, timeoutMs) -> {ok, status?, error?, content?, promptTokens, completionTokens}
 		 *
@@ -677,10 +830,13 @@ val aiCore = plugin {
 				k to e
 			}
 
+			if (isAnthropic(ep)) return@registerNativeAsyncMethod anthropicRequest(key, ep, body, timeout)
+
 			val payload = JSONObject()
 			for (field in listOf("model", "temperature", "max_tokens", "response_format", "messages")) {
 				if (body.has(field)) payload.put(field, body.get(field))
 			}
+			if (isOpenAi(ep)) adaptForOpenAi(payload)
 
 			runCatching {
 				val connection = URL("$ep/chat/completions").openConnection() as HttpURLConnection
