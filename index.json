@@ -203,6 +203,30 @@
         }
       }
     },
+    "bleelblep.free-stickers": {
+      "name": "Free Stickers",
+      "description": "Send any sticker without Nitro; locked ones go as an image link.",
+      "author": "bleelblep",
+      "icon": "StickerIcon",
+      "channels": {
+        "latest": "0.1.1"
+      },
+      "versions": {
+        "0.1.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.free-stickers@0.1.1.zip",
+          "sha256": "16c32dc802a988b196ec352e30ae0e986040d53b5532b6994a07f3fe902bab66",
+          "size": 21604,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.ghost-log-native-beta": {
       "name": "Ghost Log Native Beta",
       "description": "Native-first rewrite beta of Ghost Log. Logs deleted messages with AES-GCM encryption, restores them in chat across reloads, and keeps an encrypted backup. Testing track for the stable plugin.",
