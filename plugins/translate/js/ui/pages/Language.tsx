@@ -4,6 +4,7 @@ import { getStorage } from '../../lib/state'
 import { repaintShowing } from '../../lib/translate'
 import { resetTranslations, showingIds } from '../../lib/translations'
 import { sweepNow } from '../../patches/autoTranslate'
+import { FieldGroup } from '../fieldGroup'
 import { useBottomPadding } from '../safeArea'
 
 /**
@@ -110,22 +111,22 @@ export default function Language() {
 						</Text>
 					)}
 
-					<TableRowGroup title="Not listed?">
-						<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-							<TextInput
-								label="Language code"
-								placeholder="e.g. eu, haw, pt-BR"
-								description="Any code the services accept. It is used as soon as you type it."
-								value={custom}
-								isClearable
-								onChange={value => {
-									const code = value.trim()
-									setCustom(code)
-									if (code.length >= 2) choose(code)
-								}}
-							/>
-						</View>
-					</TableRowGroup>
+					<FieldGroup
+						title="Not listed?"
+						label="Language code"
+						description="Any code the services accept. It is used as soon as you type it."
+					>
+						<TextInput
+							placeholder="e.g. eu, haw, pt-BR"
+							value={custom}
+							isClearable
+							onChange={value => {
+								const code = value.trim()
+								setCustom(code)
+								if (code.length >= 2) choose(code)
+							}}
+						/>
+					</FieldGroup>
 				</Stack>
 			</ScrollView>
 		</Page>
