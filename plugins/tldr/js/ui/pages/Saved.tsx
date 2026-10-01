@@ -1,6 +1,7 @@
 import { DEFAULTS } from '../../defaults'
 import { getStorage } from '../../lib/state'
 import { forgetSaved } from '../../lib/summarise'
+import { FieldGroup } from '../fieldGroup'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { SavedSummary, TldrStorage } from '../../types'
@@ -100,18 +101,21 @@ export default function Saved() {
 						</Text>
 					)}
 
-					<TextInput
+					<FieldGroup
 						label="Keep at most"
-						placeholder={`${DEFAULTS.keep}`}
 						description="Older summaries are dropped first once there are more than this."
-						value={`${s.keep}`}
-						trailingText="summaries"
-						returnKeyType="done"
-						onChange={value => {
-							const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
-							set({ keep: Number.isFinite(parsed) && parsed >= 1 ? parsed : DEFAULTS.keep })
-						}}
-					/>
+					>
+						<TextInput
+							placeholder={`${DEFAULTS.keep}`}
+							value={`${s.keep}`}
+							trailingText="summaries"
+							returnKeyType="done"
+							onChange={value => {
+								const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
+								set({ keep: Number.isFinite(parsed) && parsed >= 1 ? parsed : DEFAULTS.keep })
+							}}
+						/>
+					</FieldGroup>
 
 					<TableRowGroup hasIcons>
 						<TableRow

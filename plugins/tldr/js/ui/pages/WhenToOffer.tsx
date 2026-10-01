@@ -1,5 +1,6 @@
 import { DEFAULTS } from '../../defaults'
 import { getStorage } from '../../lib/state'
+import { FieldGroup } from '../fieldGroup'
 import { useBottomPadding } from '../safeArea'
 import type { TldrStorage } from '../../types'
 
@@ -25,20 +26,23 @@ export default function WhenToOffer() {
 				contentContainerStyle={{ paddingBottom: useBottomPadding() }}
 			>
 				<Stack spacing={24}>
-					<TextInput
+					<FieldGroup
 						label="Only offer TL;DR on messages longer than"
-						placeholder={`${DEFAULTS.minLength}`}
 						description="Shorter messages don't get the row at all, so the menu stays short."
-						value={`${s.minLength}`}
-						trailingText="characters"
-						returnKeyType="done"
-						onChange={value => {
-							const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
-							set({
-								minLength: Number.isFinite(parsed) ? parsed : DEFAULTS.minLength,
-							})
-						}}
-					/>
+					>
+						<TextInput
+							placeholder={`${DEFAULTS.minLength}`}
+							value={`${s.minLength}`}
+							trailingText="characters"
+							returnKeyType="done"
+							onChange={value => {
+								const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
+								set({
+									minLength: Number.isFinite(parsed) ? parsed : DEFAULTS.minLength,
+								})
+							}}
+						/>
+					</FieldGroup>
 
 					<Text color="text-muted" variant="text-sm/normal">
 						Link previews and embed text count towards the length, so a short message
