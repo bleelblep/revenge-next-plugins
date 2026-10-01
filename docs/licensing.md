@@ -18,6 +18,7 @@ plugin's `NOTICE.md` and `THIRD_PARTY_LICENSES/` directory before copying its co
 | Translate | CC0-1.0 |
 | Send Tweaks | CC0-1.0 |
 | Plugin Hub | CC0-1.0 |
+| Free Stickers | CC0-1.0 |
 | ReviewDB | GPL-3.0; port of ReviewDB by mantikafasi and Vendicated from Vencord |
 
 Show Tag's original repository and website are no longer available. Its Unlicense status was
