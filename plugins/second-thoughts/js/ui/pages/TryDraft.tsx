@@ -2,6 +2,7 @@ import { DEFAULTS } from '../../defaults'
 import { isReachingOut, scoreDraft } from '../../lib/gate'
 import { scanPatterns } from '../../lib/secrets'
 import { aiStatus, getStorage } from '../../lib/state'
+import { FieldGroup } from '../fieldGroup'
 import { useBottomPadding } from '../safeArea'
 
 const EXAMPLES = [
@@ -126,17 +127,15 @@ export default function TryDraft() {
 						check applies regardless of its DM setting.
 					</Text>
 
-					<TableRowGroup title="Draft">
-						<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-							<TextInput
-								placeholder="Type a message"
-								value={probe}
-								multiline
-								isClearable
-								onChange={setProbe}
-							/>
-						</View>
-					</TableRowGroup>
+					<FieldGroup title="Draft" label="Message">
+						<TextInput
+							placeholder="Type a message"
+							value={probe}
+							multiline
+							isClearable
+							onChange={setProbe}
+						/>
+					</FieldGroup>
 
 					{verdict ? (
 						<Card variant="secondary" border="none">
