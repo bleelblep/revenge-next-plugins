@@ -6,6 +6,8 @@
  * value parses, so a half-typed colour never reaches the tag.
  */
 
+import { FieldRow } from './fieldGroup'
+
 /** `#rrggbb` for anything recognisable, otherwise undefined. */
 export function parseColor(input: string): string | undefined {
 	const value = input.trim()
@@ -21,11 +23,16 @@ export function parseColor(input: string): string | undefined {
 			.join('')
 			.toUpperCase()}`
 
-	const rgb = value.match(/^rgba?\(?\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i)
+	const rgb = value.match(
+		/^rgba?\(?\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i,
+	)
 	if (rgb) {
 		const parts = [rgb[1], rgb[2], rgb[3]].map(n => Number.parseInt(n, 10))
 		if (parts.every(n => n >= 0 && n <= 255))
-			return `#${parts.map(n => n.toString(16).padStart(2, '0')).join('').toUpperCase()}`
+			return `#${parts
+				.map(n => n.toString(16).padStart(2, '0'))
+				.join('')
+				.toUpperCase()}`
 	}
 
 	return undefined
@@ -57,35 +64,41 @@ export default function ColorInput({
 	const parsed = parseColor(draft)
 	const swatch = parsed ?? (value || placeholder)
 
+	// A field row (docs/plugin-design-language.md 3.6): place it inside a TableRowGroup.
 	return (
-		<View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-			<View
-				style={{
-					width: 36,
-					height: 36,
-					borderRadius: 8,
-					backgroundColor: swatch,
-				}}
-			/>
-			<View style={{ flex: 1 }}>
-				<TextInput
-					label={label}
-					description={description ?? 'Hex like #F0B232, or RGB like 240, 178, 50'}
-					placeholder={placeholder}
-					value={draft}
-					returnKeyType="done"
-					isClearable
-					status={draft && !parsed ? 'error' : 'default'}
-					errorMessage={draft && !parsed ? "That isn't a colour I can read" : undefined}
-					onChange={next => {
-						setDraft(next)
-						const colour = parseColor(next)
-						// Empty means "back to the default", which is a valid thing to want.
-						if (colour) onChange(colour)
-						else if (!next.trim()) onChange('')
+		<FieldRow
+			label={label}
+			description={description ?? 'Hex like #F0B232, or RGB like 240, 178, 50'}
+		>
+			<View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+				<View
+					style={{
+						width: 36,
+						height: 36,
+						borderRadius: 8,
+						backgroundColor: swatch,
 					}}
 				/>
+				<View style={{ flex: 1 }}>
+					<TextInput
+						placeholder={placeholder}
+						value={draft}
+						returnKeyType="done"
+						isClearable
+						status={draft && !parsed ? 'error' : 'default'}
+						errorMessage={
+							draft && !parsed ? "That isn't a colour I can read" : undefined
+						}
+						onChange={next => {
+							setDraft(next)
+							const colour = parseColor(next)
+							// Empty means "back to the default", which is a valid thing to want.
+							if (colour) onChange(colour)
+							else if (!next.trim()) onChange('')
+						}}
+					/>
+				</View>
 			</View>
-		</View>
+		</FieldRow>
 	)
 }

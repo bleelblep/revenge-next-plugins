@@ -1,8 +1,18 @@
 import { TAGS } from '../../lib/getTag'
-import { iconById, isValidCustomSvg, MAX_CUSTOM_SVG_LENGTH } from '../../lib/icons'
+import {
+	iconById,
+	isValidCustomSvg,
+	MAX_CUSTOM_SVG_LENGTH,
+} from '../../lib/icons'
 import { selectedTagId } from '../../lib/selection'
-import { getStorage, overrideFor, resetOverride, setOverride } from '../../lib/state'
+import {
+	getStorage,
+	overrideFor,
+	resetOverride,
+	setOverride,
+} from '../../lib/state'
 import ColorInput from '../ColorInput'
+import { FieldGroup, FieldRow } from '../fieldGroup'
 import { ICONS_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import TagIcon from '../TagIcon'
@@ -25,7 +35,8 @@ export default function TagEditor() {
 		AlertActionButton,
 	} = revenge.discord.design.Design
 	const Alerts = revenge.discord.actions.AlertActionCreators
-	const { useNavigation } = revenge.externals.ReactNavigation.ReactNavigationNative
+	const { useNavigation } =
+		revenge.externals.ReactNavigation.ReactNavigationNative
 
 	const navigation = useNavigation() as { navigate: (route: string) => void }
 	// Re-render on any storage write, so a change made here shows immediately.
@@ -47,7 +58,8 @@ export default function TagEditor() {
 	}
 
 	const enabled = custom.enabled !== false
-	const colour = custom.useCustomColor && custom.color ? custom.color : def.defaultColor
+	const colour =
+		custom.useCustomColor && custom.color ? custom.color : def.defaultColor
 	const label = custom.text?.trim() || def.text
 	const svgOk = !svgDraft.trim() || isValidCustomSvg(svgDraft)
 
@@ -113,7 +125,11 @@ export default function TagEditor() {
 								/>
 								{custom.iconOnly && custom.icon ? null : (
 									<Text
-										style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}
+										style={{
+											color: '#FFFFFF',
+											fontSize: 10,
+											fontWeight: '700',
+										}}
 									>
 										{label}
 									</Text>
@@ -134,21 +150,26 @@ export default function TagEditor() {
 					<TableRowGroup hasIcons>
 						<TableSwitchRow
 							label="Show this tag"
-							subLabel={enabled ? 'Shown wherever it applies' : 'Hidden everywhere'}
+							subLabel={
+								enabled ? 'Shown wherever it applies' : 'Hidden everywhere'
+							}
 							value={enabled}
 							onValueChange={value => setOverride(def.id, { enabled: value })}
 						/>
 					</TableRowGroup>
 
-					<TextInput
+					<FieldGroup
 						label="Text"
-						placeholder={def.text}
 						description="What the tag reads. Leave it empty for the original."
-						value={custom.text ?? ''}
-						returnKeyType="done"
-						isClearable
-						onChange={value => setOverride(def.id, { text: value })}
-					/>
+					>
+						<TextInput
+							placeholder={def.text}
+							value={custom.text ?? ''}
+							returnKeyType="done"
+							isClearable
+							onChange={value => setOverride(def.id, { text: value })}
+						/>
+					</FieldGroup>
 
 					<TableRowGroup title="Icon" hasIcons>
 						<TableRow
@@ -167,60 +188,69 @@ export default function TagEditor() {
 							value={!!custom.iconOnly}
 							onValueChange={value => setOverride(def.id, { iconOnly: value })}
 						/>
+						{custom.icon === 'custom' ? (
+							<FieldRow
+								label="Your own SVG"
+								description={`Pasted markup, up to ${MAX_CUSTOM_SVG_LENGTH} characters. Saved only when it parses.`}
+							>
+								<TextInput
+									placeholder="<svg viewBox='0 0 24 24'>…</svg>"
+									value={svgDraft}
+									multiline
+									status={svgOk ? 'default' : 'error'}
+									errorMessage={
+										svgOk ? undefined : 'That is not SVG this can draw'
+									}
+									onChange={value => {
+										setSvgDraft(value)
+										if (!value.trim()) setOverride(def.id, { customSvg: '' })
+										else if (isValidCustomSvg(value))
+											setOverride(def.id, { customSvg: value })
+									}}
+								/>
+							</FieldRow>
+						) : null}
 					</TableRowGroup>
-
-					{custom.icon === 'custom' ? (
-						<TextInput
-							label="Your own SVG"
-							placeholder="<svg viewBox='0 0 24 24'>…</svg>"
-							description={`Pasted markup, up to ${MAX_CUSTOM_SVG_LENGTH} characters. Saved only when it parses.`}
-							value={svgDraft}
-							multiline
-							status={svgOk ? 'default' : 'error'}
-							errorMessage={svgOk ? undefined : 'That is not SVG this can draw'}
-							onChange={value => {
-								setSvgDraft(value)
-								if (!value.trim()) setOverride(def.id, { customSvg: '' })
-								else if (isValidCustomSvg(value)) setOverride(def.id, { customSvg: value })
-							}}
-						/>
-					) : null}
 
 					<TableRowGroup title="Colour" hasIcons>
 						<TableSwitchRow
 							label="Use my own colour"
 							subLabel={`Off uses the tag's own ${def.defaultColor}`}
 							value={!!custom.useCustomColor}
-							onValueChange={value => setOverride(def.id, { useCustomColor: value })}
+							onValueChange={value =>
+								setOverride(def.id, { useCustomColor: value })
+							}
 						/>
+						{custom.useCustomColor ? (
+							<ColorInput
+								label="Background"
+								value={custom.color ?? ''}
+								placeholder={def.defaultColor}
+								onChange={value => setOverride(def.id, { color: value })}
+							/>
+						) : null}
 					</TableRowGroup>
-
-					{custom.useCustomColor ? (
-						<ColorInput
-							label="Background"
-							value={custom.color ?? ''}
-							placeholder={def.defaultColor}
-							onChange={value => setOverride(def.id, { color: value })}
-						/>
-					) : null}
 
 					<TableRowGroup title="Gradient" hasIcons>
 						<TableSwitchRow
 							label="Fade into a second colour"
 							subLabel="Shown on profiles and member lists"
 							value={!!custom.useGradient}
-							onValueChange={value => setOverride(def.id, { useGradient: value })}
+							onValueChange={value =>
+								setOverride(def.id, { useGradient: value })
+							}
 						/>
+						{custom.useGradient ? (
+							<ColorInput
+								label="Fades to"
+								value={custom.gradientColor ?? ''}
+								placeholder="#9B59B6"
+								onChange={value =>
+									setOverride(def.id, { gradientColor: value })
+								}
+							/>
+						) : null}
 					</TableRowGroup>
-
-					{custom.useGradient ? (
-						<ColorInput
-							label="Fades to"
-							value={custom.gradientColor ?? ''}
-							placeholder="#9B59B6"
-							onChange={value => setOverride(def.id, { gradientColor: value })}
-						/>
-					) : null}
 
 					<TableRowGroup hasIcons>
 						<TableRow
