@@ -43,25 +43,11 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **Custom Timestamps** | Fiery | Changes how timestamps appear in chat. |
 | **Hide Call Buttons** | John (`janisslsm`) | Hides call and video buttons on selected screens. |
 | **Show Tag** | Cynosphere | Shows usernames or legacy Discord tags in message headers. |
+| **ReviewDB** | mantikafasi, Vendicated (Vencord) | Read and write reviews on user profiles and servers, from ReviewDB. |
 | **Staff Tags** | Fiery, シグマ siguma | Adds staff and permission tags in chat and the member list. |
 
 Anti Ghost Ping, Ghost Log and Relationship Notifier are no longer published. Installed copies keep
 working but will not receive updates.
-
-## Channels
-
-Plugins use `latest` for stable releases. A plugin may also provide a `beta` channel for testing
-newer versions. Channels are computed automatically: `latest` is the newest version without a label,
-`beta` is the newest version overall.
-
-Screenshot Redactor (`bleelblep.screenshot-redactor`, `0.27.x`) is for Discord 347 and newer.
-Screenshot Redactor (legacy) (`bleelblep.screenshot-redactor-legacy`, `0.19.x`) is for older builds.
-
-Ghost Log Native Beta is its own plugin id (`bleelblep.ghost-log-native-beta`) and publishes
-`0.x.y-betaN` versions to both `latest` and `beta`.
-
-Artifacts live in `pool/<id>@<version>.zip` on the `gh-pages` branch, next to `index.json`. The
-repository URL above does not change.
 
 ## Important
 
@@ -77,6 +63,9 @@ repository URL above does not change.
 - **AI Core** keeps your API key encrypted by Android's keystore and makes its requests natively,
   so no plugin can read the key back. Other plugins can still ask it to spend calls, so use a key
   with a spending limit you can revoke.
+- **ReviewDB** loads and posts reviews through ReviewDB's own server
+  (`manti.vendicated.dev`). Writing, voting or reporting needs you to authorise ReviewDB's Discord
+  app, the same sign-in the desktop plugin uses.
 - **Translate** sends the text of messages you translate to Google, Bing, Yandex or MyMemory.
 - **Screenshot Redactor** only blanks the personal details it can recognise in message text. A
   name typed into a message is still visible.
