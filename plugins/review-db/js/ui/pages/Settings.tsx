@@ -5,7 +5,7 @@
  * Copyright (c) 2023 Vendicated and contributors. GPL-3.0-or-later; see ../../../NOTICE.md.
  */
 
-import { rowIcon } from '../../../../../shared/ui/icon'
+import { dangerIcon, rowIcon } from '../../../../../shared/ui/icon'
 import { useBottomPadding } from '../../../../../shared/ui/safeArea'
 import { authorize } from '../../lib/auth'
 import { confirm } from '../../lib/discord'
@@ -61,7 +61,7 @@ export default function Settings() {
 									label="Log out"
 									subLabel="ReviewDB stays in Discord's Authorized Apps until you remove it there."
 									variant="danger"
-									icon={rowIcon('DoorExitIcon')}
+									icon={dangerIcon('DoorExitIcon')}
 									onPress={() =>
 										confirm({
 											title: 'Log out of ReviewDB?',

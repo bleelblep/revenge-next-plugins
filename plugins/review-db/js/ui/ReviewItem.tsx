@@ -12,7 +12,7 @@ import { blockUser, deleteReview, deleteReviewVote, reportReview, unblockUser, v
 import { confirm, icon, openURL, openUserProfile, toast } from '../lib/discord'
 import { type Badge, type Review, ReviewType, UserType } from '../lib/entities'
 import { currentUserId, getAuth, getToken, settings } from '../lib/state'
-import { rowIcon } from '../../../../shared/ui/icon'
+import { dangerIcon, rowIcon } from '../../../../shared/ui/icon'
 import { assetId, isBotUser, Native, Tag, UserAvatar } from './native'
 import { openBlockedUsers } from './routes'
 import { token } from './theme'
@@ -259,7 +259,8 @@ function ReviewActionsSheet({
 				{canBlockReviewAuthor(profileId, review) ? (
 					<TableRow
 						label={isAuthorBlocked ? 'Unblock Reviewer' : 'Block Reviewer'}
-						icon={rowIcon('DenyIcon')}
+						variant={isAuthorBlocked ? undefined : 'danger'}
+						icon={isAuthorBlocked ? rowIcon('DenyIcon') : dangerIcon('DenyIcon')}
 						onPress={run(() => {
 							if (isAuthorBlocked) {
 								unblockUser(review.sender.discordID).then(ok => ok && refetch())
@@ -282,7 +283,7 @@ function ReviewActionsSheet({
 					<TableRow
 						label="Report Review"
 						variant="danger"
-						icon={rowIcon('FlagIcon')}
+						icon={dangerIcon('FlagIcon')}
 						onPress={run(() =>
 							confirm({
 								title: 'Report this review?',
@@ -301,7 +302,7 @@ function ReviewActionsSheet({
 					<TableRow
 						label="Delete Review"
 						variant="danger"
-						icon={rowIcon('TrashIcon')}
+						icon={dangerIcon('TrashIcon')}
 						onPress={run(() =>
 							confirm({
 								title: 'Delete review?',

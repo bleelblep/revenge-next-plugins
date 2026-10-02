@@ -232,6 +232,28 @@ Why: the user asked for it (ReviewDB 0.1.8, 2026-10-02). Discord's own component
 theme, avatar decorations, accessibility labels and future redesigns for free; a hand-drawn copy
 drifts the first time Discord changes its look.
 
+## 3.8 Destructive rows: red text and a red icon
+
+A row that deletes, clears, removes, resets saved data or signs out is a danger row:
+`variant="danger"` on the row, and `dangerIcon(...)` (`shared/ui/icon.tsx`, re-exported from each
+plugin's `js/ui/icon.tsx`) for its icon, never `rowIcon(...)`.
+
+```tsx
+<TableRow label="Delete review" variant="danger" icon={dangerIcon('TrashIcon')} onPress={confirmDelete} />
+```
+
+- The row's `variant="danger"` only turns its label and sub-label red (`text-feedback-critical`);
+  it changes no background and never reaches the icon. Stock Discord tells the icon separately:
+  `icon={<TableRow.Icon IconComponent={X} variant="danger" />}` (348.5, e.g. ModeratorActionRow).
+  `dangerIcon` builds exactly that, for asset icons (`source`) and generated components
+  (`IconComponent`) alike. A `rowIcon` on a danger row renders white next to red text.
+- The action still asks first (§9 item 6): Discord's alert with a `destructive` button.
+- Not danger: switches that merely turn something off ("Remove tracking from links"), re-numbering
+  or refresh actions that lose nothing, and resets on a Developer/Debug page.
+
+Why: Report and Delete in ReviewDB's sheet showed white icons beside red labels (2026-10-02); the
+user called it a bug, and an audit found the same on every plugin's destructive rows.
+
 ---
 
 ## 4) Context Cards: Warning vs Neutral
@@ -337,6 +359,7 @@ Before shipping a new plugin settings UI, verify:
 10. Every text field except search boxes and dialog fields is in a `FieldGroup` row (§3.6).
 11. Avatars, tags, inputs and empty states use Discord's own component, with the hand-drawn
     version as the fallback (§3.7).
+12. Every destructive row has `variant="danger"` and a `dangerIcon(...)` icon (§3.8).
 
 ---
 
