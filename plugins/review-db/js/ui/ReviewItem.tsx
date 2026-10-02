@@ -9,10 +9,11 @@
  */
 
 import { blockUser, deleteReview, deleteReviewVote, reportReview, unblockUser, voteReview } from '../lib/api'
-import { confirm, defaultAvatar, icon, openURL, openUserProfile, toast } from '../lib/discord'
+import { confirm, icon, openURL, openUserProfile, toast } from '../lib/discord'
 import { type Badge, type Review, ReviewType, UserType } from '../lib/entities'
 import { currentUserId, getAuth, getToken, settings } from '../lib/state'
 import { rowIcon } from '../../../../shared/ui/icon'
+import { assetId, isBotUser, Native, Tag, UserAvatar } from './native'
 import { openBlockedUsers } from './routes'
 import { token } from './theme'
 
@@ -64,8 +65,54 @@ function ReviewBadge({ badge }: { badge: Badge }) {
  */
 function Votes({ review }: { review: Review }) {
 	const React = revenge.react.React
-	const { View, Pressable } = revenge.react.ReactNative
-	const { Text } = revenge.discord.design.Design as any
+	const { View } = revenge.react.ReactNative
+	const { Text, IconButton } = revenge.discord.design.Design as any
+	const vote = useVote(review)
+	const up = assetId('ArrowSmallUpIcon')
+	const down = assetId('ArrowSmallDownIcon')
+	const fallback = <VotesPill review={review} vote={vote} />
+	if (!IconButton || up === undefined || down === undefined) return fallback
+
+	const { localVote, score, isVoting, submitVote } = vote
+	const scoreColor =
+		score > 0
+			? token('TEXT_FEEDBACK_POSITIVE', '#4ecb85')
+			: score < 0
+				? token('TEXT_FEEDBACK_CRITICAL', '#f57976')
+				: token('TEXT_MUTED', '#949ba4')
+	return (
+		<Native name="IconButton" available fallback={fallback}>
+			<View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+				<IconButton
+					icon={up}
+					size="sm"
+					variant={localVote === true ? 'active' : 'secondary'}
+					disabled={isVoting}
+					accessibilityLabel="Upvote"
+					onPress={() => submitVote(true)}
+				/>
+				<Text
+					variant="text-sm/semibold"
+					style={{ color: scoreColor, minWidth: 16, textAlign: 'center' }}
+					accessibilityLabel={`Score ${score}`}
+				>
+					{score}
+				</Text>
+				<IconButton
+					icon={down}
+					size="sm"
+					variant={localVote === false ? 'active' : 'secondary'}
+					disabled={isVoting}
+					accessibilityLabel="Downvote"
+					onPress={() => submitVote(false)}
+				/>
+			</View>
+		</Native>
+	)
+}
+
+function useVote(review: Review) {
+	const React = revenge.react.React
 	const [localVote, setLocalVote] = React.useState<boolean | null>(review.userVote ?? null)
 	const [score, setScore] = React.useState(review.score ?? 0)
 	const [isVoting, setIsVoting] = React.useState(false)
@@ -100,6 +147,14 @@ function Votes({ review }: { review: Review }) {
 		}
 	}
 
+	return { localVote, score, isVoting, submitVote }
+}
+
+/** The hand-drawn pill, for when Discord's IconButton or the arrow assets aren't there. */
+function VotesPill({ review: _review, vote }: { review: Review; vote: ReturnType<typeof useVote> }) {
+	const { View, Pressable } = revenge.react.ReactNative
+	const { Text } = revenge.discord.design.Design as any
+	const { localVote, score, isVoting, submitVote } = vote
 	const Up = icon('ArrowSmallUpIcon')
 	const Down = icon('ArrowSmallDownIcon')
 	const brand = token('BACKGROUND_BRAND', '#5865f2')
@@ -284,10 +339,9 @@ export default function ReviewItem({
 	profileId: string
 }) {
 	const React = revenge.react.React
-	const { View, Image, Pressable } = revenge.react.ReactNative
+	const { View, Pressable } = revenge.react.ReactNative
 	const { Text } = revenge.discord.design.Design as any
 	const [showAll, setShowAll] = React.useState(false)
-	const [avatarFailed, setAvatarFailed] = React.useState(false)
 	const { hideTimestamps } = settings()
 
 	const isSystem = review.type === ReviewType.System
@@ -298,8 +352,7 @@ export default function ReviewItem({
 	}
 
 	const long = review.comment.length > 200 && !showAll
-	const avatarUri =
-		!avatarFailed && review.sender.profilePhoto ? review.sender.profilePhoto : defaultAvatar(review.sender.discordID)
+	const isBot = !isSystem && isBotUser(review.sender.discordID)
 	const DenyIcon = icon('DenyIcon')
 
 	return (
@@ -310,11 +363,7 @@ export default function ReviewItem({
 			style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 8 }}
 		>
 			<Pressable onPress={openProfile} disabled={isSystem}>
-				<Image
-					source={{ uri: avatarUri }}
-					onError={() => setAvatarFailed(true)}
-					style={{ width: 40, height: 40, borderRadius: 20 }}
-				/>
+				<UserAvatar userId={review.sender.discordID} photo={review.sender.profilePhoto} />
 			</Pressable>
 
 			<View style={{ flex: 1 }}>
@@ -323,19 +372,25 @@ export default function ReviewItem({
 						{review.sender.username}
 					</Text>
 					{isSystem ? (
-						<View
-							style={{
-								backgroundColor: token('BACKGROUND_BRAND', '#5865f2'),
-								borderRadius: 4,
-								paddingHorizontal: 4,
-								marginLeft: 2,
-							}}
-						>
-							<Text variant="text-xxs/bold" style={{ color: '#ffffff' }}>
-								SYSTEM
-							</Text>
-						</View>
+						<Tag
+							type="SYSTEM_DM"
+							fallback={
+								<View
+									style={{
+										backgroundColor: token('BACKGROUND_BRAND', '#5865f2'),
+										borderRadius: 4,
+										paddingHorizontal: 4,
+										marginLeft: 2,
+									}}
+								>
+									<Text variant="text-xxs/bold" style={{ color: '#ffffff' }}>
+										SYSTEM
+									</Text>
+								</View>
+							}
+						/>
 					) : null}
+					{isBot ? <Tag type="BOT" fallback={null} /> : null}
 					{isAuthorBlocked ? (
 						<Pressable accessibilityLabel="You have blocked this user" hitSlop={6} onPress={openBlockedUsers}>
 							{DenyIcon ? <DenyIcon size="xs" color={token('TEXT_FEEDBACK_CRITICAL', '#f57976')} /> : null}

@@ -11,16 +11,23 @@
  *
  * `after` gets only the return value (porting rule 2), so a `before` stashes the props for the
  * `after` that follows it in the same synchronous call. `before` returns the args array.
+ *
+ * Bots get a different screen, `BotUserProfileContent` (a memo; props `{ user, channel, ... }`),
+ * which never renders the Connections cards. Its render returns a View whose children are the
+ * card list (each card gets a `user` or `userId` prop), so the card is appended to that list.
+ * ReviewDB itself takes reviews on bots (MEE6 has thousands); only the mobile hook was missing.
  */
 
 import { getReviews } from '../lib/api'
 import { defaultAvatar, TAG } from '../lib/discord'
 import { ReviewType, type UserReviewsData } from '../lib/entities'
+import { ReviewerPile } from '../ui/native'
 import { openReviews } from '../ui/routes'
 
 const PATH = 'modules/user_profile/native/UserProfileConnections.tsx'
 const CARD_PATH = 'modules/user_profile/native/UserProfileCard.tsx'
 const TARGET = 'UserProfileApplicationRoleConnectionsCard'
+const BOT_PATH = 'modules/user_profile/native/BotUserProfileContent.tsx'
 
 /** Short cache so scrolling a profile, or reopening it, doesn't refetch every time. */
 const cache = new Map<string, { at: number; data: UserReviewsData }>()
@@ -86,6 +93,15 @@ function AvatarStack({ data }: { data: UserReviewsData }) {
 	)
 }
 
+/** Discord's AvatarPile of the latest reviewers, or the hand-drawn stack if it isn't loaded. */
+function Reviewers({ data }: { data: UserReviewsData }) {
+	const people = data.reviews
+		.filter(r => r.id !== 0)
+		.slice(0, 3)
+		.map(r => ({ userId: r.sender.discordID, photo: r.sender.profilePhoto, name: r.sender.username }))
+	return <ReviewerPile people={people} total={data.reviewCount} fallback={<AvatarStack data={data} />} />
+}
+
 function ReviewsCard({ userId }: { userId: string }) {
 	const React = revenge.react.React
 	const { TableRowGroup, TableRow, Card, Text } = revenge.discord.design.Design as any
@@ -118,7 +134,7 @@ function ReviewsCard({ userId }: { userId: string }) {
 			<TableRow
 				label={label}
 				subLabel={!optedOut && data ? 'Tap to read or write reviews' : undefined}
-				trailing={data && count ? <AvatarStack data={data} /> : undefined}
+				trailing={data && count ? <Reviewers data={data} /> : undefined}
 				arrow={!optedOut}
 				disabled={optedOut}
 				onPress={optedOut ? undefined : () => openReviews(userId, usernameOf(userId), ReviewType.User)}
@@ -142,6 +158,45 @@ function ReviewsCard({ userId }: { userId: string }) {
 			{row}
 		</Card>
 	)
+}
+
+/** Cards on the bot screen take a `userId` string (the header pieces take a `user` record). */
+function cardCount(children: any[]): number {
+	return children.filter(c => typeof c?.props?.userId === 'string').length
+}
+
+/** The children array holding the most `userId` cards (at least two): the path to it, or null. */
+function findCardList(element: any, depth = 0): { count: number; path: number[] } | null {
+	if (!element || typeof element !== 'object' || depth > 10 || !element.props) return null
+	const children = element.props.children
+	const list = Array.isArray(children) ? children : [children]
+	let best: { count: number; path: number[] } | null = null
+	if (Array.isArray(children) && cardCount(children) >= 2) best = { count: cardCount(children), path: [] }
+	list.forEach((child, i) => {
+		const found = findCardList(child, depth + 1)
+		if (found && (!best || found.count > best.count)) best = { count: found.count, path: [i, ...found.path] }
+	})
+	return best
+}
+
+function withCard(element: any, path: number[], card: any): any {
+	const React = revenge.react.React
+	const children = element.props.children
+	if (!path.length) return React.cloneElement(element, { children: [...children, card] })
+	const [i, ...rest] = path
+	if (!Array.isArray(children)) return React.cloneElement(element, { children: withCard(children, rest, card) })
+	const copy = children.slice()
+	copy[i] = withCard(children[i], rest, card)
+	return React.cloneElement(element, { children: copy })
+}
+
+/**
+ * A copy of `element` with `card` added to its card list, cloning only the elements on the way
+ * down. Undefined if no list was found.
+ */
+function appendToCardList(element: any, card: any): any {
+	const found = findCardList(element)
+	return found ? withCard(element, found.path, card) : undefined
 }
 
 export default function patchProfileCard(): () => void {
@@ -193,8 +248,47 @@ export default function patchProfileCard(): () => void {
 		console.error(`${TAG} profile lookup failed:`, error)
 	}
 
+	let lastBotProps: any
+	let unsubscribeBot: (() => void) | undefined
+	const applyBot = (mod: any) => {
+		try {
+			const memo = mod?.default
+			if (typeof memo?.type !== 'function') {
+				console.error(`${TAG} BotUserProfileContent not found on ${BOT_PATH}; no card on bot profiles.`)
+				return
+			}
+			patches.push(
+				revenge.patcher.before(memo, 'type', (args: any[]) => {
+					lastBotProps = args?.[0]
+					return args
+				}),
+				revenge.patcher.after(memo, 'type', (ret: any) => {
+					const props = lastBotProps
+					lastBotProps = undefined
+					const userId = props?.user?.id
+					if (typeof userId !== 'string') return ret
+					try {
+						return appendToCardList(ret, <ReviewsCard key="reviewdb-card" userId={userId} />) ?? ret
+					} catch (error) {
+						console.error(`${TAG} bot profile card render failed:`, error)
+						return ret
+					}
+				}),
+			)
+			console.log(`${TAG} hooked BotUserProfileContent`)
+		} catch (error) {
+			console.error(`${TAG} failed to hook bot profiles:`, error)
+		}
+	}
+	try {
+		unsubscribeBot = (revenge.discord.utils.modules.finders as any).getModuleWithImportedPath(BOT_PATH, applyBot)
+	} catch (error) {
+		console.error(`${TAG} bot profile lookup failed:`, error)
+	}
+
 	return () => {
 		unsubscribe?.()
+		unsubscribeBot?.()
 		for (const unpatch of patches) unpatch()
 		patches.length = 0
 	}

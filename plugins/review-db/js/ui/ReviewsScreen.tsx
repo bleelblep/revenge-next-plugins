@@ -14,14 +14,15 @@ import { icon, isDiscordBlocked, TAG, toast } from '../lib/discord'
 import { ReviewType, type UserReviewsData } from '../lib/entities'
 import { currentUserId, getAuth, getToken, settings } from '../lib/state'
 import { useBottomPadding } from '../../../../shared/ui/safeArea'
+import { assetId, Empty, Native } from './native'
 import ReviewItem from './ReviewItem'
 import { useTarget } from './routes'
 import { token } from './theme'
 
 /**
- * The bottom bar, shaped like Discord's chat bar: a rounded field and a round send button that
- * stays put (greyed while there's nothing to send), so the bar never changes width as you type.
- * Signed out, it's one stock button instead of a field you can't type in.
+ * The bottom bar: Discord's round TextInput and an IconButton send arrow that stays put (disabled
+ * while there's nothing to send), so the bar never changes width as you type. The hand-drawn
+ * field and button remain as the fallback. Signed out, it's one stock button instead.
  */
 function Composer({
 	discordId,
@@ -62,12 +63,13 @@ function Composer({
 	}
 
 	const canSend = !busy && !!text.trim()
-	return (
+	const placeholder = isAuthor ? 'Update your review' : `Review @${name}`
+	const fallback = (
 		<View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
 			<TextInput
 				value={text}
 				onChangeText={setText}
-				placeholder={isAuthor ? 'Update your review' : `Review @${name}`}
+				placeholder={placeholder}
 				placeholderTextColor={token('TEXT_MUTED', '#949ba4')}
 				multiline
 				editable={!busy}
@@ -105,6 +107,36 @@ function Composer({
 				) : null}
 			</Pressable>
 		</View>
+	)
+
+	const { TextInput: DesignInput, IconButton } = revenge.discord.design.Design as any
+	const send = assetId('SendMessageIcon')
+	if (!DesignInput || !IconButton || send === undefined) return fallback
+	return (
+		<Native name="TextInput" available fallback={fallback}>
+			<View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+				<View style={{ flex: 1 }}>
+					<DesignInput
+						value={text}
+						onChange={setText}
+						placeholder={placeholder}
+						multiline
+						isRound
+						editable={!busy}
+						size="md"
+					/>
+				</View>
+				<IconButton
+					icon={send}
+					size="md"
+					variant={canSend ? 'primary' : 'secondary'}
+					disabled={!canSend}
+					loading={busy}
+					accessibilityLabel="Send review"
+					onPress={submit}
+				/>
+			</View>
+		</Native>
 	)
 }
 
@@ -275,14 +307,20 @@ export default function ReviewsScreen() {
 					<ReviewItem key={review.id} review={review} refetch={refetch} profileId={target.discordId} />
 				))}
 				{data && list.length === 0 && !ownReview ? (
-					<Text
-						variant="text-md/medium"
-						color="text-muted"
-						style={{ textAlign: 'center', paddingVertical: 32, paddingHorizontal: 32 }}
-					>
-						Looks like nobody reviewed this {target.type === ReviewType.Server ? 'server' : 'user'} yet. You could be
-						the first!
-					</Text>
+					<Empty
+						title="No reviews yet"
+						body={`Looks like nobody reviewed this ${target.type === ReviewType.Server ? 'server' : 'user'} yet. You could be the first!`}
+						fallback={
+							<Text
+								variant="text-md/medium"
+								color="text-muted"
+								style={{ textAlign: 'center', paddingVertical: 32, paddingHorizontal: 32 }}
+							>
+								Looks like nobody reviewed this {target.type === ReviewType.Server ? 'server' : 'user'} yet. You could be
+								the first!
+							</Text>
+						}
+					/>
 				) : null}
 				<Pager page={page} count={reviewCount} setPage={setPage} />
 			</ScrollView>

@@ -115,6 +115,123 @@ Why: users should understand impact without reading source or docs.
 
 Why: stable icon rendering and stronger scan cues.
 
+## 3.5 Colour follows the user's theme
+
+Discord ships Ash, Dark, Onyx and Light, and users pick custom themes on top. A colour written as a
+hex literal looks right on exactly one of them. Anything a plugin draws itself (a custom button, a
+header, a floating control, a native dialog) takes its colours from Discord's theme at runtime.
+
+**In JS**, prefer components that already carry the theme: Design `Text` with a `color` token
+(`text-default`, `text-muted`; never `text-normal`, which renders black on mobile), `TableRow`,
+`Card`. When a raw React Native `View`/`Text` needs a colour, resolve a token with the `token()`
+helper (`plugins/<id>/js/ui/theme.ts`; the reference copy is in `hide-servers-drawer`):
+
+```ts
+token('CONTROL_SECONDARY_BACKGROUND_DEFAULT', '#2b2f36') // name, dark-theme fallback
+```
+
+It reads `revenge.discord.common.tokens.Tokens` (`RawColor` + `SemanticColor`) and resolves
+semantic names through `ThemeStore`'s current theme. Call it at render, never at module scope
+([porting rule 1](./porting-rules.md)). The fallback is the hex it replaced, so a renamed token
+costs one wrong shade instead of an invisible control. Before using a new name, check it exists:
+`bundle.includes('TOKEN_NAME')` on the APK's `index.android.bundle`.
+
+Useful tokens: `TEXT_DEFAULT`, `TEXT_MUTED`, `BORDER_SUBTLE`, `BACKGROUND_MOD_SUBTLE`,
+`CONTROL_SECONDARY_{BACKGROUND,TEXT}_DEFAULT` (neutral buttons),
+`CONTROL_CRITICAL_PRIMARY_{BACKGROUND,TEXT}_DEFAULT` (destructive), `BACKGROUND_BRAND`.
+
+**In Kotlin**, native views (dialogs, toasts with custom views) read the same theme from
+`com.discord.theme.ThemeManager.INSTANCE.getEffectiveTheme()` by reflection through
+`activity.classLoader`. The plugin isn't compiled against Discord, and a reflection miss must fall
+back to the dark palette rather than throw. Getters mirror the JS token names in camel case:
+`getBackgroundSurfaceHigh`, `getMobileTextHeadingPrimary`, `getTextMuted`,
+`getInputBackgroundDefault`, `getInputBorderActive`, `getControlPrimaryBackgroundDefault`,
+`getControlCriticalPrimaryBackgroundDefault`, `getControlSecondaryTextDefault`, and so on
+(`DiscordThemeObject` in a jadx decompile has the full list). The font is Discord's own gg sans:
+`Typeface.createFromAsset(activity.assets, "fonts/ggsans-<Normal|Medium|Semibold|Bold|ExtraBold>.ttf")`,
+with the system font as fallback.
+
+The reference implementation is `discordDialog` in `plugins/ai-core/src/main/kotlin/.../AiCore.kt`:
+a centred heading and body, a filled rounded input, and full-width pill buttons with the action
+above Cancel (red when destructive). Reuse its shape for any native dialog instead of
+`AlertDialog`, whose Material styling looks foreign inside Discord.
+
+Keep a native dialog native when it guards something. A confirmation that stops other plugins
+(raising AI Core's cap, removing it) must not be drawn in JS, because any plugin can draw, or skip,
+a JS modal.
+
+**Fixed colours that are fine:** content colours the user chose or Discord assigns (role and tag
+colours), white text or glyphs on a saturated fill (badges, the armed red toggle), and
+low-opacity washes of a feedback hue that read on both themes (the yellow warning card in §4.1,
+message highlights). A fixed dark-grey surface or a light-grey text colour is never fine.
+
+## 3.6 Text fields sit in a row
+
+A text field on a settings page goes inside a real settings row, so it has the same background,
+corners and spacing as the row groups around it. Use `FieldGroup` / `FieldRow` (`shared/ui/fieldGroup.tsx`,
+re-exported from each plugin's `js/ui/fieldGroup.tsx`):
+
+```tsx
+<FieldGroup
+	title="Encryption"                       // optional group heading
+	label="Passphrase"                       // the row's label: names the field
+	description="Backups are encrypted with it on this phone…"   // muted text, inside the row
+>
+	<TextInput placeholder="Choose a passphrase" value={…} onChange={…} />
+</FieldGroup>
+```
+
+- The field is the row's `subLabel` (typed `ReactNode`), so the row paints it. Don't pass `label`
+  or `description` to the `TextInput` as well; `FieldGroup` has them. Error text stays on the
+  `TextInput` (`status` + `errorMessage`), and `trailingText`, `isClearable` etc. are unchanged.
+- Several related fields share one group: `<TableRowGroup title="Endpoint">` with a `FieldRow`
+  per field (same props as `FieldGroup`, minus `title`).
+- Buttons or rows that act on the field (Add, Generate, Import) go in a row group right after it.
+- **Exceptions, left bare:** a search or filter box at the top of a list, and a field inside an
+  alert dialog (`AlertModal` `extraContent`), which already has the dialog's surface.
+
+Why: confirmed on the phone (Cloud Backup, 2026-09-30). A plain `View` inside a `TableRowGroup`
+has no background at all, because a group paints nothing and each `TableRow` paints itself. A
+`Card` matched on Discord's own themes but drifted to another shade under custom themes, which
+recolour rows and cards through different tokens. A row is the only surface that always matches.
+
+## 3.7 Use Discord's own component before drawing one
+
+Anything a plugin shows outside a settings list (a review row, a composer bar, a profile card, an
+avatar, a tag) uses the component Discord itself uses for that job, when the app has one. Draw a
+`View` by hand only when Discord has no JS component for it (message reactions, for example, are
+drawn natively, so there is none).
+
+Where to look, beyond the Design namespace (`Button`, `IconButton`, `TextInput`, `TextArea`,
+`ActionSheet`, `AlertModal`, ...):
+
+| Job | Module path (348.5) | Props |
+| --- | --- | --- |
+| Avatar | `design/void/Avatar/native/Avatar.tsx` (`default`, `AvatarSizes`) | `user` or `source`, `size` (an `AvatarSizes` value), `guildId`, `animate` |
+| Overlapping avatars | `design/components/Pile/native/AvatarPile.native.tsx` (`AvatarPile`) | `size`, `totalCount`, `names`, avatars as children |
+| APP / SYSTEM tag | `modules/applications/native/BotTag.tsx` (`default`, `Types`) | `type` (a `Types` value), `verified` |
+| Empty list | `design/void/EmptyState/native/EmptyState.tsx` | `title`, `body`, `style` |
+
+Rules:
+
+- **Read the props, don't guess them.** Find the module's path in the APK's
+  `index.android.bundle`, then disassemble it with `hermes-dec` (`HBCReader` + `parse_hbc_bytecode`;
+  the component reads its props as `GetById` on param 1, and the module's exports are the
+  `PutByIdStrict` names). Untyped props fail silently, so a guessed name is a blank or a crash.
+- **Look it up at render, never at module scope** ([porting rule 1](./porting-rules.md)), through
+  the imported-path finder (`discord.utils.modules.finders`). It only finds modules Discord has
+  already loaded.
+- **Always keep the hand-drawn version as the fallback**, and wrap Discord's component in an error
+  boundary that renders it. A missing module, a missing enum value or a throw then costs the look,
+  never the screen. The reference is `plugins/review-db/js/ui/native.tsx` (`Native`, `UserAvatar`,
+  `ReviewerPile`, `Tag`, `Empty`); copy its shape.
+- Icons for `IconButton` are asset ids (`revenge.assets.getAssetIdByName`); bail to the fallback
+  when one comes back undefined.
+
+Why: the user asked for it (ReviewDB 0.1.8, 2026-10-02). Discord's own components pick up the
+theme, avatar decorations, accessibility labels and future redesigns for free; a hand-drawn copy
+drifts the first time Discord changes its look.
+
 ---
 
 ## 4) Context Cards: Warning vs Neutral
@@ -215,6 +332,11 @@ Before shipping a new plugin settings UI, verify:
 6. Destructive actions are confirmed.
 7. Async actions provide clear toasts.
 8. Labels and sub-labels explain behavior plainly.
+9. Nothing the plugin draws itself uses a fixed surface or text colour; it looks right on the
+   Light theme as well as Dark (§3.5).
+10. Every text field except search boxes and dialog fields is in a `FieldGroup` row (§3.6).
+11. Avatars, tags, inputs and empty states use Discord's own component, with the hand-drawn
+    version as the fallback (§3.7).
 
 ---
 
