@@ -165,6 +165,15 @@ function safeReplace(
 	return text.replace(pattern, replacement)
 }
 
+/**
+ * A regex rule's find already understands `\n` and `\t`, but `String.replace` sends them in the
+ * replacement as a backslash and a letter. Turn them into the real characters so the two sides
+ * agree; `\\` stays a way to write a literal backslash.
+ */
+export function unescapeReplacement(text: string): string {
+	return text.replace(/\\([nt\\])/g, (_, char: string) => (char === 'n' ? '\n' : char === 't' ? '\t' : '\\'))
+}
+
 export function applyRules(
 	text: string,
 	rules: Rule[],
@@ -179,7 +188,7 @@ export function applyRules(
 
 		// A plain-text rule's replacement is plain text too: without escaping, `$&`, `$1` or `$$`
 		// in it would be read as substitution codes, and a replacement of "$$" would send "$".
-		const replacement = rule.regex ? rule.replace : rule.replace.replace(/\$/g, '$$$$')
+		const replacement = rule.regex ? unescapeReplacement(rule.replace) : rule.replace.replace(/\$/g, '$$$$')
 		const next = safeReplace(out, compiled.pattern, replacement)
 		if (next !== out) {
 			applied++

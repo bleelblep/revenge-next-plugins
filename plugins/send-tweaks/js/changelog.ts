@@ -3,6 +3,16 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.5.15',
+		date: '2026-10-03',
+		title: 'Line breaks in replace rules',
+		changes: [
+			'Find and Replace with now take more than one line: Enter adds a line, and what you type is sent exactly, line breaks and tabs included.',
+			'In a regular expression rule, \\n in Replace with is a line break and \\t a tab, the same as in Find.',
+			'The rules list shows a line break as ↵.',
+		],
+	},
+	{
 		version: '0.5.12',
 		date: '2026-10-03',
 		title: 'Simpler send button',

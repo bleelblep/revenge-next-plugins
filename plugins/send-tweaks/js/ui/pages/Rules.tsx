@@ -14,7 +14,11 @@ export function LinkRules() {
 
 /** "find → replace", short enough for one row. */
 function summary(rule: Rule): string {
-	const clip = (text: string) => (text.length > 40 ? `${text.slice(0, 39)}…` : text)
+	// A line break would split the row, so show it as ↵.
+	const clip = (raw: string) => {
+		const text = raw.replace(/\r?\n/g, '↵')
+		return text.length > 40 ? `${text.slice(0, 39)}…` : text
+	}
 	if (!rule.find) return 'Empty — tap to set it up'
 	return `${clip(rule.find)} → ${rule.replace ? clip(rule.replace) : '(removed)'}`
 }

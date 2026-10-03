@@ -18,6 +18,32 @@ function showToast(content: string) {
 	})
 }
 
+/**
+ * A multi-line field that keeps its own text while you type. Bound straight to the rule store, each
+ * keystroke came back a moment later and Discord's TextArea put that older text back, so the cursor
+ * jumped and deletes fought you. The store still gets every change; it just never drives the field.
+ * Seeded once: the screen pins its rule on mount, so nothing else edits this text meanwhile.
+ */
+function LinesField({ value, onChange, ...rest }: { value: string; onChange: (value: string) => void } & Record<string, unknown>) {
+	const { React } = revenge.react
+	const { TextInput, TextArea } = revenge.discord.design.Design
+	// TextArea is Discord's multi-line field, so Enter adds a line. TextInput with `multiline` didn't
+	// on the phone (348/349); it's only the fallback if a Discord update drops TextArea.
+	const Input = (TextArea ?? TextInput) as any
+	const [draft, setDraft] = React.useState(value)
+	return (
+		<Input
+			{...rest}
+			multiline
+			value={draft}
+			onChange={(next: string) => {
+				setDraft(next)
+				onChange(next)
+			}}
+		/>
+	)
+}
+
 /** One rule, on its own screen. Opened from a rule list (`Rules.tsx`). */
 export default function EditRule() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
@@ -112,7 +138,7 @@ export default function EditRule() {
 							/>
 						</FieldRow>
 						<FieldRow label="Find">
-							<TextInput
+							<LinesField
 								placeholder={
 									rule.regex
 										? 'A regular expression'
@@ -130,11 +156,11 @@ export default function EditRule() {
 							label="Replace with"
 							description={
 								rule.regex
-									? `Use $1, $2 … for captured groups.${links ? '' : ' Find ^ or $ alone to add text to the start or end of every message.'}`
-									: 'Used exactly as typed.'
+									? `Use $1, $2 … for captured groups, and \\n for a line break.${links ? '' : ' Find ^ or $ alone to add text to the start or end of every message.'}`
+									: 'Used exactly as typed, line breaks included.'
 							}
 						>
-							<TextInput
+							<LinesField
 								placeholder="Leave empty to delete what was found"
 								value={rule.replace}
 								onChange={(value: string) => set({ replace: value })}
