@@ -11,8 +11,11 @@ import { authorize } from '../../lib/auth'
 import { confirm } from '../../lib/discord'
 import { currentUserId, logOut, useSettings } from '../../lib/state'
 import { ABOUT_ROUTE, BLOCKED_ROUTE, OPTIONS_ROUTE } from '../routes'
+import { useChangelog } from '../../../../../shared/changelog'
 
 export default function Settings() {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
 	const { Stack, Text, Card, TableRowGroup, TableRow } = revenge.discord.design.Design as any

@@ -15,6 +15,8 @@ import patchGuildSheet from './patches/guildSheet'
 import patchProfileCard from './patches/profileCard'
 import Settings from './ui/pages/Settings'
 import { registerPages } from './ui/routes'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export default plugin<{ jsonStorage: ReviewDBStorage }>({
 	jsonStorage: {
@@ -27,6 +29,9 @@ export default plugin<{ jsonStorage: ReviewDBStorage }>({
 			plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		setStorage(jsonStorage)
 		cleanup(() => setStorage(undefined))
