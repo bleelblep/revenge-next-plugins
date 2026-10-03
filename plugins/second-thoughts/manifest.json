@@ -5,7 +5,7 @@
 	"description": "Stops passwords, API keys and card numbers from being sent. Optional AI checks with AI Core.",
 	"author": "bleelblep",
 	"icon": "ShieldIcon",
-	"version": "0.3.2",
+	"version": "0.3.3",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

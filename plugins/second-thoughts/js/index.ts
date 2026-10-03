@@ -26,6 +26,8 @@ import patchSendMessage from './patches/sendMessage'
 import Settings from './ui/pages/Settings'
 import { CHECKS_ROUTE, registerPages } from './ui/routes'
 import type { AiHandle, SecondThoughtsStorage } from './types'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export { DEFAULTS }
 export type { SecondThoughtsStorage }
@@ -41,6 +43,9 @@ export default plugin<{ jsonStorage: SecondThoughtsStorage }>({
 			api.plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		api.cleanup(setupChangelog(api, CHANGELOG))
 
 		const { cleanup, jsonStorage } = api
 		setStorage(jsonStorage)

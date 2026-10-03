@@ -4,6 +4,7 @@ import { rowIcon } from '../icon'
 import { CHECKS_ROUTE, DEBUG_ROUTE, PRIVACY_ROUTE, TRY_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { SecondThoughtsStorage } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * The root index.
@@ -18,6 +19,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<SecondThoughtsStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
