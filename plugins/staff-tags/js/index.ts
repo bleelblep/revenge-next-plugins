@@ -6,6 +6,8 @@ import patchTag from "./patches/tag"
 import Settings from "./ui/pages/Settings"
 import { registerPages } from "./ui/routes"
 import type { StaffTagsStorage } from "./types"
+import { CHANGELOG } from "./changelog"
+import { setupChangelog } from "../../../shared/changelog"
 
 export { DEFAULTS }
 export type { StaffTagsStorage }
@@ -23,6 +25,9 @@ export default plugin<{ jsonStorage: StaffTagsStorage }>({
 			plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		setStorage(jsonStorage)
 

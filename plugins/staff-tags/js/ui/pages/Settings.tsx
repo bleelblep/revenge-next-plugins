@@ -6,6 +6,7 @@ import { TAG_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import TagIcon from '../TagIcon'
 import type { StaffTagsStorage } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * The tag list: every tag with what it currently looks like, each opening its own page.
@@ -23,6 +24,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<StaffTagsStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
 	const { Stack, Text, TableRowGroup, TableRow, TableSwitchRow } =
