@@ -48,8 +48,8 @@ export default function SendButton() {
 							disabled={off}
 						/>
 						<TableRadioRow
-							label="Hold and swipe up to send unchanged"
-							subLabel="Hold send, slide up and let go: sent exactly as typed, no link cleaning, rules or @silent. Let go early to cancel. The menu is off in this mode."
+							label="Hold and swipe up"
+							subLabel="Hold send and slide up. Let go halfway to preview it before sending; at the top to send it exactly as typed, with no link cleaning, rules or @silent. Let go lower to cancel. The menu is off in this mode."
 							value="swipe"
 							disabled={off}
 						/>

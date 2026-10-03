@@ -1,6 +1,7 @@
 import { makeSilent } from '../../lib/silent'
 import { getStorage, useSettings } from '../../lib/state'
 import { transform } from '../../lib/transform'
+import { FieldGroup } from '../fieldGroup'
 import { useBottomPadding } from '../safeArea'
 
 const EXAMPLES = [
@@ -58,13 +59,15 @@ export default function TryIt() {
 				contentContainerStyle={{ paddingBottom: useBottomPadding() }}
 			>
 				<Stack spacing={24}>
-					<TextInput
-						placeholder="Type or paste a message"
-						value={draft}
-						multiline
-						isClearable
-						onChange={setDraft}
-					/>
+					<FieldGroup label="Message">
+						<TextInput
+							placeholder="Type or paste a message"
+							value={draft}
+							multiline
+							isClearable
+							onChange={setDraft}
+						/>
+					</FieldGroup>
 
 					{result ? (
 						<Card variant="secondary" border="none">

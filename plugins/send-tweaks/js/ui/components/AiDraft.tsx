@@ -1,6 +1,7 @@
 import { type Draft, draftRule } from '../../lib/aiRule'
 import { addRule, type RuleKind, setEditing } from '../../lib/ruleStore'
 import { getAi } from '../../lib/state'
+import { FieldRow } from '../fieldGroup'
 import { rowIcon } from '../icon'
 import { EDIT_RULE_ROUTE } from '../routes'
 
@@ -56,25 +57,28 @@ export default function AiDraft({ kind }: { kind: RuleKind }) {
 
 	return (
 		<View style={{ gap: 8 }}>
-			<TextInput
-				label="Describe a rule"
-				placeholder={
-					links
-						? 'e.g. make Instagram links embed properly'
-						: 'e.g. replace omw with on my way'
-				}
-				description={
-					available
-						? `Written by AI Core, one call per rule (${remaining}). Only this description is sent.`
-						: "AI Core can't make calls right now: set a key in its settings, or today's limit is used up."
-				}
-				value={description}
-				multiline
-				isClearable
-				editable={available}
-				onChange={(value: string) => setDescription(value)}
-			/>
 			<TableRowGroup hasIcons>
+				<FieldRow
+					label="Describe a rule"
+					description={
+						available
+							? `Written by AI Core, one call per rule (${remaining}). Only this description is sent.`
+							: "AI Core can't make calls right now: set a key in its settings, or today's limit is used up."
+					}
+				>
+					<TextInput
+						placeholder={
+							links
+								? 'e.g. make Instagram links embed properly'
+								: 'e.g. replace omw with on my way'
+						}
+						value={description}
+						multiline
+						isClearable
+						editable={available}
+						onChange={(value: string) => setDescription(value)}
+					/>
+				</FieldRow>
 				<TableRow
 					label={busy ? 'Writing…' : 'Write the rule'}
 					icon={rowIcon('MagicWandIcon')}

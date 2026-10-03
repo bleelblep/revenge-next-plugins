@@ -1,6 +1,6 @@
 /**
  * Long-press the send button for the Send Tweaks sheet (`ui/components/SendSheet.tsx`), or hold and
- * swipe up to send unchanged.
+ * swipe up to preview or send unchanged.
  *
  * ## Where the button is (Discord 348, checked live over devtools)
  *
@@ -19,8 +19,9 @@
  * In swipe mode the long-press only arms the gesture; the finger's raw touch events (`onTouchMove`,
  * `onTouchEnd`, which go to the view the touch started on wherever the finger goes) decide the rest.
  * While armed, `ui/components/SwipeIndicator.tsx` draws a slide track above the button whose knob
- * follows the finger. Letting go at least [SWIPE_DISTANCE] above where the finger went down sends unchanged; letting go
- * anywhere else cancels. The sheet is off entirely in this mode. The long-press is what keeps this from also sending normally: once
+ * follows the finger. The track has two stops: letting go at least [PREVIEW_DISTANCE] above where
+ * the finger went down shows a preview (`lib/preview.ts`), at least [SWIPE_DISTANCE] sends
+ * unchanged, and anywhere lower cancels. The sheet is off entirely in this mode. The long-press is what keeps this from also sending normally: once
  * it fires, the pressable never calls `onPress` for that touch. A quick swipe with no hold never
  * arms and never sends, because the finger leaves the button before the press could count.
  *
@@ -38,21 +39,22 @@
  */
 
 import { sendOnce } from '../lib/nextSend'
+import { showPreview } from '../lib/preview'
 import { settings, TAG } from '../lib/state'
-import { SWIPE_DISTANCE, setSwipe, setSwipeDistance } from '../lib/swipe'
+import { type Stop, setSwipe, setSwipeDistance, stopAt } from '../lib/swipe'
 import SendSheet, { SHEET_KEY, sheetHasContent } from '../ui/components/SendSheet'
 import SwipeIndicator from '../ui/components/SwipeIndicator'
 
 const PATH = 'modules/chat_input/native/action_buttons/ChatInputActionButton.tsx'
 
-const status = { installed: false, moduleId: -1, opened: 0, swiped: 0, touchesSeen: false }
+const status = { installed: false, moduleId: -1, opened: 0, swiped: 0, previewed: 0, touchesSeen: false }
 
 export function sendButtonStatus() {
 	return { ...status }
 }
 
 /** The touch in progress on the send button. One finger, one button: module state is enough. */
-const gesture = { touched: false, armed: false, past: false, startY: 0 }
+const gesture = { touched: false, armed: false, stop: 0 as Stop, startY: 0 }
 
 const nameOf = (type: any): string | undefined =>
 	type?.name || type?.displayName || type?.type?.name || type?.render?.name
@@ -118,8 +120,8 @@ function swipeProps(element: any, send: unknown) {
 	const end = () => {
 		gesture.touched = false
 		gesture.armed = false
-		gesture.past = false
-		setSwipe({ armed: false, past: false })
+		gesture.stop = 0
+		setSwipe({ armed: false, stop: 0 })
 		setSwipeDistance(0)
 	}
 	return {
@@ -129,15 +131,15 @@ function swipeProps(element: any, send: unknown) {
 			// menu, so there is nothing to fall back to.
 			if (!gesture.touched) return
 			gesture.armed = true
-			gesture.past = false
+			gesture.stop = 0
 			setSwipeDistance(0)
-			setSwipe({ armed: true, past: false })
+			setSwipe({ armed: true, stop: 0 })
 			buzz(10)
 		},
 		onTouchStart: chain(element, 'onTouchStart', event => {
 			gesture.touched = true
 			gesture.armed = false
-			gesture.past = false
+			gesture.stop = 0
 			gesture.startY = pageY(event)
 			status.touchesSeen = true
 			anchorFrom(event)
@@ -146,23 +148,69 @@ function swipeProps(element: any, send: unknown) {
 			if (!gesture.armed) return
 			const up = gesture.startY - pageY(event)
 			setSwipeDistance(up)
-			const past = up >= SWIPE_DISTANCE
-			if (past === gesture.past) return
-			gesture.past = past
-			setSwipe({ past })
-			if (past) buzz(20)
+			const stop = stopAt(up)
+			if (stop === gesture.stop) return
+			const higher = stop > gesture.stop
+			gesture.stop = stop
+			setSwipe({ stop })
+			// A tick for each stop reached on the way up; nothing on the way back down.
+			if (higher) buzz(stop === 2 ? 20 : 12)
 		}),
 		onTouchEnd: chain(element, 'onTouchEnd', event => {
 			const armed = gesture.armed
-			const past = gesture.startY - pageY(event) >= SWIPE_DISTANCE
+			const stop = stopAt(gesture.startY - pageY(event))
 			end()
 			if (!armed) return
-			// Letting go short of the top cancels: in this mode the menu is off entirely.
-			if (!past) return
-			status.swiped++
-			sendOnce('raw', typeof send === 'function' ? (send as () => void) : undefined)
+			// Letting go below the first stop cancels: in this mode the menu is off entirely.
+			if (stop === 1) {
+				status.previewed++
+				showPreview(typeof send === 'function' ? (send as () => void) : undefined)
+			} else if (stop === 2) {
+				status.swiped++
+				sendOnce('raw', typeof send === 'function' ? (send as () => void) : undefined)
+			}
 		}),
 		onTouchCancel: chain(element, 'onTouchCancel', () => end()),
+	}
+}
+
+/**
+ * The send button's own fill, so the swipe capsule grows out of it in the same colour. Read off the
+ * pressable's style (or a colour prop on the action button); undefined when neither carries one, and
+ * the capsule then falls back to the theme's brand colour.
+ */
+/**
+ * The send button's corner radius, so the capsule has the same corners: the first `borderRadius`
+ * on the pressable or the views inside it (a few levels down; the icon is the innermost). Undefined
+ * when none carries one, and the capsule uses its own guess.
+ */
+function buttonRadius(element: any): number | undefined {
+	try {
+		const { StyleSheet } = revenge.react.ReactNative
+		let node = element
+		for (let depth = 0; depth < 4 && node; depth++) {
+			const style = typeof node.props?.style === 'function' ? node.props.style({ pressed: false }) : node.props?.style
+			const radius = StyleSheet.flatten(style)?.borderRadius
+			if (typeof radius === 'number' && radius >= 0) return radius
+			const children = node.props?.children
+			node = Array.isArray(children) ? children.find((c: any) => c?.props) : children
+		}
+	} catch {
+		/* the capsule's own guess */
+	}
+	return undefined
+}
+
+function buttonColour(element: any, props: any): unknown {
+	try {
+		const { StyleSheet } = revenge.react.ReactNative
+		const own = StyleSheet.flatten(element?.props?.style)?.backgroundColor
+		if (own != null) return own
+		const child = StyleSheet.flatten(element?.props?.children?.props?.style)?.backgroundColor
+		if (child != null) return child
+		return props?.backgroundColor ?? props?.color
+	} catch {
+		return undefined
 	}
 }
 
@@ -189,7 +237,12 @@ export default function patchSendButton(): () => void {
 						element,
 						swipeProps(element, send),
 						element.props.children,
-						<SwipeIndicator key="send-tweaks-swipe" Icon={props?.IconComponent} />,
+						<SwipeIndicator
+							key="send-tweaks-swipe"
+							Icon={props?.IconComponent}
+							buttonColour={buttonColour(element, props)}
+							buttonRadius={buttonRadius(element)}
+						/>,
 					)
 				}
 				return React.cloneElement(element, {

@@ -1,0 +1,149 @@
+import { renderMarkdown } from './markdown'
+import { makeSilent } from './silent'
+import { settings, TAG } from './state'
+import { transform } from './transform'
+
+/**
+ * Preview: a Discord dialog showing the draft as the message it would become, with Send and Close.
+ * Nothing is sent or added to the chat until Send.
+ *
+ * It runs the same steps as the send hook (`patches/outgoing.ts`): link cleaning, link rules and
+ * text rules (`transform`), then @silent when Silent messages is on. So the preview is what would
+ * actually leave, not just what was typed.
+ *
+ * ## Drawing the message
+ *
+ * Your avatar and name, then the text with Discord's markdown (`lib/markdown.tsx`), in a scroll
+ * view capped at about half the screen so a long message can be read to the end.
+ *
+ * 0.5.x borrowed the delete dialog's `LongPressMessageChatItemPreview` instead. Discord only loads
+ * that with the message long-press menu, so until a message had been long-pressed the dialog fell
+ * back to plain unformatted text ("sometimes not showing"); it also caps its own height, so a long
+ * draft was cut off with no way to scroll. Drawing it here behaves the same every time.
+ *
+ * The idea is nexpid's Message Preview (Vendetta); this is written for Send Tweaks and shares no
+ * code with it. Text only: attachments waiting to upload are not shown.
+ */
+
+const ALERT_KEY = 'SendTweaksPreview'
+
+function toast(content: string) {
+	try {
+		revenge.discord.actions.ToastActionCreators.open({ key: 'SendTweaksPreviewToast', content })
+	} catch {
+		/* no toast */
+	}
+}
+
+/** The text a send would carry right now, as Send Tweaks would change it. */
+export function previewText(draft: string): string {
+	let text = transform(draft).text
+	if (settings().silentMessages) text = makeSilent(text)
+	return text
+}
+
+function avatarUrl(me: any): string | undefined {
+	try {
+		const url = me.getAvatarURL?.(undefined, 64, false)
+		if (typeof url === 'string') return url
+	} catch {
+		/* the default avatar below */
+	}
+	return me.avatar
+		? `https://cdn.discordapp.com/avatars/${me.id}/${me.avatar}.png?size=64`
+		: "https://cdn.discordapp.com/embed/avatars/0.png"
+}
+
+/** The message as it would appear: who it's from, then the formatted text, scrollable. */
+function previewMessage(content: string): any {
+	const React = revenge.react.React
+	const { Image, ScrollView, View, Dimensions } = revenge.react.ReactNative
+	const { Text } = revenge.discord.design.Design as any
+	const me = (revenge.discord.flux.Stores as any).UserStore?.getCurrentUser?.()
+
+	let body: any
+	try {
+		body = renderMarkdown(content)
+	} catch (error) {
+		console.error(`${TAG} preview: markdown failed, showing the text as typed:`, error)
+		body = React.createElement(Text, { variant: 'text-md/normal', color: 'text-default', selectable: true }, content)
+	}
+
+	const author = me
+		? React.createElement(
+				View,
+				{ style: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 } },
+				React.createElement(Image, {
+					source: { uri: avatarUrl(me) },
+					style: { width: 28, height: 28, borderRadius: 14, marginRight: 8 },
+				}),
+				React.createElement(
+					Text,
+					{ variant: 'text-md/semibold', color: 'text-default' },
+					me.globalName ?? me.global_name ?? me.username,
+				),
+			)
+		: null
+
+	return React.createElement(
+		ScrollView,
+		{
+			style: { maxHeight: Math.round(Dimensions.get('window').height * 0.5) },
+			// Inside the alert, the scroll view has to claim the drag or the dialog eats it.
+			nestedScrollEnabled: true,
+			keyboardShouldPersistTaps: 'handled',
+		},
+		author,
+		body,
+	)
+}
+
+/**
+ * Opens the preview for the current channel's draft. [send] is the send button's own `onPress`;
+ * without it the dialog only has Close. Returns false if there was nothing to preview.
+ */
+export function showPreview(send?: () => void): boolean {
+	const stores = revenge.discord.flux.Stores as any
+	const channelId: string | undefined = stores.SelectedChannelStore?.getChannelId?.()
+	const draft: string = channelId ? (stores.DraftStore?.getDraft?.(channelId, 0) ?? '') : ''
+	if (!channelId || !draft.trim()) {
+		toast('Nothing to preview yet')
+		return false
+	}
+
+	const content = previewText(draft)
+	const { AlertModal, AlertActionButton } = revenge.discord.design.Design as any
+	const alerts = revenge.discord.actions.AlertActionCreators
+	const React = revenge.react.React
+	const close = () => alerts.dismissAlert(ALERT_KEY)
+
+	try {
+		alerts.openAlert(
+			ALERT_KEY,
+			React.createElement(AlertModal, {
+				title: 'Preview',
+				extraContent: previewMessage(content),
+				actions: React.createElement(
+					React.Fragment,
+					null,
+					typeof send === 'function'
+						? React.createElement(AlertActionButton, {
+								text: 'Send',
+								variant: 'primary',
+								onPress: () => {
+									close()
+									send()
+								},
+							})
+						: null,
+					React.createElement(AlertActionButton, { text: 'Close', variant: 'secondary', onPress: close }),
+				),
+			}),
+		)
+		return true
+	} catch (error) {
+		console.error(`${TAG} preview failed:`, error)
+		toast("Couldn't show a preview here")
+		return false
+	}
+}

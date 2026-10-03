@@ -2,23 +2,39 @@
  * The hold-and-swipe gesture's live state, shared between the touch handlers on the send button
  * (`patches/sendButton.tsx`) and the capsule drawn over it (`ui/components/SwipeIndicator.tsx`).
  *
- * `armed`/`past`/the button's place change a few times per gesture and re-render the capsule. The
+ * `armed`/`stop`/the button's place change a few times per gesture and re-render the capsule. The
  * finger's position changes every frame, so it goes into an `Animated.Value` instead and never
  * re-renders anything.
+ *
+ * Two stops on the way up: Preview halfway, then Send unchanged at the very top.
  */
 
-/** How far up (dp) the finger has to go before letting go sends unchanged. */
-export const SWIPE_DISTANCE = 88
+/** Where letting go lands: 0 cancels, 1 previews, 2 sends unchanged. */
+export type Stop = 0 | 1 | 2
 
 /** How far the capsule stretches above the button, and so how far the knob can travel. */
-export const SWIPE_TRAVEL = 120
+export const SWIPE_TRAVEL = 168
+
+/** How far up (dp) the finger has to go before letting go previews: the middle of the capsule. */
+export const PREVIEW_DISTANCE = SWIPE_TRAVEL / 2
+
+/**
+ * How far up (dp) the finger has to go before letting go sends unchanged: the top, where the knob
+ * stops. The finger can overshoot (the knob is clamped), so reaching it needs no precision.
+ */
+export const SWIPE_DISTANCE = SWIPE_TRAVEL
+
+/** The stop for a finger [up] dp above where it went down. */
+export function stopAt(up: number): Stop {
+	return up >= SWIPE_DISTANCE ? 2 : up >= PREVIEW_DISTANCE ? 1 : 0
+}
 
 /** The send button's place on screen (page coordinates), taken from the touch that went down on it. */
 export type Anchor = { x: number; y: number; width: number; height: number }
 
-type State = { armed: boolean; past: boolean; anchor?: Anchor }
+type State = { armed: boolean; stop: Stop; anchor?: Anchor }
 
-let state: State = { armed: false, past: false }
+let state: State = { armed: false, stop: 0 }
 const listeners = new Set<() => void>()
 let drag: any
 
@@ -30,7 +46,7 @@ export function swipeDrag(): any {
 
 export function setSwipe(patch: Partial<State>) {
 	const next = { ...state, ...patch }
-	if (next.armed === state.armed && next.past === state.past && next.anchor === state.anchor) return
+	if (next.armed === state.armed && next.stop === state.stop && next.anchor === state.anchor) return
 	state = next
 	for (const listener of listeners) {
 		try {

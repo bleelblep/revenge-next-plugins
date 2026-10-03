@@ -1,12 +1,21 @@
 import { copyText } from '../../lib/clipboard'
 import { exportRule } from '../../lib/importRules'
-import { deleteRule, getEditing, updateRule, useRules } from '../../lib/ruleStore'
+import {
+	deleteRule,
+	getEditing,
+	updateRule,
+	useRules,
+} from '../../lib/ruleStore'
 import { compileRule, type Rule } from '../../lib/textReplace'
-import { rowIcon } from '../icon'
+import { FieldRow } from '../fieldGroup'
+import { dangerIcon, rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 
 function showToast(content: string) {
-	revenge.discord.actions.ToastActionCreators.open({ key: 'SendTweaksRuleToast', content })
+	revenge.discord.actions.ToastActionCreators.open({
+		key: 'SendTweaksRuleToast',
+		content,
+	})
 }
 
 /** One rule, on its own screen. Opened from a rule list (`Rules.tsx`). */
@@ -26,7 +35,8 @@ export default function EditRule() {
 		AlertActionButton,
 	} = revenge.discord.design.Design
 	const Alerts = revenge.discord.actions.AlertActionCreators
-	const { useNavigation } = revenge.externals.ReactNavigation.ReactNavigationNative
+	const { useNavigation } =
+		revenge.externals.ReactNavigation.ReactNavigationNative
 	const navigation = useNavigation() as any
 
 	// Pinned on mount, so opening another rule later cannot swap this screen's rule underneath it.
@@ -57,7 +67,11 @@ export default function EditRule() {
 			key,
 			<AlertModal
 				title={`Delete ${rule.name ? `“${rule.name}”` : 'this rule'}?`}
-				content={rule.find ? `"${rule.find}" → "${rule.replace}"` : 'This rule is empty.'}
+				content={
+					rule.find
+						? `"${rule.find}" → "${rule.replace}"`
+						: 'This rule is empty.'
+				}
 				actions={
 					<>
 						<AlertActionButton
@@ -87,39 +101,46 @@ export default function EditRule() {
 				contentContainerStyle={{ paddingBottom: useBottomPadding() }}
 			>
 				<Stack spacing={24}>
-					<Stack spacing={16}>
-						<TextInput
-							label="Name"
-							placeholder={links ? 'Optional, e.g. Twitter to fxtwitter' : 'Optional'}
-							value={rule.name ?? ''}
-							onChange={(value: string) => set({ name: value || undefined })}
-						/>
-						<TextInput
-							label="Find"
-							placeholder={
-								rule.regex
-									? 'A regular expression'
-									: links
-										? 'Part of a link, e.g. twitter.com'
-										: 'Text to look for'
-							}
-							value={rule.find}
-							status={error ? 'error' : 'default'}
-							errorMessage={error}
-							onChange={(value: string) => set({ find: value })}
-						/>
-						<TextInput
+					<TableRowGroup title="Rule">
+						<FieldRow label="Name">
+							<TextInput
+								placeholder={
+									links ? 'Optional, e.g. Twitter to fxtwitter' : 'Optional'
+								}
+								value={rule.name ?? ''}
+								onChange={(value: string) => set({ name: value || undefined })}
+							/>
+						</FieldRow>
+						<FieldRow label="Find">
+							<TextInput
+								placeholder={
+									rule.regex
+										? 'A regular expression'
+										: links
+											? 'Part of a link, e.g. twitter.com'
+											: 'Text to look for'
+								}
+								value={rule.find}
+								status={error ? 'error' : 'default'}
+								errorMessage={error}
+								onChange={(value: string) => set({ find: value })}
+							/>
+						</FieldRow>
+						<FieldRow
 							label="Replace with"
-							placeholder="Leave empty to delete what was found"
 							description={
 								rule.regex
 									? `Use $1, $2 … for captured groups.${links ? '' : ' Find ^ or $ alone to add text to the start or end of every message.'}`
 									: 'Used exactly as typed.'
 							}
-							value={rule.replace}
-							onChange={(value: string) => set({ replace: value })}
-						/>
-					</Stack>
+						>
+							<TextInput
+								placeholder="Leave empty to delete what was found"
+								value={rule.replace}
+								onChange={(value: string) => set({ replace: value })}
+							/>
+						</FieldRow>
+					</TableRowGroup>
 
 					<TableRowGroup title="Options">
 						<TableSwitchRow
@@ -159,12 +180,17 @@ export default function EditRule() {
 							icon={rowIcon('CopyIcon')}
 							disabled={!rule.find}
 							onPress={() =>
-								showToast(copyText(exportRule(rule)) ? 'Rule copied.' : 'Could not reach the clipboard.')
+								showToast(
+									copyText(exportRule(rule))
+										? 'Rule copied.'
+										: 'Could not reach the clipboard.',
+								)
 							}
 						/>
 						<TableRow
+							variant="danger"
 							label="Delete rule"
-							icon={rowIcon('TrashIcon', 'ic_trash_24px')}
+							icon={dangerIcon('TrashIcon', 'ic_trash_24px')}
 							onPress={confirmDelete}
 						/>
 					</TableRowGroup>

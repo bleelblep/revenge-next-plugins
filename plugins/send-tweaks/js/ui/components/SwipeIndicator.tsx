@@ -1,11 +1,61 @@
+import { tokenHex } from '../../lib/colours'
 import { TAG } from '../../lib/state'
-import { type Anchor, SWIPE_DISTANCE, SWIPE_TRAVEL, swipeDrag, useSwipeState } from '../../lib/swipe'
+import {
+	type Anchor,
+	PREVIEW_DISTANCE,
+	type Stop,
+	SWIPE_DISTANCE,
+	SWIPE_TRAVEL,
+	swipeDrag,
+	useSwipeState,
+} from '../../lib/swipe'
 
 const BLURPLE = '#5865F2'
 const GREEN = '#23A55A'
 
 /** Bands in the capsule's gradient: enough that no step shows at the capsule's full height. */
 const BANDS = 40
+
+/**
+ * The send button's fill, for the bottom of the capsule, in the order most likely to be exactly it:
+ *
+ * 1. `CHAT_INPUT_SEND_BUTTON_ACTIVE_BACKGROUND`, Discord's own token for it (in the 348.5 bundle),
+ *    resolved for the theme in use, so light, dark and a Themes plugin theme are all followed;
+ * 2. the colour read off the button's style (`patches/sendButton.tsx`);
+ * 3. the theme's brand colour, then blurple.
+ *
+ * 0.5.3 tried the style first and the brand colour second, and still drew blue.
+ */
+function sendButtonColour(fromStyle: unknown): string {
+	return (
+		tokenHex('CHAT_INPUT_SEND_BUTTON_ACTIVE_BACKGROUND') ??
+		toHex(fromStyle) ??
+		tokenHex('BACKGROUND_BRAND') ??
+		BLURPLE
+	)
+}
+
+/**
+ * A colour as `#rrggbb`, from the forms a React Native style can carry: `#rgb`, `#rrggbb(aa)`,
+ * `rgb()`/`rgba()`, or a processed 0xAARRGGBB number. Undefined for anything else (a named colour,
+ * a platform colour object), and the caller falls back.
+ */
+function toHex(colour: unknown): string | undefined {
+	const hex2 = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0')
+	if (typeof colour === 'number' && Number.isFinite(colour)) {
+		const n = colour >>> 0
+		return `#${hex2((n >> 16) & 255)}${hex2((n >> 8) & 255)}${hex2(n & 255)}`
+	}
+	if (typeof colour !== 'string') return undefined
+	const value = colour.trim()
+	let m = /^#([0-9a-f]{3})$/i.exec(value)
+	if (m) return `#${m[1]!.split('').map(c => c + c).join('')}`.toLowerCase()
+	m = /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(value)
+	if (m) return `#${m[1]!.toLowerCase()}`
+	m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(value)
+	if (m) return `#${hex2(+m[1]!)}${hex2(+m[2]!)}${hex2(+m[3]!)}`
+	return undefined
+}
 
 function mix(from: string, to: string, t: number): string {
 	const channel = (hex: string, i: number) => Number.parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
@@ -14,14 +64,52 @@ function mix(from: string, to: string, t: number): string {
 }
 
 /**
- * Top (green) to bottom (blurple). RN has no gradient fill and Discord's native gradient view is not
- * reachable by a stable name, so the gradient is thin stacked bands; the capsule's rounded clip
- * hides their square ends. Computed once.
+ * Top (green, send unchanged) to the send button's colour at the bottom, with nothing in between: the
+ * middle (Preview) is whatever the two blend to. RN has no gradient fill and Discord's native
+ * gradient view is not reachable by a stable name, so the gradient is thin stacked bands; the
+ * capsule's rounded clip hides their square ends. Recomputed only when the bottom colour changes.
  */
-let gradient: string[] | undefined
-const gradientBands = () => {
-	gradient ??= Array.from({ length: BANDS }, (_, i) => mix(GREEN, BLURPLE, i / (BANDS - 1)))
-	return gradient
+let gradient: { bottom: string; bands: string[] } | undefined
+const gradientBands = (bottom: string) => {
+	if (gradient?.bottom !== bottom) {
+		gradient = {
+			bottom,
+			bands: Array.from({ length: BANDS }, (_, i) => mix(GREEN, bottom, i / (BANDS - 1))),
+		}
+	}
+	return gradient.bands
+}
+
+/** A label beside the capsule, level with one stop, lit while letting go would land on it. */
+function StopLabel({
+	top,
+	right,
+	opacity,
+	lit,
+	colour,
+	idle,
+	active,
+}: { top: number; right: number; opacity: any; lit: boolean; colour: string; idle: string; active: string }) {
+	const { Animated, Text } = revenge.react.ReactNative
+	return (
+		<Animated.View
+			style={{
+				position: 'absolute',
+				right,
+				top: top - 14,
+				height: 28,
+				justifyContent: 'center',
+				paddingHorizontal: 12,
+				borderRadius: 14,
+				backgroundColor: lit ? colour : 'rgba(17, 18, 20, 0.9)',
+				opacity,
+			}}
+		>
+			<Text numberOfLines={1} style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>
+				{lit ? active : idle}
+			</Text>
+		</Animated.View>
+	)
 }
 
 /**
@@ -67,14 +155,22 @@ function getBoundary(): any {
 
 /**
  * The hold-and-swipe capsule, like Google Allo's: while the gesture is armed the send button
- * stretches up into a tall pill, and a knob carrying the send icon rides up it with the finger. Past
- * the send-unchanged point the knob brightens and a label says so. The pill is a gradient from
- * Discord blurple at the button to green at the top, where letting go sends unchanged.
+ * stretches up into a tall bar with the button's own corners, and a knob carrying the send icon rides up it with the finger. It
+ * has two stops, each with a label beside it that lights up once letting go would land there:
+ * Preview halfway (a tick marks it on the pill), Send unchanged at the very top. The pill is a
+ * gradient from the send button's own colour at the button to green at the top.
  *
  * Drawn exactly over the real button (its page position comes from the touch that went down on it),
  * through the app-level portal. `pointerEvents="none"`: the touch stays with the button underneath.
  */
-function Capsule({ Icon, anchor, armed, past }: { Icon?: any; anchor: Anchor; armed: boolean; past: boolean }) {
+function Capsule({
+	Icon,
+	anchor,
+	armed,
+	stop,
+	buttonColour,
+	buttonRadius,
+}: { Icon?: any; anchor: Anchor; armed: boolean; stop: Stop; buttonColour?: unknown; buttonRadius?: number }) {
 	const React = revenge.react.React
 	const { Animated, Dimensions, Text, View } = revenge.react.ReactNative
 
@@ -89,16 +185,26 @@ function Capsule({ Icon, anchor, armed, past }: { Icon?: any; anchor: Anchor; ar
 		}).start()
 	}, [armed])
 
+	const bottomColour = sendButtonColour(buttonColour)
 	const size = Math.max(anchor.width, anchor.height)
 	const knob = size - 8
+	// The button's own corners at both ends, not a pill. When its radius can't be read, a rounded
+	// square in the proportion Discord's send button has.
+	const radius = Math.min(size / 2, buttonRadius ?? Math.round(size * 0.3))
+	const knobRadius = Math.max(0, radius - 4)
 	const drag = swipeDrag()
 	const knobY = drag.interpolate({
 		inputRange: [0, SWIPE_TRAVEL],
 		outputRange: [0, -SWIPE_TRAVEL],
 		extrapolate: 'clamp',
 	})
-	const labelOpacity = drag.interpolate({
-		inputRange: [0, SWIPE_DISTANCE * 0.4, SWIPE_DISTANCE],
+	const previewOpacity = drag.interpolate({
+		inputRange: [0, PREVIEW_DISTANCE * 0.4, PREVIEW_DISTANCE],
+		outputRange: [0, 0.8, 1],
+		extrapolate: 'clamp',
+	})
+	const sendOpacity = drag.interpolate({
+		inputRange: [PREVIEW_DISTANCE, PREVIEW_DISTANCE + (SWIPE_DISTANCE - PREVIEW_DISTANCE) * 0.4, SWIPE_DISTANCE],
 		outputRange: [0, 0.8, 1],
 		extrapolate: 'clamp',
 	})
@@ -106,6 +212,9 @@ function Capsule({ Icon, anchor, armed, past }: { Icon?: any; anchor: Anchor; ar
 	// Bottom-anchored on the button: it grows upward from the button's own shape.
 	const left = anchor.x + anchor.width / 2 - size / 2
 	const bottom = anchor.y + anchor.height
+	// Where the knob's centre sits when the finger is exactly at a stop.
+	const knobCentre = (distance: number) => bottom - 4 - knob / 2 - distance
+	const labelRight = Dimensions.get('window').width - left + 8
 
 	return (
 		<View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
@@ -117,8 +226,8 @@ function Capsule({ Icon, anchor, armed, past }: { Icon?: any; anchor: Anchor; ar
 					width: size,
 					height: grow.interpolate({ inputRange: [0, 1], outputRange: [size, size + SWIPE_TRAVEL] }),
 					opacity: grow.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
-					borderRadius: size / 2,
-					backgroundColor: BLURPLE,
+					borderRadius: radius,
+					backgroundColor: bottomColour,
 					overflow: 'hidden',
 					alignItems: 'center',
 					justifyContent: 'flex-end',
@@ -127,18 +236,30 @@ function Capsule({ Icon, anchor, armed, past }: { Icon?: any; anchor: Anchor; ar
 				}}
 			>
 				<View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-					{gradientBands().map((colour, i) => (
+					{gradientBands(bottomColour).map((colour, i) => (
 						<View key={i} style={{ flex: 1, backgroundColor: colour }} />
 					))}
 				</View>
+				{/* The Preview stop's tick, measured from the capsule's bottom like the knob. */}
+				<View
+					style={{
+						position: 'absolute',
+						left: size / 2 - 8,
+						width: 16,
+						height: 2,
+						borderRadius: 1,
+						bottom: 4 + knob / 2 + PREVIEW_DISTANCE - 1,
+						backgroundColor: 'rgba(255, 255, 255, 0.6)',
+					}}
+				/>
 				<Animated.View
 					style={{
 						width: knob,
 						height: knob,
-						borderRadius: knob / 2,
+						borderRadius: knobRadius,
 						alignItems: 'center',
 						justifyContent: 'center',
-						backgroundColor: past ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.28)',
+						backgroundColor: stop ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.28)',
 						transform: [{ translateY: knobY }],
 					}}
 				>
@@ -150,38 +271,42 @@ function Capsule({ Icon, anchor, armed, past }: { Icon?: any; anchor: Anchor; ar
 				</Animated.View>
 			</Animated.View>
 
-			{/* The label sits just left of the capsule, level with its top. */}
-			<Animated.View
-				style={{
-					position: 'absolute',
-					right: Dimensions.get('window').width - left + 8,
-					top: bottom - size - SWIPE_TRAVEL + (size - 28) / 2,
-					height: 28,
-					justifyContent: 'center',
-					paddingHorizontal: 12,
-					borderRadius: 14,
-					backgroundColor: past ? GREEN : 'rgba(17, 18, 20, 0.9)',
-					// Tied to the capsule too, so it leaves with it when the finger lifts.
-					opacity: Animated.multiply(labelOpacity, grow),
-				}}
-			>
-				<Text numberOfLines={1} style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>
-					{past ? 'Let go to send unchanged' : 'Send unchanged'}
-				</Text>
-			</Animated.View>
+			{/* Labels sit just left of the capsule, each level with its stop; they leave with the capsule. */}
+			<StopLabel
+				top={knobCentre(PREVIEW_DISTANCE)}
+				right={labelRight}
+				opacity={Animated.multiply(previewOpacity, grow)}
+				lit={stop === 1}
+				colour={mix(GREEN, bottomColour, 0.5)}
+				idle="Preview"
+				active="Let go to preview"
+			/>
+			<StopLabel
+				top={knobCentre(SWIPE_DISTANCE)}
+				right={labelRight}
+				opacity={Animated.multiply(sendOpacity, grow)}
+				lit={stop === 2}
+				colour={GREEN}
+				idle="Send unchanged"
+				active="Let go to send unchanged"
+			/>
 		</View>
 	)
 }
 
-export default function SwipeIndicator({ Icon }: { Icon?: any }) {
-	const { armed, past, anchor } = useSwipeState()
+export default function SwipeIndicator({
+	Icon,
+	buttonColour,
+	buttonRadius,
+}: { Icon?: any; buttonColour?: unknown; buttonRadius?: number }) {
+	const { armed, stop, anchor } = useSwipeState()
 	const Portal = getPortal()
 	if (!Portal || !anchor) return null
 	const SafeBoundary = getBoundary()
 	return (
 		<SafeBoundary>
 			<Portal>
-				<Capsule Icon={Icon} anchor={anchor} armed={armed} past={past} />
+				<Capsule Icon={Icon} anchor={anchor} armed={armed} stop={stop} buttonColour={buttonColour} buttonRadius={buttonRadius} />
 			</Portal>
 		</SafeBoundary>
 	)

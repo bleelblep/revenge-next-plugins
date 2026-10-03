@@ -1,4 +1,5 @@
 import { type OneOff, sendOnce as sendNext } from '../../lib/nextSend'
+import { showPreview } from '../../lib/preview'
 import { getStorage, TAG, useSettings } from '../../lib/state'
 import { rowIcon } from '../icon'
 import type { SendTweaksStorage } from '../../types'
@@ -94,6 +95,15 @@ export default function SendSheet({ send }: { send?: () => void }) {
 							subLabel="Exactly as typed: no link cleaning, no rules, no @silent."
 							icon={rowIcon('SendMessageIcon', 'ic_send')}
 							onPress={() => sendOnce('raw')}
+						/>
+						<TableRow
+							label="Preview"
+							subLabel="See it as it would be sent, then send it or close"
+							icon={rowIcon('EyeIcon', 'ic_eye')}
+							onPress={() => {
+								hideActionSheet(SHEET_KEY)
+								showPreview(send)
+							}}
 						/>
 					</TableRowGroup>
 				) : null}

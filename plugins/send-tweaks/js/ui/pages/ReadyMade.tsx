@@ -2,6 +2,7 @@ import { copyText } from '../../lib/clipboard'
 import { importRules, PRESETS, type Preset, THREAD } from '../../lib/importRules'
 import { addRule, readRules, type RuleKind, useRules, writeRules } from '../../lib/ruleStore'
 import AiDraft from '../components/AiDraft'
+import { FieldRow } from '../fieldGroup'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 
@@ -148,16 +149,19 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 					</TableRowGroup>
 
 					<View style={{ gap: 8 }}>
-						<TextInput
-							label={links ? 'Import link rules' : 'Import rules'}
-							placeholder='Paste a rule, e.g. { "name": …, "match": …, "replace": … }'
-							description={`Text Replace's format: one rule, a list, or a whole message with \`\`\`json blocks in it. Goes into your ${links ? 'link rules' : 'replacement rules'}.`}
-							value={pasted}
-							multiline
-							isClearable
-							onChange={(value: string) => setPasted(value)}
-						/>
 						<TableRowGroup hasIcons>
+							<FieldRow
+								label={links ? 'Import link rules' : 'Import rules'}
+								description={`Text Replace's format: one rule, a list, or a whole message with \`\`\`json blocks in it. Goes into your ${links ? 'link rules' : 'replacement rules'}.`}
+							>
+								<TextInput
+									placeholder='Paste a rule, e.g. { "name": …, "match": …, "replace": … }'
+									value={pasted}
+									multiline
+									isClearable
+									onChange={(value: string) => setPasted(value)}
+								/>
+							</FieldRow>
 							<TableRow
 								label="Import"
 								icon={rowIcon('DownloadIcon', 'ic_download_24px')}
