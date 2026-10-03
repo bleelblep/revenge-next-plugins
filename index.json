@@ -196,6 +196,30 @@
         }
       }
     },
+    "bleelblep.char-counter": {
+      "name": "Character Counter",
+      "description": "Shows how many characters your message has, in a small square above the message box.",
+      "author": "bleelblep",
+      "icon": "TextIcon",
+      "channels": {
+        "latest": "0.1.5"
+      },
+      "versions": {
+        "0.1.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.char-counter@0.1.5.zip",
+          "sha256": "377775fe44395b0435d6265f088c925bd01bc025fcf7474d16e66c4bd8d90f70",
+          "size": 5768,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.custom-timestamps": {
       "name": "Custom Timestamps",
       "description": "Choose how chat timestamps look: calendar, relative, ISO 8601 or your own format.",
@@ -536,13 +560,61 @@
         }
       }
     },
+    "bleelblep.no-dividers": {
+      "name": "No Dividers",
+      "description": "Removes the thin lines between rows in settings and other lists.",
+      "author": "bleelblep",
+      "icon": "ListViewIcon",
+      "channels": {
+        "latest": "0.1.1"
+      },
+      "versions": {
+        "0.1.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.no-dividers@0.1.1.zip",
+          "sha256": "e83b48f7f574d43a3346e03edf690739231ac65f33ce336eea53236adb42b1cb",
+          "size": 3434,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.picture-links": {
+      "name": "Picture Links",
+      "description": "Tap profile pictures and banners to view them full size, with save and share.",
+      "author": "bleelblep",
+      "icon": "ImageIcon",
+      "channels": {
+        "latest": "0.1.1"
+      },
+      "versions": {
+        "0.1.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.picture-links@0.1.1.zip",
+          "sha256": "adc80a0a6e3237ac20d90edcf8368733ede71fcdbc6027bcfbb044a4e64b3e51",
+          "size": 4661,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.plugin-hub": {
       "name": "Plugin Hub",
       "description": "A Plugin Hub section in Discord's settings with shortcuts to the plugins you choose.",
       "author": "bleelblep",
       "icon": "AppsIcon",
       "channels": {
-        "latest": "0.7.7"
+        "latest": "0.7.8"
       },
       "versions": {
         "0.2.1": {
@@ -634,6 +706,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.7.7.zip",
           "sha256": "7fd3840ed31f3d1163ee025196bb9eb1c4e7462d6285bf20e2ce577b6e14eed7",
           "size": 11359,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "revenge.api.hidden": {
+              "version": "*",
+              "optional": true
+            }
+          }
+        },
+        "0.7.8": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.7.8.zip",
+          "sha256": "9afcfd09e8af00f03871f53be9d63221100217dad78f833fc631059bc3c0bc22",
+          "size": 11360,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -1000,7 +1089,7 @@
       "author": "bleelblep",
       "icon": "SendMessageIcon",
       "channels": {
-        "latest": "0.5.15"
+        "latest": "0.5.16"
       },
       "versions": {
         "0.1.0": {
@@ -1097,6 +1186,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.5.15.zip",
           "sha256": "d1b355eb35677d362de0eaad981c03504e2c4b3fd9db67fd6cca99c27e531c77",
           "size": 26381,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.5.16": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.5.16.zip",
+          "sha256": "cf6233ed3b00c408f95a37c4b842963e712c96ca319da11fa1b8c59236d6f1e4",
+          "size": 28450,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
