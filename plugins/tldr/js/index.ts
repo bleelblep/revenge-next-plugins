@@ -15,6 +15,8 @@ import patchMessageSheet from './patches/messageSheet'
 import Settings from './ui/pages/Settings'
 import { registerPages } from './ui/routes'
 import type { AiHandle, TldrStorage } from './types'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export { DEFAULTS }
 export type { TldrStorage }
@@ -33,6 +35,9 @@ export default plugin<{ jsonStorage: TldrStorage }>({
 			api.plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		api.cleanup(setupChangelog(api, CHANGELOG))
 
 		const { cleanup, jsonStorage } = api
 		setStorage(jsonStorage)

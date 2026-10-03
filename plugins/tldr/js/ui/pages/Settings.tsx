@@ -5,6 +5,7 @@ import { rowIcon } from '../icon'
 import { DEBUG_ROUTE, OFFER_ROUTE, SAVED_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { TldrStorage } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * The root index: context, then one row per concern with its current setting in the sub-label,
@@ -16,6 +17,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<TldrStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative

@@ -5,7 +5,7 @@
 	"description": "Long-press a long message for a short summary only you can see. Needs AI Core.",
 	"author": "bleelblep",
 	"icon": "TextIcon",
-	"version": "0.2.2",
+	"version": "0.2.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

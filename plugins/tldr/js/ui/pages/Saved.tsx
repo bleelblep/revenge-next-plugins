@@ -2,7 +2,7 @@ import { DEFAULTS } from '../../defaults'
 import { getStorage } from '../../lib/state'
 import { forgetSaved } from '../../lib/summarise'
 import { FieldGroup } from '../fieldGroup'
-import { rowIcon } from '../icon'
+import { dangerIcon, rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { SavedSummary, TldrStorage } from '../../types'
 
@@ -121,7 +121,7 @@ export default function Saved() {
 						<TableRow
 							label="Forget them all"
 							subLabel="Asking about those messages again will cost a call each"
-							icon={rowIcon('TrashIcon', 'ic_trash_24px')}
+							icon={dangerIcon('TrashIcon', 'ic_trash_24px')}
 							variant="danger"
 							disabled={!saved.length}
 							onPress={confirmForget}
