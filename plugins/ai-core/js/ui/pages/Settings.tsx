@@ -7,6 +7,7 @@ import { rowIcon } from '../icon'
 import { DEBUG_ROUTE, PROVIDER_ROUTE, USAGE_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { AiCoreStorage } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * The root index. A neutral notice card rather than a warning one: nothing here is dangerous,
@@ -18,6 +19,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<AiCoreStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
