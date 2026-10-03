@@ -10,6 +10,7 @@ import {
 } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { VeilStorage } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * The root index: context, the master switch, then one row per concern
@@ -21,6 +22,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<VeilStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative

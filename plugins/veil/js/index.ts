@@ -21,6 +21,8 @@ import patchRows from './patches/rows'
 import Settings from './ui/pages/Settings'
 import { CATEGORY_ROUTE, registerPages } from './ui/routes'
 import type { AiHandle, VeilStorage } from './types'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export { DEFAULTS }
 export type { VeilStorage }
@@ -39,6 +41,9 @@ export default plugin<{ jsonStorage: VeilStorage }>({
 			api.plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		api.cleanup(setupChangelog(api, CHANGELOG))
 
 		const { cleanup, jsonStorage } = api
 		setStorage(jsonStorage)
