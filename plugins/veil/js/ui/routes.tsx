@@ -1,12 +1,13 @@
 import Appearance from './pages/Appearance'
-import Category from './pages/Category'
 import Debug from './pages/Debug'
 import Rules from './pages/Rules'
+import Topics from './pages/Topics'
 import Words from './pages/Words'
 
 const PREFIX = 'bleelblep.veil'
 
 export const WORDS_ROUTE = `${PREFIX}.words`
+/** Still `.category`: AI Core links back to it by this name (`setSettingsRoute`). */
 export const CATEGORY_ROUTE = `${PREFIX}.category`
 export const RULES_ROUTE = `${PREFIX}.rules`
 export const APPEARANCE_ROUTE = `${PREFIX}.appearance`
@@ -46,7 +47,7 @@ export function registerPages(): () => void {
 	const unsubscribe = onSettingsModulesLoaded(() => {
 		unregister = [
 			page(WORDS_ROUTE, 'Words', Words),
-			page(CATEGORY_ROUTE, 'Your own category', Category),
+			page(CATEGORY_ROUTE, 'Described rules', Topics),
 			page(RULES_ROUTE, 'People and channels', Rules),
 			page(APPEARANCE_ROUTE, 'How it looks', Appearance),
 			page(DEBUG_ROUTE, 'Debug', Debug),

@@ -19,20 +19,20 @@ export interface VeilStorage {
 	/** People whose messages are always blurred. */
 	userIds: string[]
 
-	// --- the custom category, judged by a model through AI Core ------------
+	// --- described rules: written once by AI Core, matched on the device -----
 
 	/**
-	 * What to blur, in the user's own words ("anything about diets", "match results"). Empty
-	 * turns the AI layer off entirely.
+	 * Rules made from a description ("diet talk"): AI Core turns it into a list of words and
+	 * phrases once, and from then on they are matched like `words`, on the device. No message is
+	 * ever sent. Written whole, like every array here.
+	 */
+	topics: Topic[]
+	/**
+	 * Before 0.4.0: a description whose messages were each sent to AI Core to be judged. No longer
+	 * used for matching; kept only so the Described rules page can offer to turn it into a rule.
+	 * Cleared once that is done or dismissed.
 	 */
 	customCategory: string
-	/**
-	 * Channels the custom category is checked in. Opt-in per channel, because checking sends
-	 * other people's messages to the AI provider and spends the daily cap.
-	 */
-	aiChannelIds: string[]
-	/** Messages shorter than this are never sent for checking. */
-	aiMinLength: number
 
 	// --- the long-press menu ---------------------------------------------------
 
@@ -46,8 +46,6 @@ export interface VeilStorage {
 	sheetBlurPerson: boolean
 	/** "Blur everything in <channel>". */
 	sheetBlurChannel: boolean
-	/** "Check this channel for <category>", shown only while a custom category is set. */
-	sheetAiCheck: boolean
 
 	// --- presentation --------------------------------------------------------
 
@@ -59,6 +57,16 @@ export interface VeilStorage {
 	skipOwn: boolean
 
 	debugLogging: boolean
+}
+
+export interface Topic {
+	id: string
+	/** Short label, shown in the blur reason: "Blurred: about Diets". */
+	name: string
+	/** What the user typed, kept so they can see what the rule was made from. */
+	description: string
+	words: string[]
+	enabled: boolean
 }
 
 /**

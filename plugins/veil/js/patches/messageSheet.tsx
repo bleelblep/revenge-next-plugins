@@ -5,7 +5,7 @@
  * the person and channel rules are set from the message that prompted them. The settings page
  * only lists them for removal.
  *
- * Each row can be switched off in settings (`sheetBlurPerson`, `sheetBlurChannel`, `sheetAiCheck`),
+ * Each row can be switched off in settings (`sheetBlurPerson`, `sheetBlurChannel`),
  * and the whole group with `sheetActions`. With every row off, no group is added at all.
  *
  * Same `openLazy` technique as Translate's `patches/messageActionSheet.tsx`, which documents why
@@ -112,19 +112,6 @@ function buildGroup(target: Target) {
 			channelOn ? 'Show this channel normally again' : 'Every message here, until you undo it',
 			channelOn ? 'EyeIcon' : 'EyeSlashIcon',
 			() => toggleId('channelIds', channelId, !channelOn),
-		)
-	}
-
-	const category = s.customCategory.trim()
-	if (s.sheetAiCheck && category) {
-		const aiOn = s.aiChannelIds.includes(channelId)
-		act(
-			aiOn ? 'Stop checking this channel' : `Check this channel for “${category}”`,
-			aiOn
-				? 'Messages here stop going to AI Core'
-				: "Sends messages here to AI Core's provider and blurs the ones that match",
-			'MagicWandIcon',
-			() => toggleId('aiChannelIds', channelId, !aiOn),
 		)
 	}
 

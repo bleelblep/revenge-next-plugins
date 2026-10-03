@@ -45,6 +45,14 @@ export default function Settings({
 				? 'None yet — long-press a message to add one'
 				: 'None yet — turn on the long-press options below to add one'
 
+	const topics = Array.isArray(s.topics) ? s.topics : []
+	const onTopics = topics.filter(topic => topic.enabled)
+	const topicsLabel = topics.length
+		? `${count(topics.length, 'rule')}: ${topics.map(topic => topic.name).slice(0, 3).join(', ')}${topics.length > 3 ? '…' : ''}${onTopics.length < topics.length ? ` (${topics.length - onTopics.length} off)` : ''}`
+		: s.customCategory
+			? 'Your old category needs turning into a rule'
+			: 'None yet — describe something, AI Core writes the words'
+
 	return (
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
@@ -91,11 +99,9 @@ export default function Settings({
 							onPress={() => navigation.navigate(RULES_ROUTE)}
 						/>
 						<TableRow
-							label="Your own category"
+							label="Described rules"
 							subLabel={
-								s.customCategory
-									? `“${s.customCategory}” in ${count(s.aiChannelIds.length, 'channel')}`
-									: 'Off — describe something and AI Core judges it'
+								topicsLabel
 							}
 							icon={rowIcon('MagicWandIcon', 'ic_star')}
 							arrow
@@ -126,17 +132,6 @@ export default function Settings({
 									icon={rowIcon('TextIcon', 'ic_text')}
 									value={!!s.sheetBlurChannel}
 									onValueChange={value => patch({ sheetBlurChannel: value })}
-								/>
-								<TableSwitchRow
-									label="Check this channel with AI"
-									subLabel={
-										s.customCategory
-											? `“Check this channel for ${s.customCategory}”. The only way to add a channel to your own category.`
-											: 'Appears once you describe your own category'
-									}
-									icon={rowIcon('MagicWandIcon', 'ic_star')}
-									value={!!s.sheetAiCheck}
-									onValueChange={value => patch({ sheetAiCheck: value })}
 								/>
 							</>
 						) : null}

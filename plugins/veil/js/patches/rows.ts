@@ -26,7 +26,6 @@
  * content, so it translates the text inside the spoiler just the same.
  */
 
-import { aiVerdict, enqueue, shouldCheck } from '../lib/classify'
 import { readText } from '../lib/readText'
 import { localReason } from '../lib/rules'
 import { currentUserId, settings, TAG } from '../lib/state'
@@ -37,7 +36,7 @@ const MARK = '🙈'
 /** What the blurred media says before it is tapped, the same word Discord uses. */
 const SPOILER_LABEL = 'Spoiler'
 
-const status = { installed: false, blurred: 0, queued: 0 }
+const status = { installed: false, blurred: 0 }
 
 export function rowStatus() {
 	return { ...status }
@@ -83,18 +82,58 @@ function veil(row: any, reason: string) {
 			)
 		}
 		if (Array.isArray(message.embeds)) {
-			message.embeds = message.embeds.map((embed: any) =>
-				embed && typeof embed === 'object' && !embed.spoiler
-					? { ...embed, spoiler: SPOILER_LABEL }
-					: embed,
-			)
+			message.embeds = message.embeds.map((embed: any) => {
+				if (!embed || typeof embed !== 'object') return embed
+				const out = embed.spoiler ? { ...embed } : { ...embed, spoiler: SPOILER_LABEL }
+				// A `components` embed (link fixers like kirkstagram, captured live on 348.5) is drawn
+				// as component views, never through the embed view that reads `spoiler`, so the flag
+				// above does nothing for it. Its container and gallery images carry their own.
+				if (Array.isArray(embed.components)) out.components = embed.components.map((c: any) => spoilComponent(c))
+				return out
+			})
 		}
+		// Bot messages built from components (Components V2) have the same tree at the top level.
+		if (Array.isArray(message.components)) message.components = message.components.map((c: any) => spoilComponent(c))
 	}
 
 	status.blurred++
 }
 
 const MAX_WALK_DEPTH = 8
+
+/** Component type numbers (Discord's API): a container, and a media gallery of images or videos. */
+const CONTAINER = 17
+const MEDIA_GALLERY = 12
+
+/**
+ * A copy of a component tree with every container and gallery item marked as a spoiler.
+ *
+ * Native reads `isSpoiler` + `spoilerDescription` for both (`ContainerComponent`,
+ * `MediaGalleryItem` in 348.1): a container derives its `spoilerOrNull` from a non-blank
+ * `spoilerDescription`, and the whole container -- text, image and buttons -- goes under Discord's
+ * own tap-to-reveal cover. Gallery items get it too, for a gallery outside any container. Copied
+ * at every level, never edited in place, for the same reason as attachments above.
+ */
+function spoilComponent(component: any, depth = 0): any {
+	if (!component || typeof component !== 'object' || depth > MAX_WALK_DEPTH) return component
+	const out = { ...component }
+	if (component.type === CONTAINER) {
+		out.isSpoiler = true
+		out.spoiler = true
+		out.spoilerDescription = component.spoilerDescription || SPOILER_LABEL
+	}
+	if (component.type === MEDIA_GALLERY && Array.isArray(component.items)) {
+		out.items = component.items.map((item: any) =>
+			item && typeof item === 'object'
+				? { ...item, isSpoiler: true, spoiler: true, spoilerDescription: item.spoilerDescription || SPOILER_LABEL }
+				: item,
+		)
+	}
+	if (Array.isArray(component.components)) {
+		out.components = component.components.map((child: any) => spoilComponent(child, depth + 1))
+	}
+	return out
+}
 
 /** Every string under a value, for bot components whose shape varies by component type. */
 function strings(value: any, out: string[], depth = 0) {
@@ -116,6 +155,33 @@ function strings(value: any, out: string[], depth = 0) {
 	}
 }
 
+/**
+ * The words in a link, as a reader would take them: "tenor.com/view/breaking-bad-finale-gif-123"
+ * reads as "tenor com view breaking bad finale gif 123". Query strings are dropped (tracking junk,
+ * not words); anything that isn't http(s) is ignored.
+ */
+function linkWords(url: unknown): string {
+	if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return ''
+	let text = url.replace(/^https?:\/\/(www\.)?/i, '').replace(/[?#].*$/, '')
+	try {
+		text = decodeURIComponent(text)
+	} catch {
+		/* left encoded */
+	}
+	return text.replace(/[-_/.+=&%~:]+/g, ' ').trim()
+}
+
+/** Link targets in a content-node tree (`{ type: 'link', target }` and masked links alike). */
+function linkTargets(nodes: any, out: string[], depth = 0) {
+	if (!Array.isArray(nodes) || depth > MAX_WALK_DEPTH) return
+	for (const node of nodes) {
+		if (!node || typeof node !== 'object') continue
+		if (typeof node.target === 'string') out.push(linkWords(node.target))
+		if (typeof node.url === 'string') out.push(linkWords(node.url))
+		if (Array.isArray(node.content)) linkTargets(node.content, out, depth + 1)
+	}
+}
+
 function textOfNode(value: any): string {
 	if (typeof value === 'string') return value
 	if (Array.isArray(value)) return readText(value)
@@ -130,9 +196,18 @@ function textOfNode(value: any): string {
 function readableText(message: any): string {
 	const parts: string[] = [readText(message.content)]
 
+	// Links, by the words in them. A message that is only a GIF or image link has its URL hidden
+	// from the row by Discord, and a Tenor embed has no title or description, so the address was
+	// the only text there was -- and 0.4.0 and earlier read none of it, so a word or described
+	// rule could never catch a GIF. The page URL is used, not the media CDN ones, which carry no
+	// words.
+	linkTargets(message.content, parts)
+
 	for (const embed of Array.isArray(message.embeds) ? message.embeds : []) {
 		if (!embed || typeof embed !== 'object') continue
 		parts.push(
+			linkWords(embed.url),
+			linkWords(embed.author?.url),
 			textOfNode(embed.rawTitle),
 			textOfNode(embed.rawDescription),
 			textOfNode(embed.description),
@@ -155,8 +230,8 @@ function readableText(message: any): string {
 }
 
 /**
- * Why one message should be blurred, and queues it for the custom category if that is still
- * unknown. Shared by the row itself and the reply preview above it.
+ * Why one message should be blurred. Shared by the row itself and the reply preview above it.
+ * Everything is decided on the device (`lib/rules.ts`), described rules included.
  */
 function judge(message: any, channelId: string): string | undefined {
 	const id = message?.id
@@ -167,17 +242,7 @@ function judge(message: any, channelId: string): string | undefined {
 
 	const text = readableText(message)
 
-	const local = localReason(channelId, authorId, text)
-	if (local) return local
-
-	const verdict = aiVerdict(id, message.editedTimestamp)
-	if (verdict === true) return settings().customCategory.trim()
-	if (verdict === undefined && shouldCheck(channelId, text)) {
-		// Drawn normally now; repainted blurred if it comes back flagged. See lib/classify.ts.
-		enqueue(channelId, id, text, message.editedTimestamp)
-		status.queued++
-	}
-	return undefined
+	return localReason(channelId, authorId, text)
 }
 
 /**

@@ -1,23 +1,20 @@
 /**
  * Veil -- messages blurred like a spoiler, revealed with a tap.
  *
- * Two layers, in this order:
- *
- * 1. **Local rules** (`lib/rules.ts`): words, people and channels. Instant, free, and nothing
- *    leaves the device.
- * 2. **A custom category** (`lib/classify.ts`): something described in the user's own words and
- *    judged by a model through AI Core, only in channels they opted in.
+ * Every rule is decided on the device (`lib/rules.ts`): words, people, channels, and described
+ * rules. A described rule is written once by AI Core from the user's own words (`lib/topicAi.ts`,
+ * one call per rule, only the description sent) and then matched like the Words list. 0.3.x sent
+ * each message to the model instead; that is gone.
  *
  * Either way the blur is Discord's own spoiler, applied to the row just before it crosses to
  * native (`patches/rows.ts`), so the message store is never touched and turning the plugin off
  * puts everything back.
  *
- * AI Core is an **optional** dependency, as in Second Thoughts: without it the local rules are
- * the whole plugin, and `api.ai` is simply undefined.
+ * AI Core is an **optional** dependency, as in Second Thoughts: without it described rules can't be
+ * made (saved ones keep working), and `api.ai` is simply undefined.
  */
 
 import { DEFAULTS } from './defaults'
-import { resetClassifier } from './lib/classify'
 import { setAi, setStorage, TAG } from './lib/state'
 import patchMessageSheet from './patches/messageSheet'
 import patchRows from './patches/rows'
@@ -54,10 +51,7 @@ export default plugin<{ jsonStorage: VeilStorage }>({
 		} catch (error) {
 			console.error(`${TAG} could not register a settings route with AI Core:`, error)
 		}
-		cleanup(() => {
-			setAi(undefined)
-			resetClassifier()
-		})
+		cleanup(() => setAi(undefined))
 
 		// Applied independently: a moved Discord module should cost one half, not both.
 		const apply = (name: string, install: () => () => void) => {

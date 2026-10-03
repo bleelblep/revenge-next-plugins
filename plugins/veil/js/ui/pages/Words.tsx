@@ -1,5 +1,6 @@
 import { DEFAULTS } from '../../defaults'
 import { getStorage, patch } from '../../lib/state'
+import { FieldRow } from '../fieldGroup'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 
@@ -47,17 +48,19 @@ export default function Words() {
 				contentContainerStyle={{ paddingBottom: useBottomPadding() }}
 			>
 				<Stack spacing={24}>
-					<TextInput
-						label="Add a word or phrase"
-						placeholder="finale"
-						description="Not case-sensitive. Endings are included, so “spoiler” also catches “spoilers”."
-						value={draft}
-						returnKeyType="done"
-						isClearable
-						onChange={setDraft}
-					/>
-
 					<TableRowGroup hasIcons>
+						<FieldRow
+							label="Add a word or phrase"
+							description="Not case-sensitive. Endings are included, so “spoiler” also catches “spoilers”."
+						>
+							<TextInput
+								placeholder="finale"
+								value={draft}
+								returnKeyType="done"
+								isClearable
+								onChange={setDraft}
+							/>
+						</FieldRow>
 						<TableRow
 							label="Add to the list"
 							subLabel={draft.trim() ? `Blur messages mentioning “${draft.trim()}”` : 'Type a word above first'}

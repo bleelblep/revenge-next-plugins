@@ -32,7 +32,7 @@ export function patch(value: Partial<VeilStorage>) {
 
 /** Adds or removes one id in an id-list setting. Written whole, since `set()` replaces arrays. */
 export function toggleId(
-	key: 'channelIds' | 'userIds' | 'aiChannelIds',
+	key: 'channelIds' | 'userIds',
 	id: string,
 	on: boolean,
 ) {

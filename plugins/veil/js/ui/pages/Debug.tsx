@@ -1,5 +1,4 @@
 import { DEFAULTS } from '../../defaults'
-import { classifyStatus } from '../../lib/classify'
 import { getStorage, patch } from '../../lib/state'
 import { rowStatus } from '../../patches/rows'
 import { rowIcon } from '../icon'
@@ -38,18 +37,6 @@ export default function Debug() {
 							subLabel={`${rows.blurred} message${rows.blurred === 1 ? '' : 's'}, including reply previews`}
 							icon={rowIcon('EyeSlashIcon', 'ic_hide')}
 						/>
-						<TableRow
-							label="Sent to AI Core"
-							subLabel={`${classifyStatus.checked} judged in ${classifyStatus.calls} call${classifyStatus.calls === 1 ? '' : 's'}, ${classifyStatus.flagged} blurred, ${rows.queued} queued`}
-							icon={rowIcon('MagicWandIcon', 'ic_star')}
-						/>
-						{classifyStatus.lastError ? (
-							<TableRow
-								label="Last problem"
-								subLabel={classifyStatus.lastError}
-								icon={rowIcon('WarningIcon', 'ic_warning_24px')}
-							/>
-						) : null}
 					</TableRowGroup>
 
 					<TableRowGroup title="Logging" hasIcons>

@@ -46,19 +46,21 @@ const ENDINGS = "(?:s|es|'s|’s|ed|d|ing|er|ers)?"
 
 /**
  * Compiled once per distinct word list, not per row: rows are generated in bursts of dozens, and
- * the list only changes when the user edits it.
+ * the lists only change when the user edits them. One entry per list (the Words list and each
+ * described rule), keyed by its contents, so stale entries are simply never read again; the map
+ * is cleared when it grows past what a user could plausibly have.
  */
-let compiledFor = ''
-let compiled: Array<{ word: string; pattern: RegExp }> = []
+const compiled = new Map<string, Array<{ word: string; pattern: RegExp }>>()
 
 /** Up to two junk characters between letters: "f.i.n.a.l.e", "f i n a l e", "f-i-n-a-l-e". */
 const GAP = '[\\s\\W_]{0,2}'
 
 function patterns(words: string[], loose: boolean) {
 	const key = `${loose ? 'loose' : 'exact'}\u0000${words.join('\u0000')}`
-	if (key !== compiledFor) {
-		compiledFor = key
-		compiled = words
+	let list = compiled.get(key)
+	if (!list) {
+		if (compiled.size > 64) compiled.clear()
+		list = words
 			.map(word => word.trim())
 			.filter(Boolean)
 			.map(word => {
@@ -77,8 +79,9 @@ function patterns(words: string[], loose: boolean) {
 					pattern: new RegExp(`${start}${body}${loose ? '' : end}`, 'i'),
 				}
 			})
+		compiled.set(key, list)
 	}
-	return compiled
+	return list
 }
 
 /** Why this message should be blurred by a local rule, or undefined. */
@@ -98,6 +101,12 @@ export function localReason(
 		const plain = normalize(text)
 		for (const { word, pattern } of patterns(s.words, s.looseWords)) {
 			if (pattern.test(plain)) return `mentions “${word}”`
+		}
+		for (const topic of s.topics ?? []) {
+			if (!topic?.enabled || !Array.isArray(topic.words)) continue
+			for (const { pattern } of patterns(topic.words, s.looseWords)) {
+				if (pattern.test(plain)) return `about ${topic.name}`
+			}
 		}
 	}
 
