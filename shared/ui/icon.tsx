@@ -33,62 +33,45 @@ export function rowIcon(...requested: string[]) {
  * The same, for a row with `variant="danger"`. The variant only colours the row's text; Discord
  * tells the icon separately, so stock danger rows are
  * `<TableRow variant="danger" icon={<TableRow.Icon IconComponent={X} variant="danger" />} />`
- * (348.5 bundle, e.g. ModeratorActionRow). This does the same for both kinds of icon: assets via
- * `source`, generated components via `IconComponent`. `TableRow.Icon`'s danger style is the
- * `TEXT_FEEDBACK_CRITICAL` colour. See docs/plugin-design-language.md §3.8.
+ * (348.5 bundle, e.g. ModeratorActionRow). `TableRow.Icon`'s danger style is the
+ * `TEXT_FEEDBACK_CRITICAL` colour, so the red comes from there. See docs/plugin-design-language.md §3.8.
  */
 export function dangerIcon(...requested: string[]) {
 	return findIcon(requested, true)
 }
 
-/** Only if `TableRow.Icon` is missing: the same colour it would use, from the theme. */
-function criticalColour(): string {
-	const fallback = '#f57976'
+/** `revenge.*` can be mid-load or missing a key; a miss costs the icon, not the row. */
+function safe<T>(read: () => T): T | undefined {
 	try {
-		const tables = (revenge.discord.common as any).tokens?.Tokens
-		const semantic = tables?.SemanticColor?.TEXT_FEEDBACK_CRITICAL
-		const store = (revenge.discord.flux.Stores as any).ThemeStore
-		const theme = store?.theme ?? store?.getTheme?.()
-		const entry = semantic?.[typeof theme === 'string' ? theme : 'dark'] ?? semantic?.darker ?? semantic?.dark
-		const resolved = entry?.raw ? tables?.RawColor?.[entry.raw] : undefined
-		return typeof resolved === 'string' ? resolved : fallback
+		return read()
 	} catch {
-		return fallback
+		return undefined
 	}
 }
 
 function findIcon(requested: string[], danger: boolean) {
-	const names = [...new Set(requested.flatMap(name => [name, ...(ALIASES[name] ?? [])]))]
+	const names = [
+		...new Set(requested.flatMap(name => [name, ...(ALIASES[name] ?? [])])),
+	]
 	const { getAssetIdByName } = revenge.assets
 	const { TableRow, TableRowIcon } = revenge.discord.design.Design as any
-	const AssetIcon = TableRow?.Icon ?? TableRowIcon
-	let lookupComponent: ((name: string) => any) | undefined
-	try {
-		lookupComponent = revenge.utils.discord.lookupGeneratedIconComponent
-	} catch {
-		/* registry assets only then */
-	}
+	const Icon = TableRow?.Icon ?? TableRowIcon
+	const lookupComponent = safe(
+		() => revenge.utils.discord.lookupGeneratedIconComponent,
+	)
 
 	for (const name of names) {
-		try {
-			const id = getAssetIdByName(name)
-			if (id && AssetIcon) return danger ? <AssetIcon source={id} variant="danger" /> : <AssetIcon source={id} />
-		} catch {
-			/* not an asset */
-		}
-		try {
-			const Component = lookupComponent?.(name)
-			if (Component) {
-				if (!danger) return <Component width={20} height={20} />
-				return AssetIcon ? (
-					<AssetIcon IconComponent={Component} variant="danger" />
-				) : (
-					<Component width={20} height={20} color={criticalColour()} />
+		const source = safe(() => getAssetIdByName(name) || undefined)
+		const Component = safe(() => lookupComponent?.(name))
+		if (danger) {
+			if (Icon && (Component || source))
+				return (
+					<Icon source={source} IconComponent={Component} variant="danger" />
 				)
-			}
-		} catch {
-			/* not a component either */
+			continue
 		}
+		if (source && Icon) return <Icon source={source} />
+		if (Component) return <Component />
 	}
 
 	return undefined
