@@ -7,6 +7,7 @@ import { aiCoreInfo } from '../components/AiInfo'
 import { useBottomPadding } from '../safeArea'
 import { byName, MAX_FAVOURITES } from './Hub'
 import type { Entry } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * Settings for one hub page: its favourites, their order, and which of its plugins get a shortcut
@@ -18,6 +19,8 @@ import type { Entry } from '../../types'
  * AI Hub settings when there is one.
  */
 export default function HubSettings() {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	return <SettingsPage ai={false} />
 }
 

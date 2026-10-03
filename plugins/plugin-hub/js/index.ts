@@ -19,6 +19,8 @@ import { setOwnVersion, setStorage } from './lib/state'
 import HubSettings from './ui/pages/Settings'
 import { registerHub } from './ui/register'
 import type { HubStorage } from './types'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export { DEFAULTS }
 export type { HubStorage }
@@ -37,6 +39,9 @@ export default plugin<{ jsonStorage: HubStorage }>({
 			plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		setStorage(jsonStorage)
 		try {
