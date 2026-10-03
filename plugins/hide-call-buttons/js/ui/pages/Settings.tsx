@@ -1,5 +1,6 @@
-import { DEFAULTS, type HideCallButtonsStorage } from "../../index"
-import { useChangelog } from "../../../../../shared/changelog"
+import { useChangelog } from '../../../../../shared/changelog'
+import { DEFAULTS } from '../../index'
+import type { HideCallButtonsStorage } from '../../index'
 
 export default function Settings({
 	api,
@@ -15,7 +16,8 @@ export default function Settings({
 	const { TableRowAssetIcon } = revenge.components
 
 	const s = api.jsonStorage.use() ?? DEFAULTS
-	const set = (patch: Partial<HideCallButtonsStorage>) => api.jsonStorage.set(patch)
+	const set = (patch: Partial<HideCallButtonsStorage>) =>
+		api.jsonStorage.set(patch)
 
 	return (
 		<Page>
@@ -47,6 +49,14 @@ export default function Settings({
 							icon={<TableRowAssetIcon name="VideoIcon" />}
 							value={!!s.dmHideVideoButton}
 							onValueChange={v => set({ dmHideVideoButton: v })}
+						/>
+					</TableRowGroup>
+					<TableRowGroup title="Friends list">
+						<TableSwitchRow
+							label="Hide call button"
+							icon={<TableRowAssetIcon name="PhoneCallIcon" />}
+							value={!!s.friendsHideCallButton}
+							onValueChange={v => set({ friendsHideCallButton: v })}
 						/>
 					</TableRowGroup>
 					<TableRowGroup title="Voice channels">

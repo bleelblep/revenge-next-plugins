@@ -1,7 +1,7 @@
-import patchCallButtons from "./patches/callButtons"
-import Settings from "./ui/pages/Settings"
-import { CHANGELOG } from "./changelog"
-import { setupChangelog } from "../../../shared/changelog"
+import { setupChangelog } from '../../../shared/changelog'
+import { CHANGELOG } from './changelog'
+import patchCallButtons from './patches/callButtons'
+import Settings from './ui/pages/Settings'
 
 /**
  * Also the fallback for every read: `load: true` starts the storage read without awaiting it,
@@ -13,6 +13,7 @@ export const DEFAULTS: HideCallButtonsStorage = {
 	dmHideCallButton: false,
 	dmHideVideoButton: false,
 	hideVCVideoButton: false,
+	friendsHideCallButton: false,
 }
 
 export interface HideCallButtonsStorage {
@@ -21,6 +22,7 @@ export interface HideCallButtonsStorage {
 	dmHideCallButton: boolean
 	dmHideVideoButton: boolean
 	hideVCVideoButton: boolean
+	friendsHideCallButton: boolean
 }
 
 export default plugin<{ jsonStorage: HideCallButtonsStorage }>({
