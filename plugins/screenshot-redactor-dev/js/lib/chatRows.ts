@@ -34,6 +34,7 @@
  * piece of state in this plugin worth remembering exists.
  */
 
+import { restoreOriginals } from "./originals"
 import { ChangeType, redactRows } from "./rowSchema"
 import { count, noteRefreshOutcome } from "./diagnostics"
 import { nudgeStores } from "./nudge"
@@ -114,6 +115,11 @@ function looksLikeFullSync(rows: any[]): boolean {
  */
 export function applyBatch(tag: number, rows: any[]) {
 	const state = stateFor(tag)
+
+	// Rows built while redaction was on arrive here already redacted by RowManager.generate. The
+	// mirror is the "switched off" picture, so swap the originals back in (lib/originals.ts).
+	// Both callers pass a private deep copy, so rewriting it is safe.
+	restoreOriginals(rows)
 
 	// createNewRows: native had no list, so this batch *is* the list.
 	if (!state.rows) {

@@ -176,6 +176,11 @@ function patchNamespace(
 			seen.add(host[key])
 
 			patchOne(host, key, `${key} (${where})`, cleanups)
+			// The patcher leaves a proxy in the slot, a different object from the function just
+			// recorded. Without recording it too, the next route to this same module (the prop
+			// sweep, a later `waitForModules` hit) sees an unseen function and hooks it again --
+			// which is what every session through 0.27.2 did to all seven resolvers.
+			seen.add(host[key])
 			hooked++
 		} catch (error) {
 			console.error(`[ScreenshotRedactor] failed to patch ${key}:`, error)
@@ -183,6 +188,21 @@ function patchNamespace(
 	}
 
 	return hooked
+}
+
+/** UserUtils exports all seven resolvers; a module with fewer than this is some other `getName`. */
+const MIN_RESOLVERS_FOR_SWEEP = 3
+
+function resolverCount(mod: any): number {
+	let count = 0
+	for (const key of RESOLVERS) {
+		try {
+			if (typeof mod?.[key] === "function" || typeof mod?.default?.[key] === "function") count++
+		} catch {
+			/* an export that throws on read is not one of ours */
+		}
+	}
+	return count
 }
 
 /**
@@ -203,6 +223,13 @@ function sweepFor(key: string, seen: Set<any>, cleanups: Array<() => void>): () 
 	const { withProps } = revenge.modules.finders.filters
 
 	const onModule = (mod: any, id: unknown) => {
+		// `getName` and `useName` are ordinary export names; on 348 a second module (4988) carries
+		// both and got hooked as though it were UserUtils. Only a module shaped like UserUtils --
+		// several of its resolvers at once -- is taken.
+		if (resolverCount(mod) < MIN_RESOLVERS_FOR_SWEEP) {
+			noteResolverSkipped(key)
+			return
+		}
 		if (patchNamespace(mod, `props, module ${String(id)}`, seen, cleanups, key) === 0) {
 			noteResolverSkipped(key)
 		}
@@ -229,26 +256,46 @@ export default function patchDisplayName(): () => void {
 	// `before` halves clobber each other's pending slot, so the function itself is the key.
 	const seen = new Set<any>()
 
+	// The sweeps are only for a build where the path has moved. Once the path has answered they
+	// are pointless at best, and at worst hook some other module's `getName`.
+	let pathHooked = false
+	const sweeps: Array<() => void> = []
+	const stopSweeps = () => {
+		for (const stop of sweeps.splice(0)) {
+			try {
+				stop()
+			} catch {
+				/* already gone */
+			}
+		}
+	}
+
 	// The module by its own source path. Self-unsubscribing, uncapped, unambiguous, and on a
 	// current build it answers synchronously.
 	try {
 		unsubscribes.push(
 			revenge.discord.utils.modules.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any, id: unknown) => {
-				if (patchNamespace(mod, `path, module ${String(id)}`, seen, cleanups) === 0) {
+				// On 348.1 the path answers *after* the sweep has already hooked every resolver on this
+				// same module, so nothing new to hook is success. Only a module without them is a miss.
+				if (patchNamespace(mod, `path, module ${String(id)}`, seen, cleanups) === 0 && resolverCount(mod) === 0) {
 					console.error(`[ScreenshotRedactor] ${MODULE_PATH} found but carries no resolver`)
 					noteResolverSkipped(MODULE_PATH)
+					return
 				}
+				pathHooked = true
+				stopSweeps()
 			}),
 		)
 	} catch (error) {
 		console.error(`[ScreenshotRedactor] imported-path lookup for ${MODULE_PATH} failed:`, error)
 	}
 
-	// Fallback for a build that has moved the file. `seen` makes it a no-op for anything the path
-	// already caught, so this costs a sweep and nothing else on a current build.
-	for (const key of RESOLVERS) {
-		unsubscribes.push(sweepFor(key, seen, cleanups))
+	// Only when the path has not answered yet: a moved file, or a module not initialized yet. If
+	// the path answers later, it stops these.
+	if (!pathHooked) {
+		for (const key of RESOLVERS) sweeps.push(sweepFor(key, seen, cleanups))
 	}
+	unsubscribes.push(stopSweeps)
 
 	return () => {
 		getNameHooked = false

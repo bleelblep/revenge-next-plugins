@@ -5,6 +5,7 @@ import {
 	noteRowType,
 	noteSkippedRowTypeWithAuthor,
 } from "../lib/diagnostics"
+import { forgetOriginal, rememberOriginal } from "../lib/originals"
 import { redactMessage } from "../lib/rowSchema"
 import { currentUserId, isEnabled, redactOptions, settings } from "../lib/state"
 import { ensureChatManagerPatched } from "./chatManager"
@@ -115,6 +116,9 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 					noteRowType(row?.rowType)
 
 					if (!isEnabled()) {
+						// This row arrives unredacted, so it *is* the original now; a stored copy
+						// could only be older (an edit since) and must not be restored over it.
+						forgetOriginal(ret?.message?.id)
 						count("skippedDisabled")
 						return ret
 					}
@@ -152,6 +156,8 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 					// Shared with the `updateRows` hook rather than reimplemented here: both
 					// rewrite the same `Message` shape, and the two drifting apart is how the
 					// reply preview ended up with its own slightly different avatar clearing.
+					// The mirror needs the unredacted row to switch back to; see lib/originals.ts.
+					rememberOriginal(generated)
 					const changed = redactMessage(generated, redactOptions())
 
 					if (changed) count("rowsRedacted")

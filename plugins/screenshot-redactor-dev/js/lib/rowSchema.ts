@@ -155,6 +155,39 @@ const MENTION_TYPE = "mention"
 /** Nesting guard. A mention inside bold inside a quote is three deep; 16 is far past real. */
 const MAX_CONTENT_DEPTH = 16
 
+/**
+ * Content arrays this plugin has already copied, so the second pass over the same row (RowManager,
+ * then ChatManager.updateRows) edits its own copy instead of copying again.
+ */
+const ownedContent = new WeakSet<object>()
+
+/** A structural copy of a JSON-shaped content tree. Primitives are shared as-is. */
+function cloneContent(value: any, depth = 0): any {
+	if (depth > MAX_CONTENT_DEPTH * 2 || value === null || typeof value !== "object") return value
+	if (Array.isArray(value)) return value.map(entry => cloneContent(entry, depth + 1))
+	const copy: Record<string, any> = {}
+	for (const key of Object.keys(value)) copy[key] = cloneContent(value[key], depth + 1)
+	return copy
+}
+
+/**
+ * Gives `message` a private copy of its content before anything in it is rewritten.
+ *
+ * A generated row's `content` is **Discord's parse cache**, not a fresh parse:
+ * `parseMessageMarkup` (`modules/messages/native/renderer/MarkupParsers.tsx`, 348.x) memoizes
+ * its result per message record and returns the same object on every regeneration. Redacting it
+ * in place wrote the placeholders into that cache, so they survived turning redaction off until
+ * Discord was reloaded -- the "leftover placeholders" RELOAD_NOTICE warned about. The row object
+ * itself is rebuilt per generation, so pointing it at a copy leaves the cache untouched.
+ */
+function ownContent(message: any) {
+	const content = message?.content
+	if (!Array.isArray(content) || ownedContent.has(content)) return
+	const copy = cloneContent(content)
+	ownedContent.add(copy)
+	message.content = copy
+}
+
 export interface RedactOptions {
 	style: RedactionStyle
 	avatars: boolean
@@ -296,6 +329,9 @@ export function redactContentNodes(nodes: any, options: RedactOptions, depth = 0
  */
 export function redactMessage(message: any, options: RedactOptions): boolean {
 	if (!message || typeof message !== "object") return false
+
+	// Every rewrite below edits content nodes in place, so they must be ours first.
+	ownContent(message)
 
 	// Mentions and the reply preview are handled **before** either early return below, and that
 	// ordering is load-bearing. Both name someone other than the author:

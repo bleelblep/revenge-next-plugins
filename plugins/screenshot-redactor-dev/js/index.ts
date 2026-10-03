@@ -1,12 +1,14 @@
 import { DEFAULTS } from "./defaults"
 import { resetAliases } from "./lib/alias"
 import { resetChatRows } from "./lib/chatRows"
+import { resetOriginals } from "./lib/originals"
 import { resetDiagnostics } from "./lib/diagnostics"
 import { resetCurrentUserId, setStorage } from "./lib/state"
 import patchAvatar from "./patches/avatar"
 import patchChatManager from "./patches/chatManager"
 import patchDisplayName from "./patches/displayName"
 import patchDmHeader from "./patches/dmHeader"
+import patchGroupDmTitle from "./patches/groupDmTitle"
 import patchMessageActionSheet from "./patches/messageActionSheet"
 import patchRowManager from "./patches/rowManager"
 import { registerPages } from "./ui/routes"
@@ -72,6 +74,9 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 		// hook registered. It reads that at call time rather than install time, so the order is
 		// for readability rather than correctness -- but the dependency is real either way.
 		apply("dmHeader", patchDmHeader)
+		// The group-DM header: memoized, so it needs its own re-rendering wrapper rather than a
+		// store nudge. See patches/groupDmTitle.tsx.
+		apply("groupDmTitle", patchGroupDmTitle)
 		// The face beside the name. Separate from `dmHeader` on purpose: the header's name and
 		// the header's avatar are resolved by two unrelated mechanisms, and treating them as one
 		// surface is what let the avatar leak while the name next to it redacted.
@@ -87,6 +92,7 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 		cleanup(() => {
 			resetAliases()
 			resetChatRows()
+			resetOriginals()
 			resetDiagnostics()
 			resetCurrentUserId()
 		})

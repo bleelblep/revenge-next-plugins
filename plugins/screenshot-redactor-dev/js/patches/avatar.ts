@@ -181,6 +181,9 @@ function patchNamespace(mod: any, seen: Set<any>, cleanups: Array<() => void>): 
 			seen.add(host[key])
 
 			patchOne(host, key, kind, cleanups)
+			// The slot now holds the patcher's proxy, a new object; record it too so the sweep
+			// does not hook the same function a second time (see displayName.ts).
+			seen.add(host[key])
 			hooked++
 		} catch (error) {
 			console.error(`[ScreenshotRedactor] failed to patch ${key}:`, error)
@@ -197,38 +200,54 @@ export default function patchAvatar(): () => void {
 	const cleanups: Array<() => void> = []
 	const unsubscribes: Array<() => void> = []
 	const seen = new Set<any>()
+	// The sweep is for a build where the path has moved; once the path has answered it can only
+	// hook the same functions a second time.
+	let pathHooked = false
+	let stopSweep: (() => void) | undefined
 
 	try {
 		unsubscribes.push(
 			revenge.discord.utils.modules.finders.getModuleWithImportedPath(MODULE_PATH, (mod: any) => {
-				if (patchNamespace(mod, seen, cleanups) === 0) {
+				// Nothing new to hook is also what happens when the sweep got here first (348.1), so
+				// only a module with none of the resolvers is a miss.
+				const carries = [...URL_RESOLVERS, ...SOURCE_RESOLVERS].some(
+					key => typeof mod?.[key] === "function" || typeof mod?.default?.[key] === "function",
+				)
+				if (patchNamespace(mod, seen, cleanups) === 0 && !carries) {
 					console.error(`[ScreenshotRedactor] ${MODULE_PATH} found but carries no avatar resolver`)
 					noteResolverSkipped(MODULE_PATH)
+					return
 				}
+				pathHooked = true
+				stopSweep?.()
+				stopSweep = undefined
 			}),
 		)
 	} catch (error) {
 		console.error(`[ScreenshotRedactor] imported-path lookup for ${MODULE_PATH} failed:`, error)
 	}
 
-	// Fallback for a build that has moved the file. `getUserAvatarSource` is distinctive enough
-	// that a prop sweep for it is not the lottery `getName` was, but it is still split into
-	// lookup + wait so that no `max` counter can swallow the subscription -- see
+	// Fallback for a build that has moved the file, and only then. `getUserAvatarSource` is
+	// distinctive enough that a prop sweep for it is not the lottery `getName` was, but it is still
+	// split into lookup + wait so that no `max` counter can swallow the subscription -- see
 	// `patches/displayName.ts`.
-	try {
-		const { lookupModules, waitForModules } = revenge.modules.finders
-		const { withProps } = revenge.modules.finders.filters
-		const filter = () => withProps("getUserAvatarSource")
+	if (!pathHooked) {
+		try {
+			const { lookupModules, waitForModules } = revenge.modules.finders
+			const { withProps } = revenge.modules.finders.filters
+			const filter = () => withProps("getUserAvatarSource")
 
-		const onModule = (mod: any) => {
-			patchNamespace(mod, seen, cleanups)
+			const onModule = (mod: any) => {
+				patchNamespace(mod, seen, cleanups)
+			}
+
+			for (const [exports] of lookupModules(filter())) onModule(exports)
+			if (!pathHooked) stopSweep = waitForModules(filter(), onModule)
+		} catch (error) {
+			console.error("[ScreenshotRedactor] avatar sweep failed:", error)
 		}
-
-		for (const [exports] of lookupModules(filter())) onModule(exports)
-		unsubscribes.push(waitForModules(filter(), onModule))
-	} catch (error) {
-		console.error("[ScreenshotRedactor] avatar sweep failed:", error)
 	}
+	unsubscribes.push(() => stopSweep?.())
 
 	return () => {
 		unsubscribes.forEach(unsubscribe => {

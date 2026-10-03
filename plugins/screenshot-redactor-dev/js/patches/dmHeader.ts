@@ -101,11 +101,15 @@ function patchStore(store: any, storeName: string) {
 				// `getNickname(userId)` on this path. Other call sites pass (userId, guildId) or
 				// a channel id, so only the plain single-snowflake form is claimed — mistaking a
 				// guild id for a user id would hand it an alias number and corrupt the numbering.
-				const [id] = args ?? []
-				pendingUserId =
-					Array.isArray(args) && args.length >= 1 && typeof id === "string" && SNOWFLAKE.test(id)
-						? id
-						: undefined
+				// `GuildMemberStore.getNickname(guildId, userId)` puts the person second. Reading the
+				// first argument there (through 0.27.2) handed the *guild* an alias number and a
+				// placeholder name for every member lookup in it.
+				const list = Array.isArray(args) ? args : []
+				const id = storeName === "GuildMemberStore" ? list[1] : list[0]
+				// Elsewhere only the one-argument form is the person; (userId, guildId) or
+				// (channelId, …) shapes belong to other overloads and are left alone.
+				const shapeOk = storeName === "GuildMemberStore" ? list.length >= 2 : list.length === 1 || list[1] == null
+				pendingUserId = shapeOk && typeof id === "string" && SNOWFLAKE.test(id) ? id : undefined
 			} catch {
 				pendingUserId = undefined
 			}

@@ -73,9 +73,29 @@ export function rerenderViaFlux(): string {
 		if (!message || typeof message.id !== "string") continue
 
 		try {
+			// A partial update carrying identity only -- the shape Discord itself sends when just
+			// an embed changes. Through 0.27.4 this sent `message.toJS()`, the *internal* record,
+			// and every other MESSAGE_UPDATE listener read it as an API message: UserStore rebuilt
+			// users from its `author` and from `mentions`, which internally are bare id strings.
+			// That produced users with no `username`, and Discord's native user-search worker
+			// (`UserSearchTransformedUser`, where `id` and `username` are non-null) threw a
+			// NullPointerException and took the app down -- on every redaction toggle that
+			// happened to feed the search index (Checkup crash log, 2026-09-27 14:46).
+			//
+			// But identity alone is too little: 0.27.5 sent just `{ id, channel_id }`, MessageStore
+			// found nothing to change, the rows were never regenerated, and toggling redaction *off*
+			// inside a channel left every name as a placeholder until the screen was rebuilt.
+			// `content` with the message's own text is the field MessageStore always rebuilds and
+			// re-parses for, and it names nobody. It is unchanged, so edit loggers comparing old
+			// and new text see no edit.
 			const result = Dispatcher.dispatch({
 				type: "MESSAGE_UPDATE",
-				message: typeof message.toJS === "function" ? message.toJS() : message,
+				message: {
+					id: message.id,
+					channel_id: message.channel_id ?? channelId,
+					...(typeof message.guild_id === "string" ? { guild_id: message.guild_id } : {}),
+					...(typeof message.content === "string" ? { content: message.content } : {}),
+				},
 			})
 			result?.catch?.((_error: unknown) => { rejected++ })
 			dispatched++
