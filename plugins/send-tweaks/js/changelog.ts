@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.5.16',
+		date: '2026-10-04',
+		title: 'Replace rules',
+		changes: [
+			'Small improvements to replace rules.',
+		],
+	},
+	{
 		version: '0.5.15',
 		date: '2026-10-03',
 		title: 'Line breaks in replace rules',

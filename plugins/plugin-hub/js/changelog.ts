@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.7.8',
+		date: '2026-10-03',
+		title: 'Settings placement',
+		changes: [
+			"Plugin Hub sits below Cloud Backup in Discord's settings when both are installed.",
+		],
+	},
+	{
 		version: '0.7.7',
 		date: '2026-10-03',
 		title: 'Changelog',

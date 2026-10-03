@@ -79,4 +79,6 @@ export interface SendTweaksStorage {
 	/** Also apply link cleaning and text replacement when you edit a message. */
 	applyToEdits: boolean
 	debugLogging: boolean
+	/** Greeting placeholders in text rules, unlocked with a phrase. See lib/greetings.ts. */
+	greetingsUnlocked?: boolean
 }

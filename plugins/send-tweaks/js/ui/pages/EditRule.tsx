@@ -1,4 +1,5 @@
 import { copyText } from '../../lib/clipboard'
+import { greetingsUnlocked, PLACEHOLDERS, tryUnlock } from '../../lib/greetings'
 import { exportRule } from '../../lib/importRules'
 import {
 	deleteRule,
@@ -149,15 +150,22 @@ export default function EditRule() {
 								value={rule.find}
 								status={error ? 'error' : 'default'}
 								errorMessage={error}
-								onChange={(value: string) => set({ find: value })}
+								onChange={(value: string) => {
+									set({ find: value })
+									if (!links && tryUnlock(value))
+										showToast('Greetings unlocked: placeholders now work in Replace with')
+								}}
 							/>
 						</FieldRow>
 						<FieldRow
 							label="Replace with"
 							description={
-								rule.regex
+								(rule.regex
 									? `Use $1, $2 … for captured groups, and \\n for a line break.${links ? '' : ' Find ^ or $ alone to add text to the start or end of every message.'}`
-									: 'Used exactly as typed, line breaks included.'
+									: 'Used exactly as typed, line breaks included.') +
+								(!links && greetingsUnlocked()
+									? ` Greetings: ${PLACEHOLDERS.map(key => `{${key}}`).join(' ')}. {mention} is who you reply to, or whoever joined last.`
+									: '')
 							}
 						>
 							<LinesField

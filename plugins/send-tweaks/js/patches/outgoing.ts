@@ -48,6 +48,7 @@ import { debug, settings, TAG } from '../lib/state'
 import { transform } from '../lib/transform'
 import { type OneOff, takeNextSend } from '../lib/nextSend'
 import { makeSilent } from '../lib/silent'
+import { withSendContext } from '../lib/greetings'
 
 const status = {
 	installed: false,
@@ -137,7 +138,12 @@ export default function patchOutgoing(): () => void {
 							debug('send: sent unchanged, as asked from the send button')
 							return
 						}
-						rewrite(args[1], 'send')
+						// The channel and reply target, for greeting placeholders (lib/greetings.ts).
+						const reference = args.find((arg: any) => arg?.messageReference)?.messageReference
+						withSendContext(
+							{ channelId: args[0], replyToId: reference?.message_id ?? reference?.messageId },
+							() => rewrite(args[1], 'send'),
+						)
 						silence(args[1], once)
 					}),
 				)

@@ -12,6 +12,8 @@
  * belongs to instead of the send path discovering it.
  */
 
+import { expandPlaceholders } from './greetings'
+
 export interface Rule {
 	/** Stable id, so the settings list can key and edit rules without relying on position. */
 	id: string
@@ -188,7 +190,10 @@ export function applyRules(
 
 		// A plain-text rule's replacement is plain text too: without escaping, `$&`, `$1` or `$$`
 		// in it would be read as substitution codes, and a replacement of "$$" would send "$".
-		const replacement = rule.regex ? unescapeReplacement(rule.replace) : rule.replace.replace(/\$/g, '$$$$')
+		// Greeting placeholders go in last, with their values' `$` already doubled (greetings.ts).
+		const replacement = expandPlaceholders(
+			rule.regex ? unescapeReplacement(rule.replace) : rule.replace.replace(/\$/g, '$$$$'),
+		)
 		const next = safeReplace(out, compiled.pattern, replacement)
 		if (next !== out) {
 			applied++

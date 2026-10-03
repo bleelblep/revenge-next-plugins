@@ -26,4 +26,5 @@ export const DEFAULTS: SendTweaksStorage = {
 	swipeSendUnchanged: true,
 	applyToEdits: true,
 	debugLogging: false,
+	greetingsUnlocked: false,
 }

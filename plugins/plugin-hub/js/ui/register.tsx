@@ -48,11 +48,14 @@ const SECTION = 'BLEELBLEP_HUB'
 const SHORTCUTS_SECTION = 'BLEELBLEP_HUB_SHORTCUTS'
 
 /**
- * Themes' Theming section goes directly under Revenge's, above this one. Revenge splices sections
- * in registration order, which between two plugins is chance, so Themes sets this flag while its
- * section is being placed (`plugins/themes/js/ui/routes.tsx`) and these indexes move down one.
+ * Themes' Theming section goes directly under Revenge's, then Cloud Backup's, then this one.
+ * Revenge splices sections in registration order, which between plugins is chance, so each of
+ * those sets a flag while its section is being placed (`plugins/themes/js/ui/routes.tsx`,
+ * `plugins/cloud-sync/js/ui/register.tsx`) and these indexes move down one per flag.
  */
-const themingPlaced = () => ((globalThis as any).__bleelblepThemingPlaced ? 1 : 0)
+const placedAbove = () =>
+	((globalThis as any).__bleelblepThemingPlaced ? 1 : 0) +
+	((globalThis as any).__bleelblepCloudBackupPlaced ? 1 : 0)
 
 function countOf(ai: boolean) {
 	const count = settings().entries.filter(entry => onPage(entry, ai)).length
@@ -164,7 +167,7 @@ export function registerHub(): () => void {
 					label: 'Shortcuts',
 					settings: byName.map(entry => shortcutKey(entry.id)),
 					get index() {
-						return 2 + themingPlaced()
+						return 2 + placedAbove()
 					},
 				} as any),
 			)
@@ -229,7 +232,7 @@ export function registerHub(): () => void {
 				label: sectionName(),
 				settings: [HUB_ROUTE, AI_HUB_ROUTE],
 				get index() {
-					return 1 + themingPlaced()
+					return 1 + placedAbove()
 				},
 			} as any)
 			refreshSettingsUI()
