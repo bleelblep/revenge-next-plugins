@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.1.12',
+		date: '2026-10-03',
+		title: 'Votes UI tweak',
+		changes: [
+			'Votes are now displayed as plain icons on the right with the count.',
+		],
+	},
+	{
 		version: '0.1.11',
 		date: '2026-10-03',
 		title: 'Changelog',
@@ -15,16 +23,14 @@ export const CHANGELOG: ChangelogEntry[] = [
 		version: '0.1.10',
 		date: '2026-10-02',
 		title: 'Red danger icons',
-		changes: [
-			'Delete and report rows have red icons.',
-		],
+		changes: ['Delete and report rows have red icons.'],
 	},
 	{
 		version: '0.1.8',
 		date: '2026-10-02',
-		title: 'Discord\'s look',
+		title: "Discord's look",
 		changes: [
-			'Reviews use Discord\'s own components.',
+			"Reviews use Discord's own components.",
 			'Reviews on bot profiles.',
 		],
 	},
