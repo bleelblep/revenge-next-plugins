@@ -6,5 +6,4 @@ import type { HubStorage } from './types'
  */
 export const DEFAULTS: HubStorage = {
 	entries: [],
-	doctorUnlocked: false,
 }

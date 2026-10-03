@@ -3,8 +3,7 @@
  *
  * ## Where they go
  *
- * A "Plugin Hub" section of its own in Discord's settings, holding Hub, AI Hub, then Plugin Doctor
- * (`pages/Doctor.tsx`, `lib/doctor.ts`). Not added
+ * A "Plugin Hub" section of its own in Discord's settings, holding Hub then AI Hub. Not added
  * to Revenge's `REVENGE` section: on Discord 348 that call started succeeding and quietly folded
  * the rows in under Revenge's Plugins, which is not where people look for them.
  *
@@ -26,21 +25,18 @@
  * `useTrailing` -- so they sit in the list looking like they belong there.
  */
 
-import { problemCount } from '../lib/doctor'
+import { afterRevengeSection } from '../../../../shared/afterRevengeSection'
+import { hubName, isCornhub, sectionName } from '../lib/cornhub'
 import { aiCoreRunning, onPage } from '../lib/installed'
 import { refreshSettingsUI } from '../lib/settingsUi'
 import { getStorage, settings } from '../lib/state'
 import { rowIcon } from './icon'
-import Doctor from './pages/Doctor'
-import DoctorPlugin, { selectedPluginName } from './pages/DoctorPlugin'
 import { AiHub, default as Hub } from './pages/Hub'
 import Manage from './pages/Manage'
 import HubSettings, { AiHubSettings } from './pages/Settings'
 import {
 	AI_HUB_ROUTE,
 	AI_SETTINGS_ROUTE,
-	DOCTOR_PLUGIN_ROUTE,
-	DOCTOR_ROUTE,
 	HUB_ROUTE,
 	MANAGE_ROUTE,
 	placement,
@@ -50,6 +46,13 @@ import type { Entry } from '../types'
 
 const SECTION = 'BLEELBLEP_HUB'
 const SHORTCUTS_SECTION = 'BLEELBLEP_HUB_SHORTCUTS'
+
+/**
+ * Themes' Theming section goes directly under Revenge's, above this one. Revenge splices sections
+ * in registration order, which between two plugins is chance, so Themes sets this flag while its
+ * section is being placed (`plugins/themes/js/ui/routes.tsx`) and these indexes move down one.
+ */
+const themingPlaced = () => ((globalThis as any).__bleelblepThemingPlaced ? 1 : 0)
 
 function countOf(ai: boolean) {
 	const count = settings().entries.filter(entry => onPage(entry, ai)).length
@@ -160,7 +163,9 @@ export function registerHub(): () => void {
 				S.registerSettingsSection(SHORTCUTS_SECTION, {
 					label: 'Shortcuts',
 					settings: byName.map(entry => shortcutKey(entry.id)),
-					index: 2,
+					get index() {
+						return 2 + themingPlaced()
+					},
 				} as any),
 			)
 		}
@@ -173,7 +178,7 @@ export function registerHub(): () => void {
 				parent: null,
 				type: 'route',
 				IconComponent: () => rowIcon('AppsIcon', 'GridSquareIcon') ?? null,
-				useTitle: () => 'Hub',
+				useTitle: () => hubName(false),
 				useTrailing: () => countOf(false),
 				screen: { route: HUB_ROUTE, getComponent: () => Hub },
 			} as any),
@@ -181,33 +186,10 @@ export function registerHub(): () => void {
 				parent: null,
 				type: 'route',
 				IconComponent: () => rowIcon('MagicWandIcon') ?? null,
-				useTitle: () => 'AI Hub',
+				useTitle: () => hubName(true),
 				useTrailing: () => countOf(true),
 				usePredicate: () => aiCoreRunning(),
 				screen: { route: AI_HUB_ROUTE, getComponent: () => AiHub },
-			} as any),
-			// Plugin Doctor. Hidden until unlocked from Hub settings (seven taps on the version row),
-			// like Android's developer options. The trailing count is from the last checkup this
-			// session, so it is blank until the page has been opened once -- a checkup fetches every
-			// repository's index, which is not something to do just because Settings was opened.
-			S.registerSettingsItem(DOCTOR_ROUTE, {
-				parent: null,
-				type: 'route',
-				IconComponent: () => rowIcon('WrenchIcon', 'BugIcon') ?? null,
-				useTitle: () => 'Plugin Doctor',
-				usePredicate: () => !!settings().doctorUnlocked,
-				useTrailing: () => {
-					const count = problemCount()
-					return count ? `${count}` : undefined
-				},
-				screen: { route: DOCTOR_ROUTE, getComponent: () => Doctor },
-			} as any),
-			// One plugin's details, opened from the Doctor; in no section.
-			S.registerSettingsItem(DOCTOR_PLUGIN_ROUTE, {
-				parent: null,
-				type: 'route',
-				useTitle: () => selectedPluginName(),
-				screen: { route: DOCTOR_PLUGIN_ROUTE, getComponent: () => DoctorPlugin },
 			} as any),
 			S.registerSettingsItem(MANAGE_ROUTE, {
 				parent: null,
@@ -219,30 +201,66 @@ export function registerHub(): () => void {
 			S.registerSettingsItem(SETTINGS_ROUTE, {
 				parent: null,
 				type: 'route',
-				useTitle: () => 'Hub settings',
+				useTitle: () => `${hubName(false)} settings`,
 				screen: { route: SETTINGS_ROUTE, getComponent: () => HubSettings },
 			} as any),
 			S.registerSettingsItem(AI_SETTINGS_ROUTE, {
 				parent: null,
 				type: 'route',
-				useTitle: () => 'AI Hub settings',
+				useTitle: () => `${hubName(true)} settings`,
 				screen: { route: AI_SETTINGS_ROUTE, getComponent: () => AiHubSettings },
 			} as any),
 		)
 
-		cleanups.push(
-			S.registerSettingsSection(SECTION, {
-				label: 'Plugin Hub',
-				settings: [HUB_ROUTE, AI_HUB_ROUTE, DOCTOR_ROUTE],
-				index: 1,
-			} as any),
-		)
+		// The section's label is fixed at registration, so it is registered again whenever Cornhub is
+		// switched, under the same key and index -- the rows stay exactly where they were.
+		let removeSection: (() => void) | undefined
+		let sectionCornhub: boolean | undefined
+		const installHubSection = () => {
+			const corn = isCornhub()
+			if (corn === sectionCornhub) return
+			sectionCornhub = corn
+			try {
+				removeSection?.()
+			} catch {
+				/* already gone */
+			}
+			removeSection = S.registerSettingsSection(SECTION, {
+				label: sectionName(),
+				settings: [HUB_ROUTE, AI_HUB_ROUTE],
+				get index() {
+					return 1 + themingPlaced()
+				},
+			} as any)
+			refreshSettingsUI()
+		}
+		cleanups.push(() => {
+			removeSection?.()
+			removeSection = undefined
+			sectionCornhub = undefined
+		})
 
 		// The Shortcuts section under it: a row for each plugin chosen to appear there. Rebuilt when
 		// the choice changes, so switching one on under Choose plugins shows up without a restart.
-		installSection()
+		// Both wait for Revenge's own section: registered before it, they're placed under Discord's
+		// Account Settings instead of under Revenge (shared/afterRevengeSection.ts).
+		let sectionsReady = false
+		cleanups.push(
+			afterRevengeSection(() => {
+				sectionsReady = true
+				installHubSection()
+				installSection()
+			}),
+		)
 		const storage = getStorage()
-		if (storage) cleanups.push(storage.subscribe(() => installSection()))
+		if (storage)
+			cleanups.push(
+				storage.subscribe(() => {
+					if (!sectionsReady) return
+					installHubSection()
+					installSection()
+				}),
+			)
 		cleanups.push(() => {
 			for (const cleanup of shortcutCleanups.reverse()) {
 				try {

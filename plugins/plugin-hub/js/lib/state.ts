@@ -16,7 +16,7 @@ export function getStorage(): Storage | undefined {
 
 let ownVersion = 'unknown'
 
-/** This plugin's version, for the row in Hub settings that unlocks Plugin Doctor. Set at start. */
+/** This plugin's version, for the About row in Hub settings. Set at start. */
 export function setOwnVersion(value: string) {
 	ownVersion = value
 }

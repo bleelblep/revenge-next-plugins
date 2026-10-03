@@ -21,6 +21,14 @@
 import { rowIcon } from '../icon'
 import type { Entry } from '../../types'
 
+/** Fixed colours for a re-skinned hub (Cornhub); without one, the theme's own colours are used. */
+export interface TilePalette {
+	card: string
+	white: string
+	grey: string
+	orange: string
+}
+
 export interface TileState {
 	openable: boolean
 	note?: string
@@ -34,7 +42,7 @@ const CIRCLE = 52
 const CIRCLE_WASH = 'rgba(128, 132, 142, 0.18)'
 
 /** The tinted circle with the plugin's icon in it. Smaller on the wide card, which sits among rows. */
-function IconCircle({ icon, size = CIRCLE }: { icon?: string; size?: number }) {
+function IconCircle({ icon, size = CIRCLE, wash = CIRCLE_WASH }: { icon?: string; size?: number; wash?: string }) {
 	const { View } = revenge.react.ReactNative
 	return (
 		<View
@@ -42,7 +50,7 @@ function IconCircle({ icon, size = CIRCLE }: { icon?: string; size?: number }) {
 				width: size,
 				height: size,
 				borderRadius: size / 2,
-				backgroundColor: CIRCLE_WASH,
+				backgroundColor: wash,
 				alignItems: 'center',
 				justifyContent: 'center',
 			}}
@@ -93,6 +101,7 @@ export function Tile({
 	width,
 	wide,
 	description,
+	palette,
 }: {
 	entry: Entry
 	state: TileState
@@ -101,9 +110,20 @@ export function Tile({
 	wide?: boolean
 	/** Shown under the name on the wide card only. */
 	description?: string
+	palette?: TilePalette
 }) {
 	const { View, Pressable } = revenge.react.ReactNative
-	const { Text, Card } = revenge.discord.design.Design
+	const { Text, Card: ThemedCard } = revenge.discord.design.Design
+
+	// A palette swaps the themed card and text colours for fixed ones; the layout is unchanged.
+	const Card = palette
+		? ({ children, style }: { children: any; style?: any }) => (
+				<View style={[{ backgroundColor: palette.card, borderRadius: 16 }, style]}>{children}</View>
+			)
+		: ThemedCard
+	const nameStyle = palette ? { color: palette.white } : undefined
+	const mutedStyle = palette ? { color: palette.grey } : undefined
+	const wash = palette ? 'rgba(255, 163, 26, 0.18)' : undefined
 
 	if (wide) {
 		const detail = state.note ?? description
@@ -128,13 +148,13 @@ export function Tile({
 							gap: 12,
 						}}
 					>
-						<IconCircle icon={entry.icon} size={WIDE_CIRCLE} />
+						<IconCircle icon={entry.icon} size={WIDE_CIRCLE} wash={wash} />
 						<View style={{ flex: 1, gap: 2 }}>
-							<Text color="text-default" variant="text-md/semibold" numberOfLines={1}>
+							<Text color="text-default" variant="text-md/semibold" numberOfLines={1} style={nameStyle}>
 								{entry.name}
 							</Text>
 							{detail ? (
-								<Text color="text-muted" variant="text-sm/normal" numberOfLines={1}>
+								<Text color="text-muted" variant="text-sm/normal" numberOfLines={1} style={mutedStyle}>
 									{detail}
 								</Text>
 							) : null}
@@ -167,17 +187,17 @@ export function Tile({
 						gap: 12,
 					}}
 				>
-					<IconCircle icon={entry.icon} />
+					<IconCircle icon={entry.icon} wash={wash} />
 					<Text
 						color="text-default"
 						variant="text-md/semibold"
-						style={{ textAlign: 'center' }}
+						style={[{ textAlign: 'center' }, nameStyle]}
 						numberOfLines={1}
 					>
 						{entry.name}
 					</Text>
 					{state.note ? (
-						<Text color="text-muted" variant="text-xs/normal" numberOfLines={1}>
+						<Text color="text-muted" variant="text-xs/normal" numberOfLines={1} style={mutedStyle}>
 							{state.note}
 						</Text>
 					) : null}

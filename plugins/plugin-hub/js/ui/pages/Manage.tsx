@@ -4,8 +4,10 @@ import {
 	listInstalled,
 	usesAiCore,
 } from '../../lib/installed'
+import { orphansOf, useInstalledIds } from '../../lib/present'
 import { getStorage } from '../../lib/state'
-import { rowIcon } from '../icon'
+import { CollapsibleGroup } from '../components/Collapsible'
+import { dangerIcon, rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { Installed } from '../../lib/installed'
 import type { Entry } from '../../types'
@@ -21,6 +23,10 @@ import type { Entry } from '../../types'
  * Without Developer Mode there is no list of installed plugins to show (see `lib/installed.ts`),
  * so the page says so plainly -- and still lists what is already in the hub, so removing things
  * never needs Developer Mode even though adding them does.
+ *
+ * Entries whose plugin is gone (uninstalled, or renamed to a new id) get their own group in both
+ * modes. With Developer Mode on they would otherwise be stuck: the switches list only installed
+ * plugins, so there was nothing to switch off.
  */
 export default function Manage() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
@@ -66,6 +72,36 @@ export default function Manage() {
 
 	const installed = listInstalled()
 	const available = discoveryAvailable()
+	const orphans = orphansOf(entries, useInstalledIds())
+	const orphanIds = new Set(orphans.map(entry => entry.id))
+
+	const confirmRemoveOrphans = () => {
+		const key = 'PluginHubRemoveOrphans'
+		Alerts.openAlert(
+			key,
+			<AlertModal
+				title="Remove plugins that are gone?"
+				content={`${orphans.length} shortcut${orphans.length === 1 ? '' : 's'} to plugins that are no longer installed will come out of the hub.`}
+				actions={
+					<>
+						<AlertActionButton
+							text="Remove"
+							variant="destructive"
+							onPress={() => {
+								Alerts.dismissAlert(key)
+								write(entries.filter(entry => !orphanIds.has(entry.id)))
+							}}
+						/>
+						<AlertActionButton
+							text="Cancel"
+							variant="secondary"
+							onPress={() => Alerts.dismissAlert(key)}
+						/>
+					</>
+				}
+			/>,
+		)
+	}
 
 	const openable = (plugin: Installed) => plugin.hasSettings
 	const mine = installed?.filter(plugin => plugin.mine && !usesAiCore(plugin)) ?? []
@@ -140,6 +176,32 @@ export default function Manage() {
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
 				<Stack spacing={24}>
+					{orphans.length ? (
+						<TableRowGroup
+							title="No longer installed"
+							description="These are in the hub, but their plugin is gone. Tap one to remove it."
+							hasIcons
+						>
+							{orphans.map(entry => (
+								<TableRow
+									key={entry.id}
+									label={entry.name}
+									subLabel="Not installed · tap to remove"
+									icon={rowIcon(entry.icon ?? 'PuzzlePieceIcon', 'PuzzlePieceIcon')}
+									onPress={() => write(entries.filter(e => e.id !== entry.id))}
+								/>
+							))}
+							{orphans.length > 1 ? (
+								<TableRow
+									variant="danger"
+									label={`Remove all ${orphans.length}`}
+									icon={dangerIcon('TrashIcon')}
+									onPress={confirmRemoveOrphans}
+								/>
+							) : null}
+						</TableRowGroup>
+					) : null}
+
 					{!available ? (
 						<Card variant="secondary" border="none">
 							<View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
@@ -177,8 +239,9 @@ export default function Manage() {
 										onPress={() => addAll(allMine)}
 									/>
 									<TableRow
+										variant="danger"
 										label="Remove all of them"
-										icon={rowIcon('TrashIcon')}
+										icon={dangerIcon('TrashIcon')}
 										disabled={minePinned === 0}
 										onPress={() => confirmRemoveAll(allMine, minePinned)}
 									/>
@@ -186,26 +249,26 @@ export default function Manage() {
 							) : null}
 
 							{mine.length ? (
-								<TableRowGroup title="bleelblep plugins" hasIcons>
+								<CollapsibleGroup id="manage:bleelblep plugins" title="bleelblep plugins" count={mine.length}>
 									{mine.map(switchRow)}
-								</TableRowGroup>
+								</CollapsibleGroup>
 							) : null}
 
 							{ai.length ? (
-								<TableRowGroup title="AI Hub" hasIcons>
+								<CollapsibleGroup id="manage:AI Hub" title="AI Hub" count={ai.length}>
 									{ai.map(switchRow)}
-								</TableRowGroup>
+								</CollapsibleGroup>
 							) : null}
 
 							{others.length ? (
-								<TableRowGroup title="Other plugins" hasIcons>
+								<CollapsibleGroup id="manage:Other plugins" title="Other plugins" count={others.length}>
 									{others.map(switchRow)}
-								</TableRowGroup>
+								</CollapsibleGroup>
 							) : null}
 						</>
-					) : entries.length ? (
+					) : entries.some(entry => !orphanIds.has(entry.id)) ? (
 						<TableRowGroup title="In the hub" hasIcons>
-							{entries.map(entry => (
+							{entries.filter(entry => !orphanIds.has(entry.id)).map(entry => (
 								<TableRow
 									key={entry.id}
 									label={entry.name}

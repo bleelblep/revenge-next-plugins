@@ -14,7 +14,7 @@
  */
 
 import { DEFAULTS } from './defaults'
-import { asVersion, formatVersion } from './lib/doctor'
+import { asVersion, formatVersion } from './lib/version'
 import { setOwnVersion, setStorage } from './lib/state'
 import HubSettings from './ui/pages/Settings'
 import { registerHub } from './ui/register'

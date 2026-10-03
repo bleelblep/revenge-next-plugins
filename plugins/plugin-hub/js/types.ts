@@ -35,9 +35,20 @@ export interface HubStorage {
 	 * only bites keyed objects).
 	 */
 	entries: Entry[]
+	/** The Cornhub easter egg (`lib/cornhub.ts`): long-press the settings button on a Hub page. */
+	cornhub?: boolean
 	/**
-	 * Plugin Doctor's row is shown. Off until the version row in Hub settings is tapped seven times,
-	 * like Android's developer options; switched back off from the Doctor itself.
+	 * Sections folded away on the Hub, AI Hub and Choose plugins pages, as `page:section` keys
+	 * (`ui/components/Collapsible.tsx`). Written whole, like `entries`.
 	 */
-	doctorUnlocked?: boolean
+	collapsed?: string[]
+	/**
+	 * The AI Core section at the top of the AI Hub (`ui/components/AiInfo.tsx`). Missing means on.
+	 * The two below only apply while it is on.
+	 */
+	aiInfo?: boolean
+	/** Its Balance row: the money left on the key, for providers that report it. Missing means on. */
+	aiInfoBalance?: boolean
+	/** Its "Used most today" row. Missing means on. */
+	aiInfoPlugins?: boolean
 }

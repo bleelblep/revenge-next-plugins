@@ -1,9 +1,9 @@
 import { DEFAULTS } from '../../defaults'
 import { aiCoreRunning, onPage } from '../../lib/installed'
-import { refreshSettingsUI } from '../../lib/settingsUi'
-import { getOwnVersion, getStorage, settings } from '../../lib/state'
+import { getOwnVersion, getStorage } from '../../lib/state'
 import { rowIcon } from '../icon'
 import { AI_SETTINGS_ROUTE, MANAGE_ROUTE, placement } from '../routes'
+import { aiCoreInfo } from '../components/AiInfo'
 import { useBottomPadding } from '../safeArea'
 import { byName, MAX_FAVOURITES } from './Hub'
 import type { Entry } from '../../types'
@@ -17,14 +17,6 @@ import type { Entry } from '../../types'
  * Hub settings is also the plugin's own settings page from Revenge's Plugins list, and links on to
  * AI Hub settings when there is one.
  */
-function showToast(content: string) {
-	revenge.discord.actions.ToastActionCreators.open({ key: 'PluginHubUnlockToast', content })
-}
-
-/** Taps on the version row that unlock Plugin Doctor, and how long a pause resets the count. */
-const UNLOCK_TAPS = 7
-const UNLOCK_PAUSE_MS = 2000
-
 export default function HubSettings() {
 	return <SettingsPage ai={false} />
 }
@@ -43,8 +35,6 @@ function SettingsPage({ ai }: { ai: boolean }) {
 		revenge.externals.ReactNavigation.ReactNavigationNative
 
 	const navigation = useNavigation() as { navigate: (route: string) => void }
-	const { React } = revenge.react
-	const taps = React.useRef({ count: 0, at: 0 })
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const entries: Entry[] = s.entries ?? []
@@ -157,30 +147,6 @@ function SettingsPage({ ai }: { ai: boolean }) {
 		)
 	}
 
-	/**
-	 * Android's developer-options gesture: seven quick taps on the version turn Plugin Doctor on,
-	 * counting down from four away. A pause longer than two seconds starts the count again.
-	 */
-	const tapVersion = () => {
-		if (settings().doctorUnlocked) {
-			showToast('Plugin Doctor is already on. It is in the Plugin Hub section of Settings.')
-			return
-		}
-		const now = Date.now()
-		const t = taps.current
-		t.count = now - t.at > UNLOCK_PAUSE_MS ? 1 : t.count + 1
-		t.at = now
-		const left = UNLOCK_TAPS - t.count
-		if (left <= 0) {
-			t.count = 0
-			storage?.set({ doctorUnlocked: true })
-			refreshSettingsUI()
-			showToast('Plugin Doctor is on. It is in the Plugin Hub section of Settings.')
-		} else if (left <= 4) {
-			showToast(`${left} step${left === 1 ? '' : 's'} away from Plugin Doctor.`)
-		}
-	}
-
 	return (
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: useBottomPadding() }}>
@@ -203,6 +169,36 @@ function SettingsPage({ ai }: { ai: boolean }) {
 							/>
 						) : null}
 					</TableRowGroup>
+
+					{ai && aiCoreInfo() ? (
+						<TableRowGroup title="AI Core info" hasIcons>
+							<TableSwitchRow
+								label="Show AI Core info"
+								subLabel="Provider, model and today's calls at the top of the AI Hub"
+								icon={rowIcon('ServerIcon', 'MagicWandIcon')}
+								value={s.aiInfo !== false}
+								onValueChange={value => storage?.set({ aiInfo: value })}
+							/>
+							{s.aiInfo !== false ? (
+								<>
+									<TableSwitchRow
+										label="Balance"
+										subLabel="Money left on the key, for DeepSeek and OpenRouter. OpenAI and Anthropic don't report it."
+										icon={rowIcon('CreditCardIcon')}
+										value={s.aiInfoBalance !== false}
+										onValueChange={value => storage?.set({ aiInfoBalance: value })}
+									/>
+									<TableSwitchRow
+										label="Used most today"
+										subLabel="Which plugins made today's calls"
+										icon={rowIcon('AnalyticsIcon', 'ListBulletsIcon')}
+										value={s.aiInfoPlugins !== false}
+										onValueChange={value => storage?.set({ aiInfoPlugins: value })}
+									/>
+								</>
+							) : null}
+						</TableRowGroup>
+					) : null}
 
 					{favouritesGroup(ai, 'Favourites')}
 					{orderGroup(ai, 'Favourite order')}
@@ -237,7 +233,6 @@ function SettingsPage({ ai }: { ai: boolean }) {
 							<TableRow
 								label="Plugin Hub version"
 								subLabel={getOwnVersion()}
-								onPress={tapVersion}
 							/>
 						</TableRowGroup>
 					)}
