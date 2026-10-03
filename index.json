@@ -1302,7 +1302,7 @@
       "description": "Shows extra tags for staff members — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK.",
       "author": "bleelblep, Fiery",
       "channels": {
-        "latest": "1.3.4"
+        "latest": "1.3.6"
       },
       "versions": {
         "1.2.3": {
@@ -1361,6 +1361,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.staff-tags@1.3.4.zip",
           "sha256": "a989c1f00565f8c4aa0d30e975ff86e6459ec2d8bb56087e2e36bfdab1569537",
           "size": 11672,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.3.6": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.staff-tags@1.3.6.zip",
+          "sha256": "6f0ac495dffe5a128b5cec2e6631528abfefcd6b9a9402489108ef8c598a94a3",
+          "size": 12235,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
