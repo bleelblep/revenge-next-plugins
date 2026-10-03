@@ -9,7 +9,7 @@
       "author": "bleelblep",
       "icon": "MagicWandIcon",
       "channels": {
-        "latest": "2.3.2"
+        "latest": "2.3.3"
       },
       "versions": {
         "1.2.0": {
@@ -89,6 +89,19 @@
               "version": "*"
             }
           }
+        },
+        "2.3.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.3.3.zip",
+          "sha256": "c8a58d23e0498197feff6f3c54cb30b9adea6e61d3bcb880950836136eafe7cf",
+          "size": 56418,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -98,7 +111,7 @@
       "author": "bleelblep",
       "icon": "ClockIcon",
       "channels": {
-        "latest": "0.2.12"
+        "latest": "0.2.13"
       },
       "versions": {
         "0.2.1": {
@@ -121,6 +134,22 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.catch-up@0.2.12.zip",
           "sha256": "8fa586bb6a4c8c31b57a689c79bc12ee3c4262375c610286c1bf3b5f9854fc8a",
           "size": 7549,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3"
+            }
+          }
+        },
+        "0.2.13": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.catch-up@0.2.13.zip",
+          "sha256": "77eaa02f3d4f9fc0f7425bc980eae411accb949552c4a1135a3a06c125fe40af",
+          "size": 9648,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -172,7 +201,7 @@
       "description": "Choose how chat timestamps look: calendar, relative, ISO 8601 or your own format.",
       "author": "bleelblep, Fiery",
       "channels": {
-        "latest": "1.2.4"
+        "latest": "1.2.5"
       },
       "versions": {
         "1.2.2": {
@@ -213,6 +242,19 @@
               "version": "*"
             }
           }
+        },
+        "1.2.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.custom-timestamps@1.2.5.zip",
+          "sha256": "2d0702c416e078921da45d1b7ff9f00d0029eae90afccda2f78a23b4fe321b9d",
+          "size": 5306,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -222,13 +264,26 @@
       "author": "bleelblep",
       "icon": "StickerIcon",
       "channels": {
-        "latest": "0.1.1"
+        "latest": "0.1.2"
       },
       "versions": {
         "0.1.1": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.free-stickers@0.1.1.zip",
           "sha256": "16c32dc802a988b196ec352e30ae0e986040d53b5532b6994a07f3fe902bab66",
           "size": 21604,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.1.2": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.free-stickers@0.1.2.zip",
+          "sha256": "857dd7107e6fcbcb8de9bd4673bad02a84750106e184f3bf0c820ea9df5b3618",
+          "size": 23792,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -309,7 +364,7 @@
       "description": "Hides call and video buttons from DMs, user profiles and voice channels.",
       "author": "John (janisslsm), bleelblep",
       "channels": {
-        "latest": "1.2.6"
+        "latest": "1.2.7"
       },
       "versions": {
         "1.2.3": {
@@ -363,6 +418,19 @@
               "version": "*"
             }
           }
+        },
+        "1.2.7": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-call-buttons@1.2.7.zip",
+          "sha256": "981868d6c32ec10888de70ec45405c37d1787549cc4556845891fe68621723e7",
+          "size": 4875,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -372,7 +440,7 @@
       "author": "bleelblep, blerp",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "1.6.5"
+        "latest": "1.6.8"
       },
       "versions": {
         "1.6.1": {
@@ -439,6 +507,19 @@
               "version": "*"
             }
           }
+        },
+        "1.6.8": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.6.8.zip",
+          "sha256": "6fdd39ee1a7accb0c16e7a546f8e497ace9faf706dc378ec3e11e49b8189dfb2",
+          "size": 15011,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -448,7 +529,7 @@
       "author": "bleelblep",
       "icon": "AppsIcon",
       "channels": {
-        "latest": "0.7.6"
+        "latest": "0.7.7"
       },
       "versions": {
         "0.2.1": {
@@ -535,6 +616,23 @@
               "optional": true
             }
           }
+        },
+        "0.7.7": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.plugin-hub@0.7.7.zip",
+          "sha256": "7fd3840ed31f3d1163ee025196bb9eb1c4e7462d6285bf20e2ce577b6e14eed7",
+          "size": 11359,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "revenge.api.hidden": {
+              "version": "*",
+              "optional": true
+            }
+          }
         }
       }
     },
@@ -544,13 +642,26 @@
       "author": "bleelblep",
       "icon": "StarIcon",
       "channels": {
-        "latest": "0.1.10"
+        "latest": "0.1.11"
       },
       "versions": {
         "0.1.10": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.review-db@0.1.10.zip",
           "sha256": "e72633fadbf7d4818811025142b6e421ca8db6040e7688f150a23eeddf743047",
           "size": 14719,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.1.11": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.review-db@0.1.11.zip",
+          "sha256": "72d6ee1a9dda3ef644bb5024afa372a49c61743e51b92d645d302ead8880b01f",
+          "size": 16449,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -631,7 +742,7 @@
       "author": "bleelblep",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "0.27.7"
+        "latest": "0.27.8"
       },
       "versions": {
         "0.19.2": {
@@ -711,6 +822,19 @@
               "version": "*"
             }
           }
+        },
+        "0.27.8": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor@0.27.8.zip",
+          "sha256": "a459cc7b9762992e23843222a1ec55d29263267879be91be790c1621f1bce898",
+          "size": 16662,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -720,7 +844,7 @@
       "author": "bleelblep",
       "icon": "ShieldIcon",
       "channels": {
-        "latest": "0.3.2"
+        "latest": "0.3.3"
       },
       "versions": {
         "0.2.3": {
@@ -812,6 +936,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.second-thoughts@0.3.2.zip",
           "sha256": "28cf1006451b1931969456817e4ef3cd1fc07e37389c84902ea2ea30603d28af",
           "size": 13132,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.3.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.second-thoughts@0.3.3.zip",
+          "sha256": "d8d1ff5f5a8a832d542a500d74633689398c74b2096446ce7153210e29f85d96",
+          "size": 15201,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -933,7 +1074,7 @@
       "description": "Shows usernames next to display names in chat, including in replies.",
       "author": "Cynosphere, bleelblep",
       "channels": {
-        "latest": "1.2.3"
+        "latest": "1.2.4"
       },
       "versions": {
         "1.2.1": {
@@ -974,6 +1115,19 @@
               "version": "*"
             }
           }
+        },
+        "1.2.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.show-tag@1.2.4.zip",
+          "sha256": "1e0b185be42ca4cec2223b246917c5cdb45fa02de543698edf2939f9d89325eb",
+          "size": 4135,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -982,7 +1136,7 @@
       "description": "Shows extra tags for staff members — OWNER, ADMIN, STAFF, MOD, VC Mod, Chat Mod, WEBHOOK.",
       "author": "bleelblep, Fiery",
       "channels": {
-        "latest": "1.3.3"
+        "latest": "1.3.4"
       },
       "versions": {
         "1.2.3": {
@@ -1036,6 +1190,19 @@
               "version": "*"
             }
           }
+        },
+        "1.3.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.staff-tags@1.3.4.zip",
+          "sha256": "a989c1f00565f8c4aa0d30e975ff86e6459ec2d8bb56087e2e36bfdab1569537",
+          "size": 11672,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -1045,7 +1212,7 @@
       "author": "bleelblep",
       "icon": "TextIcon",
       "channels": {
-        "latest": "0.2.2"
+        "latest": "0.2.4"
       },
       "versions": {
         "0.2.0": {
@@ -1095,6 +1262,22 @@
               "version": ">=1 <3"
             }
           }
+        },
+        "0.2.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.tldr@0.2.4.zip",
+          "sha256": "b942f249ad9fc3fd27b839979a08821a8710e0e820f9597cb4d8ade0709cb4df",
+          "size": 7902,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3"
+            }
+          }
         }
       }
     },
@@ -1104,13 +1287,26 @@
       "author": "bleelblep",
       "icon": "GlobeEarthIcon",
       "channels": {
-        "latest": "0.5.9"
+        "latest": "0.5.10"
       },
       "versions": {
         "0.5.1": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.translate@0.5.1.zip",
           "sha256": "627d4733dce47f0c578425c3bffa72825532e15223e6cee28f4aa016dfe03ec2",
           "size": 11278,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.5.10": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.translate@0.5.10.zip",
+          "sha256": "cb10d8a82501372d7fbeb910d5a55d484e79f0d7ef312c3e431ba1c435ff4e32",
+          "size": 14687,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -1180,7 +1376,7 @@
       "author": "bleelblep",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "0.4.3"
+        "latest": "0.4.4"
       },
       "versions": {
         "0.3.3": {
@@ -1238,6 +1434,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.veil@0.4.3.zip",
           "sha256": "a6d3f02916430e9581c08373a7004d3add8ed94f35dcc984d1fa5691a8ed2daa",
           "size": 10349,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.4.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.veil@0.4.4.zip",
+          "sha256": "6767875b9387927b17cc5e8d4b1027220969350040cb43d1c7b0d9f846ca9135",
+          "size": 12091,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
