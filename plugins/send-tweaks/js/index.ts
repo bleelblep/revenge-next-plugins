@@ -14,9 +14,11 @@
  * from a description (`lib/aiRule.ts`). Without it, `api.ai` is undefined and nothing AI-related shows.
  */
 
+import { setupChangelog } from '../../../shared/changelog'
+import { CHANGELOG } from './changelog'
 import { DEFAULTS } from './defaults'
 import { refreshClearUrlsIfStale } from './lib/clearurls'
-import { setAi, setStorage } from './lib/state'
+import { setAi, setRequireReload, setStorage } from './lib/state'
 import patchOutgoing from './patches/outgoing'
 import patchReplyMention from './patches/replyMention'
 import patchSendButton from './patches/sendButton'
@@ -41,6 +43,8 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		}
 
 		setStorage(jsonStorage)
+		setRequireReload(() => plugin.requireReload())
+		cleanup(() => setRequireReload(undefined))
 
 		// Attached by AI Core's `decorate` when it is installed; undefined otherwise.
 		const ai = (api as any).ai as AiHandle | undefined
@@ -63,6 +67,7 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		}
 
 		apply('settings pages', registerPages)
+		apply('changelog', () => setupChangelog(api, CHANGELOG))
 		apply('outgoing messages', patchOutgoing)
 		apply('reply mentions', patchReplyMention)
 		apply('send button', patchSendButton)

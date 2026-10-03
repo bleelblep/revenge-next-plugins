@@ -6,27 +6,38 @@
  * finger's position changes every frame, so it goes into an `Animated.Value` instead and never
  * re-renders anything.
  *
- * Two stops on the way up: Preview halfway, then Send unchanged at the very top.
+ * The stops follow the two swipe switches. Both on: Preview halfway, Send unchanged at the very top.
+ * One on: its stop is at the top, so the whole capsule is one action.
  */
 
 /** Where letting go lands: 0 cancels, 1 previews, 2 sends unchanged. */
 export type Stop = 0 | 1 | 2
 
+/** Which actions the swipe has, from the settings. */
+export type SwipeActions = { preview: boolean; send: boolean }
+
 /** How far the capsule stretches above the button, and so how far the knob can travel. */
 export const SWIPE_TRAVEL = 168
 
-/** How far up (dp) the finger has to go before letting go previews: the middle of the capsule. */
-export const PREVIEW_DISTANCE = SWIPE_TRAVEL / 2
+/**
+ * How far up (dp) the finger has to go before letting go previews: the middle of the capsule when
+ * Send unchanged is also on, otherwise the top.
+ */
+export function previewDistance(actions: SwipeActions): number {
+	return actions.send ? SWIPE_TRAVEL / 2 : SWIPE_TRAVEL
+}
 
 /**
- * How far up (dp) the finger has to go before letting go sends unchanged: the top, where the knob
- * stops. The finger can overshoot (the knob is clamped), so reaching it needs no precision.
+ * How far up (dp) the finger has to go before letting go sends unchanged: always the top, where the
+ * knob stops. The finger can overshoot (the knob is clamped), so reaching it needs no precision.
  */
 export const SWIPE_DISTANCE = SWIPE_TRAVEL
 
 /** The stop for a finger [up] dp above where it went down. */
-export function stopAt(up: number): Stop {
-	return up >= SWIPE_DISTANCE ? 2 : up >= PREVIEW_DISTANCE ? 1 : 0
+export function stopAt(up: number, actions: SwipeActions): Stop {
+	if (actions.send && up >= SWIPE_DISTANCE) return 2
+	if (actions.preview && up >= previewDistance(actions)) return 1
+	return 0
 }
 
 /** The send button's place on screen (page coordinates), taken from the touch that went down on it. */

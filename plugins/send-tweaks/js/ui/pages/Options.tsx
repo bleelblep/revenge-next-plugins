@@ -1,5 +1,5 @@
 import { updateClearUrls } from '../../lib/clearurls'
-import { getStorage, useSettings } from '../../lib/state'
+import { getStorage, requireReload, useSettings } from '../../lib/state'
 
 function toast(content: string) {
 	try {
@@ -9,7 +9,6 @@ function toast(content: string) {
 	}
 }
 import { rowIcon } from '../icon'
-import { SEND_BUTTON_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { SendTweaksStorage } from '../../types'
 
@@ -23,8 +22,6 @@ export default function Options() {
 	const { ScrollView } = revenge.react.ReactNative
 	const React = revenge.react.React
 	const { Stack, TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
-	const { useNavigation } = revenge.externals.ReactNavigation.ReactNavigationNative
-	const navigation = useNavigation() as { navigate: (route: string) => void }
 
 	const storage = getStorage()
 	const s = useSettings()
@@ -64,25 +61,39 @@ export default function Options() {
 							value={!!s.silentMessages}
 							onValueChange={value => set({ silentMessages: value })}
 						/>
-						<TableRow
-							label="Send button"
-							subLabel={
-								!s.sendButtonSheet
-									? 'Holding send does nothing'
-									: s.sendButtonMode === 'swipe'
-										? 'Hold and swipe up to send unchanged'
-										: 'Hold for the menu'
-							}
-							icon={rowIcon('SendMessageIcon', 'ic_send')}
-							arrow
-							onPress={() => navigation.navigate(SEND_BUTTON_ROUTE)}
-						/>
 						<TableSwitchRow
 							label="Also apply when editing"
 							subLabel="Clean links and apply your rules to messages you edit, not just new ones. The edit box opens already cleaned, so saving without changes still fixes an old message."
 							icon={rowIcon('PencilIcon', 'ic_edit_24px')}
 							value={!!s.applyToEdits}
 							onValueChange={value => set({ applyToEdits: value })}
+						/>
+					</TableRowGroup>
+
+					<TableRowGroup title="Hold send and swipe up" hasIcons>
+						<TableSwitchRow
+							label="Message preview"
+							subLabel={
+								s.swipeSendUnchanged
+									? 'Let go halfway up to see the message as it will be sent, then send it or close.'
+									: 'Let go at the top to see the message as it will be sent, then send it or close.'
+							}
+							icon={rowIcon('EyeIcon', 'ic_eye')}
+							value={!!s.swipePreview}
+							onValueChange={value => {
+								set({ swipePreview: value })
+								requireReload()
+							}}
+						/>
+						<TableSwitchRow
+							label="Send unchanged"
+							subLabel="Let go at the top to send exactly as typed: no link cleaning, rules or @silent."
+							icon={rowIcon('SendMessageIcon', 'ic_send')}
+							value={!!s.swipeSendUnchanged}
+							onValueChange={value => {
+								set({ swipeSendUnchanged: value })
+								requireReload()
+							}}
 						/>
 					</TableRowGroup>
 

@@ -1,6 +1,5 @@
 /**
- * Long-press the send button for the Send Tweaks sheet (`ui/components/SendSheet.tsx`), or hold and
- * swipe up to preview or send unchanged.
+ * Hold the send button and swipe up to preview the message or send it unchanged.
  *
  * ## Where the button is (Discord 348, checked live over devtools)
  *
@@ -16,12 +15,12 @@
  *
  * ## Hold and swipe
  *
- * In swipe mode the long-press only arms the gesture; the finger's raw touch events (`onTouchMove`,
+ * The long-press only arms the gesture; the finger's raw touch events (`onTouchMove`,
  * `onTouchEnd`, which go to the view the touch started on wherever the finger goes) decide the rest.
  * While armed, `ui/components/SwipeIndicator.tsx` draws a slide track above the button whose knob
- * follows the finger. The track has two stops: letting go at least [PREVIEW_DISTANCE] above where
- * the finger went down shows a preview (`lib/preview.ts`), at least [SWIPE_DISTANCE] sends
- * unchanged, and anywhere lower cancels. The sheet is off entirely in this mode. The long-press is what keeps this from also sending normally: once
+ * follows the finger. With both swipe switches on the track has two stops: letting go halfway shows
+ * a preview (`lib/preview.ts`), at the top sends unchanged, and anywhere lower cancels. With one on,
+ * its stop is the top (`lib/swipe.ts`). The long-press is what keeps this from also sending normally: once
  * it fires, the pressable never calls `onPress` for that touch. A quick swipe with no hold never
  * arms and never sends, because the finger leaves the button before the press could count.
  *
@@ -41,13 +40,12 @@
 import { sendOnce } from '../lib/nextSend'
 import { showPreview } from '../lib/preview'
 import { settings, TAG } from '../lib/state'
-import { type Stop, setSwipe, setSwipeDistance, stopAt } from '../lib/swipe'
-import SendSheet, { SHEET_KEY, sheetHasContent } from '../ui/components/SendSheet'
+import { type Stop, type SwipeActions, setSwipe, setSwipeDistance, stopAt } from '../lib/swipe'
 import SwipeIndicator from '../ui/components/SwipeIndicator'
 
 const PATH = 'modules/chat_input/native/action_buttons/ChatInputActionButton.tsx'
 
-const status = { installed: false, moduleId: -1, opened: 0, swiped: 0, previewed: 0, touchesSeen: false }
+const status = { installed: false, moduleId: -1, swiped: 0, previewed: 0, touchesSeen: false }
 
 export function sendButtonStatus() {
 	return { ...status }
@@ -58,17 +56,6 @@ const gesture = { touched: false, armed: false, stop: 0 as Stop, startY: 0 }
 
 const nameOf = (type: any): string | undefined =>
 	type?.name || type?.displayName || type?.type?.name || type?.render?.name
-
-function openSheet(send: unknown) {
-	const canSend = typeof send === 'function'
-	if (!sheetHasContent(settings(), canSend)) return
-	status.opened++
-	revenge.discord.actions.ActionSheetActionCreators.openLazy(
-		Promise.resolve({ default: SendSheet }),
-		SHEET_KEY,
-		{ send: canSend ? () => (send as () => void)() : undefined },
-	)
-}
 
 function buzz(ms: number) {
 	try {
@@ -115,7 +102,7 @@ function chain(element: any, name: string, ours: (event: any) => void) {
 	}
 }
 
-function swipeProps(element: any, send: unknown) {
+function swipeProps(element: any, send: unknown, actions: SwipeActions) {
 	const pageY = (event: any): number => event?.nativeEvent?.pageY ?? gesture.startY
 	const end = () => {
 		gesture.touched = false
@@ -127,8 +114,7 @@ function swipeProps(element: any, send: unknown) {
 	return {
 		delayLongPress: 250,
 		onLongPress: () => {
-			// The pressable dropped the touch props, so the swipe can't be seen. Hold-and-swipe has no
-			// menu, so there is nothing to fall back to.
+			// The pressable dropped the touch props, so the swipe can't be seen: nothing to fall back to.
 			if (!gesture.touched) return
 			gesture.armed = true
 			gesture.stop = 0
@@ -148,7 +134,7 @@ function swipeProps(element: any, send: unknown) {
 			if (!gesture.armed) return
 			const up = gesture.startY - pageY(event)
 			setSwipeDistance(up)
-			const stop = stopAt(up)
+			const stop = stopAt(up, actions)
 			if (stop === gesture.stop) return
 			const higher = stop > gesture.stop
 			gesture.stop = stop
@@ -158,10 +144,10 @@ function swipeProps(element: any, send: unknown) {
 		}),
 		onTouchEnd: chain(element, 'onTouchEnd', event => {
 			const armed = gesture.armed
-			const stop = stopAt(gesture.startY - pageY(event))
+			const stop = stopAt(gesture.startY - pageY(event), actions)
 			end()
 			if (!armed) return
-			// Letting go below the first stop cancels: in this mode the menu is off entirely.
+			// Letting go below the first stop cancels.
 			if (stop === 1) {
 				status.previewed++
 				showPreview(typeof send === 'function' ? (send as () => void) : undefined)
@@ -227,28 +213,24 @@ export default function patchSendButton(): () => void {
 		const wrapper = function (this: unknown, props: any, ref: unknown) {
 			const element = original.call(this, props, ref)
 			const s = settings()
-			if (!active || !s.sendButtonSheet) return element
+			const actions = { preview: !!s.swipePreview, send: !!s.swipeSendUnchanged }
+			if (!active || (!actions.preview && !actions.send)) return element
 			try {
 				const icon = nameOf(props?.IconComponent) ?? nameOf(element?.props?.children?.type)
 				if (icon !== 'SendMessageIcon' || !element?.props) return element
 				const send = element.props.onPress
-				if (s.sendButtonMode === 'swipe') {
-					return React.cloneElement(
-						element,
-						swipeProps(element, send),
-						element.props.children,
-						<SwipeIndicator
-							key="send-tweaks-swipe"
-							Icon={props?.IconComponent}
-							buttonColour={buttonColour(element, props)}
-							buttonRadius={buttonRadius(element)}
-						/>,
-					)
-				}
-				return React.cloneElement(element, {
-					onLongPress: () => openSheet(send),
-					delayLongPress: 350,
-				})
+				return React.cloneElement(
+					element,
+					swipeProps(element, send, actions),
+					element.props.children,
+					<SwipeIndicator
+						key="send-tweaks-swipe"
+						Icon={props?.IconComponent}
+						actions={actions}
+						buttonColour={buttonColour(element, props)}
+						buttonRadius={buttonRadius(element)}
+					/>,
+				)
 			} catch (error) {
 				console.error(`${TAG} send button long-press failed:`, error)
 				return element
@@ -284,6 +266,5 @@ export default function patchSendButton(): () => void {
 		unsubscribe?.()
 		undo?.()
 		undo = undefined
-		revenge.discord.actions.ActionSheetActionCreators.hideActionSheet(SHEET_KEY)
 	}
 }

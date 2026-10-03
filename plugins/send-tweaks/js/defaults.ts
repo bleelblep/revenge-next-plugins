@@ -21,13 +21,9 @@ export const DEFAULTS: SendTweaksStorage = {
 	linkRules: [],
 	// Off: a message nobody is notified about is easy to miss, so this is only ever a choice.
 	silentMessages: false,
-	// On: a long-press on send does nothing in stock Discord, so nothing is taken away.
-	sendButtonSheet: true,
-	// The sheet: a plain long-press is what people expect; the swipe is an opt-in shortcut.
-	sendButtonMode: 'sheet',
-	sheetThisMessage: true,
-	sheetSwitches: true,
-	sheetMoreSettings: true,
+	// On: holding send does nothing in stock Discord, and both need a deliberate hold and slide.
+	swipePreview: true,
+	swipeSendUnchanged: true,
 	applyToEdits: true,
 	debugLogging: false,
 }

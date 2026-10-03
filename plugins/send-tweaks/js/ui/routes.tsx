@@ -3,7 +3,6 @@ import AiRules from './pages/AiRules'
 import Debug from './pages/Debug'
 import EditRule from './pages/EditRule'
 import Options from './pages/Options'
-import SendButton from './pages/SendButton'
 import { ReadyMadeLinks, ReadyMadeText } from './pages/ReadyMade'
 import { LinkRules, TextRules } from './pages/Rules'
 import TryIt from './pages/TryIt'
@@ -18,7 +17,6 @@ export const EDIT_RULE_ROUTE = `${PREFIX}.edit-rule`
 export const AI_ROUTE = `${PREFIX}.ai`
 export const READY_LINKS_ROUTE = `${PREFIX}.ready-made-links`
 export const READY_TEXT_ROUTE = `${PREFIX}.ready-made-text`
-export const SEND_BUTTON_ROUTE = `${PREFIX}.send-button`
 export const TRY_ROUTE = `${PREFIX}.try`
 export const DEBUG_ROUTE = `${PREFIX}.debug`
 
@@ -60,7 +58,6 @@ export function registerPages(): () => void {
 			route(EDIT_RULE_ROUTE, 'Edit rule', EditRule),
 			route(READY_LINKS_ROUTE, 'Ready-made link rules', ReadyMadeLinks),
 			route(READY_TEXT_ROUTE, 'Ready-made rules', ReadyMadeText),
-			route(SEND_BUTTON_ROUTE, 'Send button', SendButton),
 			route(TRY_ROUTE, 'Try a message', TryIt),
 			route(DEBUG_ROUTE, 'Debug', Debug),
 		]

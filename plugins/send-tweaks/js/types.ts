@@ -66,20 +66,16 @@ export interface SendTweaksStorage {
 	 * notification for it. Edits are never affected -- a message's flags are fixed once sent.
 	 */
 	silentMessages: boolean
-	/** Long-press the chat send button for a sheet of one-off sends and these switches. */
-	sendButtonSheet: boolean
 	/**
-	 * What holding send does. `sheet` opens the sheet on the long-press. `swipe` arms on the
-	 * long-press instead: slide up and let go to send unchanged; letting go early cancels. The sheet
-	 * is off entirely in that mode.
+	 * Hold send and swipe up to preview the message first. With Send unchanged also on, preview is the
+	 * halfway stop; alone, it is the top.
 	 */
-	sendButtonMode: 'sheet' | 'swipe'
-	/** The sheet's "This message" group: send silently / with notifications, send unchanged. */
-	sheetThisMessage: boolean
-	/** The sheet's switches (silent messages, link cleaning, rules, reply pings). */
-	sheetSwitches: boolean
-	/** The sheet's "More settings" row. */
-	sheetMoreSettings: boolean
+	swipePreview: boolean
+	/**
+	 * Hold send and swipe up to the top to send exactly as typed: no link cleaning, rules or @silent.
+	 * With both swipe switches off, holding send does nothing.
+	 */
+	swipeSendUnchanged: boolean
 	/** Also apply link cleaning and text replacement when you edit a message. */
 	applyToEdits: boolean
 	debugLogging: boolean

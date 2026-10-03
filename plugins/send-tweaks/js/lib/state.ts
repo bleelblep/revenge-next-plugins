@@ -7,6 +7,24 @@ type Storage = RevengeJsonStorageApi<SendTweaksStorage>
 
 let storage: Storage | undefined
 let ai: AiHandle | undefined
+let reload: (() => void) | undefined
+
+/** Revenge's own Reload Required prompt (`plugin.requireReload`), set from `start()`. */
+export function setRequireReload(fn: (() => void) | undefined) {
+	reload = fn
+}
+
+/**
+ * Asks for a reload through Revenge's stock prompt. The send button is memoised, so a swipe switch
+ * only reaches it when the chat bar redraws; a reload applies it at once.
+ */
+export function requireReload() {
+	try {
+		reload?.()
+	} catch (error) {
+		console.error(`${TAG} could not ask for a reload:`, error)
+	}
+}
 
 /** AI Core's handle, or undefined when AI Core is not installed. */
 export function getAi(): AiHandle | undefined {

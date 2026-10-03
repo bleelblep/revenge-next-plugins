@@ -1,3 +1,4 @@
+import { useChangelog } from '../../../../../shared/changelog'
 import { getAi, getStorage, useSettings } from '../../lib/state'
 import { rowIcon } from '../icon'
 import {
@@ -37,6 +38,8 @@ export default function Settings({
 		revenge.externals.ReactNavigation.ReactNavigationNative
 
 	const navigation = useNavigation() as { navigate: (route: string) => void }
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	const s = useSettings()
 	const set = (patch: Partial<SendTweaksStorage>) => (getStorage() ?? api.jsonStorage).set(patch)
 

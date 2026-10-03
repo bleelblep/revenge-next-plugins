@@ -47,10 +47,10 @@ export default function Debug() {
 							icon={rowIcon('SendMessageIcon', 'ic_send')}
 						/>
 						<TableRow
-							label="Send button long-press"
+							label="Send button swipe"
 							subLabel={
 								button.installed
-									? `Hooked on module ${button.moduleId}, opened ${button.opened} time${button.opened === 1 ? '' : 's'}, ${button.swiped} swipe${button.swiped === 1 ? '' : 's'} sent. Touches ${button.touchesSeen ? 'seen' : 'not seen yet'}.`
+									? `Hooked on module ${button.moduleId}, ${button.previewed} preview${button.previewed === 1 ? '' : 's'}, ${button.swiped} sent unchanged. Touches ${button.touchesSeen ? 'seen' : 'not seen yet'}.`
 									: 'Not hooked yet — open a chat, then look again'
 							}
 							icon={rowIcon('SendMessageIcon', 'ic_send')}

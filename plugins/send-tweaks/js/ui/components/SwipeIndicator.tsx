@@ -2,9 +2,10 @@ import { tokenHex } from '../../lib/colours'
 import { TAG } from '../../lib/state'
 import {
 	type Anchor,
-	PREVIEW_DISTANCE,
+	previewDistance,
 	type Stop,
 	SWIPE_DISTANCE,
+	type SwipeActions,
 	SWIPE_TRAVEL,
 	swipeDrag,
 	useSwipeState,
@@ -69,12 +70,13 @@ function mix(from: string, to: string, t: number): string {
  * gradient view is not reachable by a stable name, so the gradient is thin stacked bands; the
  * capsule's rounded clip hides their square ends. Recomputed only when the bottom colour changes.
  */
-let gradient: { bottom: string; bands: string[] } | undefined
-const gradientBands = (bottom: string) => {
-	if (gradient?.bottom !== bottom) {
+let gradient: { top: string; bottom: string; bands: string[] } | undefined
+const gradientBands = (top: string, bottom: string) => {
+	if (gradient?.bottom !== bottom || gradient.top !== top) {
 		gradient = {
+			top,
 			bottom,
-			bands: Array.from({ length: BANDS }, (_, i) => mix(GREEN, bottom, i / (BANDS - 1))),
+			bands: Array.from({ length: BANDS }, (_, i) => mix(top, bottom, i / (BANDS - 1))),
 		}
 	}
 	return gradient.bands
@@ -168,9 +170,12 @@ function Capsule({
 	anchor,
 	armed,
 	stop,
+	actions,
 	buttonColour,
 	buttonRadius,
-}: { Icon?: any; anchor: Anchor; armed: boolean; stop: Stop; buttonColour?: unknown; buttonRadius?: number }) {
+}: { Icon?: any; anchor: Anchor; armed: boolean; stop: Stop; actions: SwipeActions; buttonColour?: unknown; buttonRadius?: number }) {
+	const PREVIEW_DISTANCE = previewDistance(actions)
+	const both = actions.preview && actions.send
 	const React = revenge.react.React
 	const { Animated, Dimensions, Text, View } = revenge.react.ReactNative
 
@@ -186,6 +191,9 @@ function Capsule({
 	}, [armed])
 
 	const bottomColour = sendButtonColour(buttonColour)
+	// Preview alone tops out in the colour Preview has when both are on.
+	// (as hex: the gradient mixes hex colours).
+	const topColour = actions.send ? GREEN : (toHex(mix(GREEN, bottomColour, 0.5)) ?? GREEN)
 	const size = Math.max(anchor.width, anchor.height)
 	const knob = size - 8
 	// The button's own corners at both ends, not a pill. When its radius can't be read, a rounded
@@ -203,8 +211,9 @@ function Capsule({
 		outputRange: [0, 0.8, 1],
 		extrapolate: 'clamp',
 	})
+	const sendFrom = both ? PREVIEW_DISTANCE : 0
 	const sendOpacity = drag.interpolate({
-		inputRange: [PREVIEW_DISTANCE, PREVIEW_DISTANCE + (SWIPE_DISTANCE - PREVIEW_DISTANCE) * 0.4, SWIPE_DISTANCE],
+		inputRange: [sendFrom, sendFrom + (SWIPE_DISTANCE - sendFrom) * 0.4, SWIPE_DISTANCE],
 		outputRange: [0, 0.8, 1],
 		extrapolate: 'clamp',
 	})
@@ -236,12 +245,13 @@ function Capsule({
 				}}
 			>
 				<View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-					{gradientBands(bottomColour).map((colour, i) => (
+					{gradientBands(topColour, bottomColour).map((colour, i) => (
 						<View key={i} style={{ flex: 1, backgroundColor: colour }} />
 					))}
 				</View>
-				{/* The Preview stop's tick, measured from the capsule's bottom like the knob. */}
-				<View
+				{/* The Preview stop's tick, measured from the capsule's bottom like the knob. Only when it is
+				    a middle stop. */}
+				{both ? <View
 					style={{
 						position: 'absolute',
 						left: size / 2 - 8,
@@ -251,7 +261,7 @@ function Capsule({
 						bottom: 4 + knob / 2 + PREVIEW_DISTANCE - 1,
 						backgroundColor: 'rgba(255, 255, 255, 0.6)',
 					}}
-				/>
+				/> : null}
 				<Animated.View
 					style={{
 						width: knob,
@@ -272,7 +282,7 @@ function Capsule({
 			</Animated.View>
 
 			{/* Labels sit just left of the capsule, each level with its stop; they leave with the capsule. */}
-			<StopLabel
+			{actions.preview ? <StopLabel
 				top={knobCentre(PREVIEW_DISTANCE)}
 				right={labelRight}
 				opacity={Animated.multiply(previewOpacity, grow)}
@@ -280,8 +290,8 @@ function Capsule({
 				colour={mix(GREEN, bottomColour, 0.5)}
 				idle="Preview"
 				active="Let go to preview"
-			/>
-			<StopLabel
+			/> : null}
+			{actions.send ? <StopLabel
 				top={knobCentre(SWIPE_DISTANCE)}
 				right={labelRight}
 				opacity={Animated.multiply(sendOpacity, grow)}
@@ -289,16 +299,17 @@ function Capsule({
 				colour={GREEN}
 				idle="Send unchanged"
 				active="Let go to send unchanged"
-			/>
+			/> : null}
 		</View>
 	)
 }
 
 export default function SwipeIndicator({
 	Icon,
+	actions,
 	buttonColour,
 	buttonRadius,
-}: { Icon?: any; buttonColour?: unknown; buttonRadius?: number }) {
+}: { Icon?: any; actions: SwipeActions; buttonColour?: unknown; buttonRadius?: number }) {
 	const { armed, stop, anchor } = useSwipeState()
 	const Portal = getPortal()
 	if (!Portal || !anchor) return null
@@ -306,7 +317,7 @@ export default function SwipeIndicator({
 	return (
 		<SafeBoundary>
 			<Portal>
-				<Capsule Icon={Icon} anchor={anchor} armed={armed} stop={stop} buttonColour={buttonColour} buttonRadius={buttonRadius} />
+				<Capsule Icon={Icon} anchor={anchor} armed={armed} stop={stop} actions={actions} buttonColour={buttonColour} buttonRadius={buttonRadius} />
 			</Portal>
 		</SafeBoundary>
 	)
