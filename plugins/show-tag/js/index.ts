@@ -1,5 +1,7 @@
 import patchRowManager from "./patches/rowManager"
 import Settings from "./ui/pages/Settings"
+import { CHANGELOG } from "./changelog"
+import { setupChangelog } from "../../../shared/changelog"
 
 export interface ShowTagStorage {
 	onlyUsername: boolean
@@ -21,6 +23,9 @@ export default plugin<{ jsonStorage: ShowTagStorage }>({
 			plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		const installTimer = setTimeout(() => {
 			try {

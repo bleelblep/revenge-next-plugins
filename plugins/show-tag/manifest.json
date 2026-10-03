@@ -4,7 +4,7 @@
 	"name": "Show Tag",
 	"description": "Shows usernames next to display names in chat, including in replies.",
 	"author": "Cynosphere, bleelblep",
-	"version": "1.2.3",
+	"version": "1.2.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
