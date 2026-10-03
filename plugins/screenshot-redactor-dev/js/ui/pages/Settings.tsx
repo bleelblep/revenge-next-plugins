@@ -6,6 +6,7 @@ import { rowIcon } from "../icon"
 import { useBottomPadding } from "../safeArea"
 import { DEBUG_ROUTE, VISUALS_ROUTE } from "../routes"
 import type { ScreenshotRedactorStorage } from "../../types"
+import { useChangelog } from "../../../../../shared/changelog"
 
 // Read inside the component, never at module scope -- see docs/porting-rules.md rule 1.
 function showToast(content: string) {
@@ -28,6 +29,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<ScreenshotRedactorStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
 	const { Stack, Text, Card, TableRowGroup, TableSwitchRow, TableRow } = revenge.discord.design.Design
