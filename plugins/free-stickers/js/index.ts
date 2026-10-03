@@ -11,6 +11,8 @@ import { installPatches } from './lib/patches'
 import { setStorage, TAG } from './lib/state'
 import type { StickerStorage } from './types'
 import Settings from './ui/Settings'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export default plugin<{ jsonStorage: StickerStorage }>({
 	jsonStorage: {
@@ -23,6 +25,9 @@ export default plugin<{ jsonStorage: StickerStorage }>({
 			plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 		setStorage(jsonStorage)
 		try {
 			cleanup(installPatches())

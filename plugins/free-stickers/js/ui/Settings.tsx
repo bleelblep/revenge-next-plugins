@@ -1,8 +1,11 @@
 import { rowIcon } from './icon'
 import { useBottomPadding } from './safeArea'
 import { update, useSettings } from '../lib/state'
+import { useChangelog } from '../../../../shared/changelog'
 
 export default function Settings() {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	const { Page } = revenge.components
 	const { ScrollView } = revenge.react.ReactNative
 	const { Stack, Text, TableRowGroup, TableSwitchRow, TableRadioGroup, TableRadioRow } = revenge.discord.design.Design as any
