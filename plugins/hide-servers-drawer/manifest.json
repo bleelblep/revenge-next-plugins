@@ -5,7 +5,7 @@
 	"description": "Hide servers or whole folders from your server list, only on your device.",
 	"author": "bleelblep, blerp",
 	"icon": "EyeSlashIcon",
-	"version": "1.6.5",
+	"version": "1.6.8",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

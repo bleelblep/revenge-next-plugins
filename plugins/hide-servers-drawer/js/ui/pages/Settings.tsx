@@ -3,6 +3,7 @@ import { rowIcon } from "../icon"
 import { useBottomPadding } from "../safeArea"
 import { DEBUG_ROUTE, SERVERS_ROUTE } from "../routes"
 import type { HideServersDrawerStorage } from "../../index"
+import { useChangelog } from "../../../../../shared/changelog"
 
 // Same ToastActionCreators pattern as GuildRow/FolderRow -- revenge.utils.toast.show
 // doesn't exist.
@@ -26,6 +27,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<HideServersDrawerStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
@@ -83,12 +86,11 @@ export default function Settings({
 						/>
 						<TableRow
 							label="Reload Discord"
-							subLabel="Marks the plugin as needing a reload, then reload when it suits you."
+							subLabel="Opens Revenge's Reload Required prompt."
 							icon={rowIcon("RefreshIcon", "ic_refresh")}
 							onPress={() => {
 								try {
 									api.plugin.requireReload()
-									showToast("Reload marked — reload Discord from the plugin list to finish.")
 								} catch (error) {
 									console.error("[HideServersDrawer] requireReload failed:", error)
 									showToast("Couldn't mark for reload — see the log.")
