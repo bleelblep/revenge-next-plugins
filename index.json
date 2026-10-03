@@ -364,7 +364,7 @@
       "description": "Hides call and video buttons from DMs, user profiles and voice channels.",
       "author": "John (janisslsm), bleelblep",
       "channels": {
-        "latest": "1.2.7"
+        "latest": "1.3.1"
       },
       "versions": {
         "1.2.3": {
@@ -423,6 +423,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-call-buttons@1.2.7.zip",
           "sha256": "981868d6c32ec10888de70ec45405c37d1787549cc4556845891fe68621723e7",
           "size": 4875,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.3.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-call-buttons@1.3.1.zip",
+          "sha256": "36db0c3d3809579eeaf5c55ace99ceecb665263602bce66e348ec363760cedc9",
+          "size": 5132,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -642,7 +655,7 @@
       "author": "bleelblep",
       "icon": "StarIcon",
       "channels": {
-        "latest": "0.1.11"
+        "latest": "0.1.13"
       },
       "versions": {
         "0.1.10": {
@@ -662,6 +675,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.review-db@0.1.11.zip",
           "sha256": "72d6ee1a9dda3ef644bb5024afa372a49c61743e51b92d645d302ead8880b01f",
           "size": 16449,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.1.13": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.review-db@0.1.13.zip",
+          "sha256": "edc1a0b5e749b639e092abda098c38020974d4910746627cbadf69ad39123057",
+          "size": 16183,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
