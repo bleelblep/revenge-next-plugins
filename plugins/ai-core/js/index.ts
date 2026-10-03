@@ -31,8 +31,9 @@
 import { DEFAULTS } from './defaults'
 import { abortAll, requestJson, requestText } from './lib/client'
 import { listDependents, rememberDependent, setDependentRoute } from './lib/dependents'
-import { debug, remainingFor, setStorage, TAG } from './lib/state'
-import { importLegacy, refreshStatus, vaultStatus } from './lib/vault'
+import { debug, remainingFor, settings, setStorage, TAG } from './lib/state'
+import { CUSTOM, PROVIDERS, providerFor } from './lib/providers'
+import { describeBalance, fetchBalance, importLegacy, onStatusChange, refreshStatus, vaultStatus } from './lib/vault'
 import Settings from './ui/pages/Settings'
 import { registerPages } from './ui/routes'
 import type { AiApi, AiBudget, AiCoreStorage, AiRequest } from './types'
@@ -139,9 +140,40 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 			const found = listDependents().find(dependent => dependent.id === id)
 			return found ? { id: found.id, route: found.route } : undefined
 		}
+		// Read-only status for Plugin Hub's AI Hub info section: provider, model, today's calls and
+		// tokens, per-plugin counts, and the balance. Plain copies and summaries only -- nothing here
+		// can change a setting, and the key never leaves native.
+		;(globalThis as any).__bleelblepAiCoreInfo = {
+			status: () => {
+				const v = vaultStatus()
+				const names = new Map(listDependents().map(d => [d.id, d.name]))
+				const provider = v.endpoint ? providerFor(v.endpoint) : undefined
+				return {
+					native: v.native,
+					configured: v.configured,
+					provider: provider && provider !== CUSTOM ? PROVIDERS.find(p => p.id === provider)?.label : v.endpoint ? 'Custom' : undefined,
+					host: v.endpoint ? v.endpoint.replace(/^https?:\/\//i, '').replace(/[/?#].*$/, '') : undefined,
+					model: settings().model,
+					calls: v.calls,
+					cap: v.cap,
+					unlimited: v.unlimited,
+					remaining: v.remaining,
+					promptTokens: v.promptTokens,
+					completionTokens: v.completionTokens,
+					byPlugin: Object.entries(v.byPlugin ?? {})
+						.map(([id, calls]) => ({ id, name: names.get(id) ?? id, calls }))
+						.sort((a, b) => b.calls - a.calls),
+				}
+			},
+			balance: (force?: boolean) => fetchBalance(!!force),
+			describeBalance,
+			subscribe: (listener: () => void) => onStatusChange(listener),
+			refresh: () => refreshStatus(),
+		}
 		cleanup(() => {
 			delete (globalThis as any).__bleelblepAiCore
 			delete (globalThis as any).__bleelblepAiCoreDependent
+			delete (globalThis as any).__bleelblepAiCoreInfo
 		})
 
 		// Synchronous, because teardown is given five seconds before the plugin is flagged.

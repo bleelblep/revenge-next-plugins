@@ -157,3 +157,93 @@ export function useVaultStatus(): VaultStatus {
 	}, [])
 	return current
 }
+
+export interface Balance {
+	ok: boolean
+	/** False when the provider has no way to report a balance to an ordinary key (OpenAI, Anthropic). */
+	supported: boolean
+	provider?: 'deepseek' | 'openrouter'
+	currency?: string
+	/** Money left: DeepSeek's total balance, or OpenRouter's credits bought minus used. */
+	total?: number | null
+	/** DeepSeek: of the total, free credit granted and money topped up. */
+	granted?: number | null
+	toppedUp?: number | null
+	/** OpenRouter: this key's own spending limit and what is left of it, when one was set. */
+	keyLimit?: number
+	keyRemaining?: number
+	error?: string
+}
+
+let lastBalance: { at: number; value: Balance } | undefined
+
+/**
+ * The money left on the key (`AiCore.kt` `balance`). Not a model call, so it costs nothing and is
+ * not counted. Cached for a minute so several screens opening at once make one request.
+ */
+export async function fetchBalance(force = false): Promise<Balance> {
+	if (!force && lastBalance && Date.now() - lastBalance.at < 60_000) return lastBalance.value
+	let value: Balance
+	try {
+		value = JSON.parse(await call('balance')) as Balance
+	} catch (error) {
+		debug('balance failed:', error)
+		value = { ok: false, supported: false, error: 'native' }
+	}
+	lastBalance = { at: Date.now(), value }
+	return value
+}
+
+/** "$4.21", or "¥30.00" for yuan; the code itself for anything else. */
+export function formatMoney(amount: number, currency = 'USD'): string {
+	const symbol = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : ''
+	const fixed = Math.abs(amount) < 1 ? amount.toFixed(3) : amount.toFixed(2)
+	return symbol ? `${symbol}${fixed}` : `${fixed} ${currency}`
+}
+
+/** One line for a settings row: what is left, and a key limit if there is one. */
+export function describeBalance(balance: Balance | undefined): string {
+	if (!balance) return 'Checking…'
+	if (!balance.supported) {
+		return balance.error === 'no-key' ? 'No API key set' : "This provider doesn't report a balance to API keys"
+	}
+	if (!balance.ok) return "Couldn't get the balance right now. Tap to try again"
+	const currency = balance.currency ?? 'USD'
+	const parts: string[] = []
+	if (typeof balance.total === 'number') parts.push(`${formatMoney(balance.total, currency)} left`)
+	if (typeof balance.keyRemaining === 'number') {
+		const limit = typeof balance.keyLimit === 'number' ? ` of ${formatMoney(balance.keyLimit, currency)}` : ''
+		parts.push(`this key: ${formatMoney(balance.keyRemaining, currency)}${limit} left`)
+	}
+	if (typeof balance.granted === 'number' && balance.granted > 0) {
+		parts.push(`${formatMoney(balance.granted, currency)} of it free credit`)
+	}
+	return parts.length ? parts.join(', ') : 'No limit set on this key'
+}
+
+/**
+ * React hook: the balance, fetched when the screen opens and again when the key's endpoint
+ * changes. `refresh()` forces a new request (a tap on the row).
+ */
+export function useBalance(): { balance: Balance | undefined; refresh: () => void } {
+	const React = revenge.react.React
+	const status = useVaultStatus()
+	const [balance, setBalance] = React.useState<Balance | undefined>(lastBalance?.value)
+	const load = (force: boolean) => {
+		setBalance(undefined)
+		fetchBalance(force).then(setBalance)
+	}
+	React.useEffect(() => {
+		if (status.configured) load(false)
+		else setBalance({ ok: false, supported: false, error: 'no-key' })
+	}, [status.configured, status.endpoint])
+	return { balance, refresh: () => load(true) }
+}
+
+/** For code outside React (the info global Plugin Hub reads): called on every status change. */
+export function onStatusChange(listener: () => void): () => void {
+	listeners.add(listener)
+	return () => {
+		listeners.delete(listener)
+	}
+}

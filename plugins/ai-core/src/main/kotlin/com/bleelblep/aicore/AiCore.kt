@@ -883,6 +883,77 @@ val aiCore = plugin {
 			}
 		}
 
+		/** One GET with the key, to a fixed URL. Null on anything but a 2xx JSON answer. */
+		fun getJson(url: String, key: String): JSONObject? = runCatching {
+			val connection = URL(url).openConnection() as HttpURLConnection
+			try {
+				connection.instanceFollowRedirects = false
+				connection.requestMethod = "GET"
+				connection.connectTimeout = 10_000
+				connection.readTimeout = 10_000
+				connection.setRequestProperty("Accept", "application/json")
+				connection.setRequestProperty("Authorization", "Bearer $key")
+				if (connection.responseCode !in 200..299) return@runCatching null
+				JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+			} finally {
+				connection.disconnect()
+			}
+		}.getOrNull()
+
+		/**
+		 * balance() -> {ok, supported, provider?, currency?, total?, granted?, toppedUp?, keyLimit?, keyRemaining?, error?}
+		 *
+		 * The money left on the key, for the two providers that report it to an ordinary API key.
+		 * OpenAI and Anthropic only expose spend through admin keys, and never a balance, so they
+		 * answer `supported: false`. The URL is fixed per provider and only used when the key is
+		 * bound to that provider's host, so this can't send the key anywhere new. Not counted
+		 * against the daily cap: it is not a model call.
+		 *
+		 * - DeepSeek: `GET /user/balance` -> `balance_infos[0]` (strings, e.g. "4.21", in USD or CNY).
+		 * - OpenRouter: `GET /api/v1/credits` (account: total bought minus used) and `GET /api/v1/key`
+		 *   (this key's own limit, when one was set). Either may be refused; whichever answers is shown.
+		 */
+		registerNativeAsyncMethod("$id.balance") { _ ->
+			val (key, ep) = mutex.withLock { apiKey to endpoint }
+			if (key == null || ep == null) {
+				return@registerNativeAsyncMethod JSONObject().put("ok", false).put("supported", false).put("error", "no-key").toString()
+			}
+			val host = hostOf(ep).lowercase()
+			when (host) {
+				"api.deepseek.com" -> {
+					val info = getJson("https://api.deepseek.com/user/balance", key)
+						?.optJSONArray("balance_infos")?.optJSONObject(0)
+						?: return@registerNativeAsyncMethod JSONObject().put("ok", false).put("supported", true)
+							.put("provider", "deepseek").put("error", "unavailable").toString()
+					JSONObject()
+						.put("ok", true)
+						.put("supported", true)
+						.put("provider", "deepseek")
+						.put("currency", info.optString("currency", "USD"))
+						.put("total", info.optString("total_balance").toDoubleOrNull() ?: JSONObject.NULL)
+						.put("granted", info.optString("granted_balance").toDoubleOrNull() ?: JSONObject.NULL)
+						.put("toppedUp", info.optString("topped_up_balance").toDoubleOrNull() ?: JSONObject.NULL)
+						.toString()
+				}
+				"openrouter.ai" -> {
+					val credits = getJson("https://openrouter.ai/api/v1/credits", key)?.optJSONObject("data")
+					val keyInfo = getJson("https://openrouter.ai/api/v1/key", key)?.optJSONObject("data")
+					val out = JSONObject().put("supported", true).put("provider", "openrouter").put("currency", "USD")
+					if (credits != null && credits.has("total_credits")) {
+						out.put("total", credits.optDouble("total_credits", 0.0) - credits.optDouble("total_usage", 0.0))
+					}
+					if (keyInfo != null) {
+						if (!keyInfo.isNull("limit")) out.put("keyLimit", keyInfo.optDouble("limit"))
+						if (!keyInfo.isNull("limit_remaining")) out.put("keyRemaining", keyInfo.optDouble("limit_remaining"))
+					}
+					out.put("ok", out.has("total") || out.has("keyRemaining") || keyInfo != null)
+					if (!out.getBoolean("ok")) out.put("error", "unavailable")
+					out.toString()
+				}
+				else -> JSONObject().put("ok", false).put("supported", false).toString()
+			}
+		}
+
 		log.i("vault ready (${if (apiKey != null) "key set for ${hostOf(endpoint ?: "")}" else "no key"})")
 	}
 

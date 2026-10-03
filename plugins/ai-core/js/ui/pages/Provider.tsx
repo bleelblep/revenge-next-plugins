@@ -1,8 +1,16 @@
 import { DEFAULTS } from '../../defaults'
 import { getStorage } from '../../lib/state'
-import { clearKey, promptForKey, useVaultStatus } from '../../lib/vault'
+import {
+	clearKey,
+	describeBalance,
+	promptForKey,
+	useBalance,
+	useVaultStatus,
+} from '../../lib/vault'
 import { CUSTOM, PROVIDERS, providerFor } from '../../lib/providers'
-import { rowIcon } from '../icon'
+import { FieldRow } from '../fieldGroup'
+import { dangerIcon, rowIcon } from '../icon'
+import { confirmDestructive } from '../../../../../shared/ui/confirm'
 import { useBottomPadding } from '../safeArea'
 import type { AiCoreStorage } from '../../types'
 
@@ -19,18 +27,28 @@ export default function Provider() {
 	const { Page } = revenge.components
 	const { ScrollView } = revenge.react.ReactNative
 	const React = revenge.react.React
-	const { Stack, Text, TableRowGroup, TableRow, TextInput, TableRadioGroup, TableRadioRow } =
-		revenge.discord.design.Design as any
+	const {
+		Stack,
+		Text,
+		TableRowGroup,
+		TableRow,
+		TextInput,
+		TableRadioGroup,
+		TableRadioRow,
+	} = revenge.discord.design.Design as any
 
 	// A plain navigator route, so there is no plugin `api` prop here.
 	const storage = getStorage()
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const set = (patch: Partial<AiCoreStorage>) => storage?.set(patch)
 	const vault = useVaultStatus()
+	const { balance, refresh: refreshBalance } = useBalance()
 	const [error, setError] = React.useState<string | null>(null)
 	// Custom is remembered here so picking it keeps showing the URL field even while the URL still
 	// belongs to one of the listed providers.
-	const [picked, setPicked] = React.useState<string>(() => providerFor(s.baseUrl))
+	const [picked, setPicked] = React.useState<string>(() =>
+		providerFor(s.baseUrl),
+	)
 	const selected = picked === CUSTOM ? CUSTOM : providerFor(s.baseUrl)
 	const pick = (id: string) => {
 		setPicked(id)
@@ -56,7 +74,12 @@ export default function Provider() {
 						onChange={(id: string) => pick(id)}
 					>
 						{PROVIDERS.map(p => (
-							<TableRadioRow key={p.id} label={p.label} subLabel={`Keys at ${p.keysAt}`} value={p.id} />
+							<TableRadioRow
+								key={p.id}
+								label={p.label}
+								subLabel={`Keys at ${p.keysAt}`}
+								value={p.id}
+							/>
 						))}
 						<TableRadioRow
 							label="Custom"
@@ -89,11 +112,26 @@ export default function Provider() {
 						/>
 						{vault.configured ? (
 							<TableRow
+								label="Balance"
+								subLabel={describeBalance(balance)}
+								icon={rowIcon('CreditCardIcon')}
+								onPress={balance?.supported ? refreshBalance : undefined}
+							/>
+						) : null}
+						{vault.configured ? (
+							<TableRow
 								label="Remove API key"
 								subLabel="Deletes it from this device. Nothing can call out until you set one again."
-								icon={rowIcon('TrashIcon', 'ic_trash_24px')}
+								icon={dangerIcon('TrashIcon', 'ic_trash_24px')}
 								variant="danger"
-								onPress={() => clearKey()}
+								onPress={() =>
+									confirmDestructive({
+										title: 'Remove the API key?',
+										body: 'It is deleted from this device. Plugins that use AI stop working until you set a key again.',
+										action: 'Remove',
+										onConfirm: () => clearKey(),
+									})
+								}
 							/>
 						) : null}
 					</TableRowGroup>
@@ -113,56 +151,60 @@ export default function Provider() {
 					{mismatch ? (
 						<Text color="text-feedback-warning" variant="text-sm/normal">
 							Your key is bound to {hostOf(vault.endpoint)} and is still sent
-							only there. To use {hostOf(s.baseUrl)} instead, replace the key.
-							A key can never follow a changed URL on its own, or any plugin
-							could redirect it.
+							only there. To use {hostOf(s.baseUrl)} instead, replace the key. A
+							key can never follow a changed URL on its own, or any plugin could
+							redirect it.
 						</Text>
 					) : null}
 
-					{/*
-					 * Bare fields in the Stack, not boxed inside a TableRowGroup: a lone input
-					 * in a row group reads as a row that lost its row
-					 * (docs/plugin-design-language.md §3.2).
-					 */}
-					<Text color="text-muted" variant="text-sm/semibold">
-						Endpoint
-					</Text>
+					<TableRowGroup title="Endpoint">
+						{selected === CUSTOM ? (
+							<FieldRow
+								label="Base URL"
+								description="Any OpenAI-compatible endpoint: Groq, a local server, or anything else that speaks the OpenAI chat format. Must be https://, except to this device or your local network. Takes effect when you next set the key."
+							>
+								<TextInput
+									placeholder={DEFAULTS.baseUrl}
+									value={s.baseUrl}
+									returnKeyType="done"
+									onChange={(value: string) => set({ baseUrl: value.trim() })}
+								/>
+							</FieldRow>
+						) : null}
 
-					{selected === CUSTOM ? (
-						<TextInput
-							label="Base URL"
-							placeholder={DEFAULTS.baseUrl}
-							description="Any OpenAI-compatible endpoint: Groq, a local server, or anything else that speaks the OpenAI chat format. Must be https://, except to this device or your local network. Takes effect when you next set the key."
-							value={s.baseUrl}
-							returnKeyType="done"
-							onChange={(value: string) => set({ baseUrl: value.trim() })}
-						/>
-					) : null}
+						<FieldRow
+							label="Model"
+							description="Filled in when you pick a provider; change it to use another of that provider's models."
+						>
+							<TextInput
+								placeholder={DEFAULTS.model}
+								value={s.model}
+								returnKeyType="done"
+								onChange={(value: string) => set({ model: value.trim() })}
+							/>
+						</FieldRow>
 
-					<TextInput
-						label="Model"
-						placeholder={DEFAULTS.model}
-						description="Filled in when you pick a provider; change it to use another of that provider's models."
-						value={s.model}
-						returnKeyType="done"
-						onChange={(value: string) => set({ model: value.trim() })}
-					/>
-
-					<TextInput
-						label="Give up after"
-						placeholder={`${DEFAULTS.timeoutMs}`}
-						description="A call that has not answered by then is abandoned. Plugins carry on without an answer, so a slow network never blocks anything. Catch Up and TL;DR ask for longer, since a summary takes a while."
-						value={`${s.timeoutMs}`}
-						trailingText="ms"
-						returnKeyType="done"
-						onChange={(value: string) => {
-							const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
-							set({
-								timeoutMs:
-									Number.isFinite(parsed) && parsed >= 500 ? parsed : DEFAULTS.timeoutMs,
-							})
-						}}
-					/>
+						<FieldRow
+							label="Give up after"
+							description="A call that has not answered by then is abandoned. Plugins carry on without an answer, so a slow network never blocks anything. Catch Up and TL;DR ask for longer, since a summary takes a while."
+						>
+							<TextInput
+								placeholder={`${DEFAULTS.timeoutMs}`}
+								value={`${s.timeoutMs}`}
+								trailingText="ms"
+								returnKeyType="done"
+								onChange={(value: string) => {
+									const parsed = Number.parseInt(value.replace(/\D/g, ''), 10)
+									set({
+										timeoutMs:
+											Number.isFinite(parsed) && parsed >= 500
+												? parsed
+												: DEFAULTS.timeoutMs,
+									})
+								}}
+							/>
+						</FieldRow>
+					</TableRowGroup>
 
 					<Text color="text-muted" variant="text-sm/normal">
 						Changing the endpoint does not migrate anything. Each plugin decides
