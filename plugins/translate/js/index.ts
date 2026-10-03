@@ -26,6 +26,8 @@ import patchRowManager from './patches/rowManager'
 import Settings from './ui/pages/Settings'
 import { registerPages } from './ui/routes'
 import type { TranslateStorage } from './types'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export { DEFAULTS }
 export type { TranslateStorage }
@@ -41,6 +43,9 @@ export default plugin<{ jsonStorage: TranslateStorage }>({
 			plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		setStorage(jsonStorage)
 

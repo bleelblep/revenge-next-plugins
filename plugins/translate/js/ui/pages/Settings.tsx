@@ -11,6 +11,7 @@ import {
 } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { TranslateStorage } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * The root page.
@@ -24,6 +25,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<TranslateStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
