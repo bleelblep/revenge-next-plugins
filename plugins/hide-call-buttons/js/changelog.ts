@@ -3,13 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
-		version: '1.3.0',
+		version: '1.3.1',
 		date: '2026-10-03',
 		title: 'Reliable hiding',
 		changes: [
-			'Fixed call buttons not hidding on every screen they appear.',
+			'Fixed call buttons not hiding on every screen they appear.',
 			'New "Friends list" switch in the settings.',
 			'Each screen recognises its own buttons, so a Discord update is less likely to bring one back.',
+			'Thanks to @kmmiio99o for this update.',
 		],
 	},
 	{

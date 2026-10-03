@@ -3,11 +3,12 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
-		version: '0.1.12',
+		version: '0.1.13',
 		date: '2026-10-03',
 		title: 'Votes UI tweak',
 		changes: [
 			'Votes are now displayed as plain icons on the right with the count.',
+			'Thanks to @kmmiio99o for this update.',
 		],
 	},
 	{
