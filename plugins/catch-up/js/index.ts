@@ -24,6 +24,8 @@ import { setAi, setStorage } from './lib/state'
 import Settings from './ui/pages/Settings'
 import { OPTIONS_ROUTE, registerPages } from './ui/routes'
 import type { AiHandle, CatchUpStorage } from './types'
+import { CHANGELOG } from './changelog'
+import { setupChangelog } from '../../../shared/changelog'
 
 export { DEFAULTS }
 export type { CatchUpStorage }
@@ -42,6 +44,9 @@ export default plugin<{ jsonStorage: CatchUpStorage }>({
 			api.plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		api.cleanup(setupChangelog(api, CHANGELOG))
 
 		const { cleanup, jsonStorage } = api
 		setStorage(jsonStorage)

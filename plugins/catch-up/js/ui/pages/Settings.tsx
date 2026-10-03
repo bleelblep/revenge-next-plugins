@@ -4,6 +4,7 @@ import { rowIcon } from '../icon'
 import { DEBUG_ROUTE, OPTIONS_ROUTE } from '../routes'
 import { useBottomPadding } from '../safeArea'
 import type { CatchUpStorage } from '../../types'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * Root index. The card explains the one thing that surprises people about this plugin: it can
@@ -14,6 +15,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<CatchUpStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative

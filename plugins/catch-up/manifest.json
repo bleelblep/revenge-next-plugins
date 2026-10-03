@@ -5,7 +5,7 @@
 	"description": "Run /catchup for a short summary of what you missed in a channel. Needs AI Core.",
 	"author": "bleelblep",
 	"icon": "ClockIcon",
-	"version": "0.2.12",
+	"version": "0.2.13",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
