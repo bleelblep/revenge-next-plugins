@@ -3,6 +3,15 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '1.3.6',
+		date: '2026-10-04',
+		title: 'Profile tags are back',
+		changes: [
+			'Staff tags show next to the name on user profiles again.',
+			"Fixed the same way as Hide Call Buttons 1.3.1, thanks to @kmmiio99o's rework there.",
+		],
+	},
+	{
 		version: '1.3.4',
 		date: '2026-10-03',
 		title: 'Changelog',
