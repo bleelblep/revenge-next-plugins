@@ -245,14 +245,19 @@ plugin's `js/ui/icon.tsx`) for its icon, never `rowIcon(...)`.
 - The row's `variant="danger"` only turns its label and sub-label red (`text-feedback-critical`);
   it changes no background and never reaches the icon. Stock Discord tells the icon separately:
   `icon={<TableRow.Icon IconComponent={X} variant="danger" />}` (348.5, e.g. ModeratorActionRow).
-  `dangerIcon` builds exactly that, for asset icons (`source`) and generated components
-  (`IconComponent`) alike. A `rowIcon` on a danger row renders white next to red text.
+  `dangerIcon` passes `source` and `IconComponent` together and lets `TableRow.Icon` take the
+  component, because it sizes a `source` icon by variant -- MEDIUM for `default`, but
+  REFRESH_SMALL_16 for `danger` -- while an `IconComponent` always gets the same `md` a normal icon
+  gets. No size is written anywhere in `shared/ui/icon.tsx`; Discord picks it. A `rowIcon` on a
+  danger row renders white next to red text.
 - The action still asks first (§9 item 6): Discord's alert with a `destructive` button.
 - Not danger: switches that merely turn something off ("Remove tracking from links"), re-numbering
   or refresh actions that lose nothing, and resets on a Developer/Debug page.
 
 Why: Report and Delete in ReviewDB's sheet showed white icons beside red labels (2026-10-02); the
-user called it a bug, and an audit found the same on every plugin's destructive rows.
+user called it a bug, and an audit found the same on every plugin's destructive rows. The red icons
+then came out a third smaller than the normal rows' (2026-10-03), same sheet, same cause: the
+`source` branch.
 
 ---
 

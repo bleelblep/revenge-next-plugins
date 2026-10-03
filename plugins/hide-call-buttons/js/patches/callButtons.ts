@@ -1,309 +1,264 @@
-import { DEFAULTS, type HideCallButtonsStorage } from "../index"
+import { after } from '@revenge-mod/patcher'
+import { DEFAULTS } from '../index'
+import type { HideCallButtonsStorage } from '../index'
 
 /**
- * Matches a module by the *wrapped* component's name (`exports.type.name`), which is what
- * Vendetta's `find(x => x?.type?.name === "...")` did. `withName` only checks `.name`, which
- * memo/forwardRef wrappers don't have.
+ * Hides the call and camera controls this plugin knows about.
  *
- * Shaped like the built-in filters (predicate + `.key`/`.flags`/`.scopes`), and `.scope(...)`
- * must be a **method** -- getModules calls it as a function. See docs/porting-rules.md rule 3.
- */
-function withTypeName(name: string) {
-	const filter: any = (_id: number, exports: any) => exports?.type?.name === name
-	filter.key = `revenge-next-plugins.typeName(${name})`
-	filter.flags = 1 // FilterFlag.RequiresExports
-	filter.scopes = 4 // FilterScopes.Initialized
-	filter.scope = (...scopes: number[]) => {
-		const scoped: any = (id: number, exports: any) => filter(id, exports)
-		scoped.key = filter.key
-		scoped.flags = filter.flags
-		scoped.scopes = scopes.reduce((a, b) => a | b, 0)
-		scoped.scope = filter.scope
-		return scoped
-	}
-	return filter
-}
-
-type ButtonKind = "voice" | "video"
-
-interface Assets {
-	voice?: number
-	video?: number
-	call?: number
-	callNew?: number
-	dmVideo?: number
-	dmVideoNew?: number
-}
-
-/**
- * Icon *components* the buttons render, as of 337-340. `PhoneHangUpIcon` is deliberately absent:
- * that is the button that ends a call in progress, and hiding it would trap the user in one.
- */
-const VOICE_ICONS = new Set(["PhoneCallIcon", "CallIcon", "PhoneIcon"])
-const VIDEO_ICONS = new Set(["VideoIcon"])
-
-/** How deep into a button row to look. The deepest real nesting is 4 (group > row > pressable > icon). */
-const MAX_DEPTH = 8
-
-/** Resolves the asset ids older builds compare against, with legacy fallbacks. */
-function resolveAssets(): Assets {
-	const { getAssetIdByName } = revenge.assets
-	return {
-		// Profile buttons compared against `props.icon`.
-		voice: getAssetIdByName("ic_audio") ?? getAssetIdByName("PhoneCallIcon"),
-		video: getAssetIdByName("ic_video") ?? getAssetIdByName("VideoIcon"),
-		// DM header buttons compared against `props.source`, and appeared under either the old
-		// or the new asset names depending on build.
-		call: getAssetIdByName("nav_header_connect"),
-		callNew: getAssetIdByName("PhoneCallIcon"),
-		dmVideo: getAssetIdByName("video"),
-		dmVideoNew: getAssetIdByName("VideoIcon"),
-	}
-}
-
-/** The name of the icon component behind a component reference, an element, or a wrapper. */
-function iconName(icon: any): string | undefined {
-	if (typeof icon === "function") return icon.name || icon.displayName
-	if (icon === null || typeof icon !== "object") return undefined
-	// A rendered element -- `<PhoneCallIcon size="xs" />` -- carries the component on `.type`.
-	const type = icon.type
-	if (typeof type === "function") return type.name || type.displayName
-	if (type !== null && typeof type === "object") return type.displayName || type.type?.name
-	return icon.displayName
-}
-
-/**
- * Identifies a node as a call or video button by what it draws, never by where it sits. Current
- * builds pass an icon *component* (`<Button icon={<PhoneCallIcon />}>` on profiles,
- * `<PressableOpacity><PhoneCallIcon /></PressableOpacity>` on DM headers); older builds passed an
- * asset id on `props.icon` or `props.source`.
- */
-function classifyIcon(node: any, assets: Assets): ButtonKind | undefined {
-	const props = node?.props
-
-	for (const id of [props?.icon, props?.source]) {
-		if (typeof id !== "number") continue
-		if (id === assets.voice || id === assets.call || id === assets.callNew) return "voice"
-		if (id === assets.video || id === assets.dmVideo || id === assets.dmVideoNew) return "video"
-	}
-
-	for (const name of [iconName(node), iconName(props?.icon), iconName(props?.IconComponent)]) {
-		if (name === undefined) continue
-		if (VOICE_ICONS.has(name)) return "voice"
-		if (VIDEO_ICONS.has(name)) return "video"
-	}
-
-	return undefined
-}
-
-/**
- * Bounded, read-only search for a call/video icon anywhere just below `node` -- used to tell
- * whether a *pressable* (not the icon itself) is a hidden button, without walking the whole tree.
- */
-function findIconKind(node: any, assets: Assets, depth = 0, maxDepth = 4): ButtonKind | undefined {
-	if (node === null || typeof node !== "object" || depth > maxDepth) return undefined
-
-	const direct = classifyIcon(node, assets)
-	if (direct !== undefined) return direct
-
-	const children = node.props?.children
-	if (Array.isArray(children)) {
-		for (const child of children) {
-			const kind = findIconKind(child, assets, depth + 1, maxDepth)
-			if (kind !== undefined) return kind
-		}
-		return undefined
-	}
-	if (children !== null && typeof children === "object") {
-		return findIconKind(children, assets, depth + 1, maxDepth)
-	}
-	return undefined
-}
-
-/**
- * A node is a hidden button either because it *is* the icon, or because it's the pressable that
- * draws one. The pressable case matters: DM header buttons wrap the icon alongside a ripple layer
- * or other always-present sibling, so "remove the icon, collapse the wrapper if everything inside
- * it was removed" never collapses -- the wrapper survives with `onPress` intact and renders as a
- * blank, still-tappable button. Classifying the pressable itself means the *whole* thing is
- * dropped in one shot, regardless of what else lives inside it.
- */
-function classify(node: any, assets: Assets): ButtonKind | undefined {
-	const direct = classifyIcon(node, assets)
-	if (direct !== undefined) return direct
-
-	if (typeof node?.props?.onPress === "function") return findIconKind(node, assets)
-
-	return undefined
-}
-
-/**
- * Drops every hidden button in `node`'s subtree. Returns true when `node` itself should be
- * dropped by its parent -- either it *is* a hidden button, or it is a wrapper whose entire
- * contents were hidden and which would otherwise render as an empty gap.
+ * One patch type throughout: `after` on the render React calls -- `.type` for the `React.memo`
+ * wrappers, `.default` for the plain functions. Modules are found by Discord source path
+ * (`getModuleWithImportedPath`, porting rule 3) rather than by export name, which is minified,
+ * has no `max` budget of its own, and fires on `fileFinishedImporting` before a lazily-imported
+ * consumer reads `default`.
  *
- * Only child *arrays* are written to; `props` objects are left alone, since a wrapper is removed
- * by its parent rather than emptied in place.
+ * | Surface       | Source file                                                | Rule                                 |
+ * | ------------- | ---------------------------------------------------------- | ------------------------------------ |
+ * | User profile  | `user_profile/native/UserProfileContactButtons.tsx`         | drop the last action (the call)      |
+ * | DM header     | `main_tabs_v2/.../channel/header/PrivateChannelButtons.tsx` | drop pressables carrying `disabled`  |
+ * | Friends list  | `main_tabs_v2/.../user_list/UserRow.tsx`                    | drop the `call` action + its trailing |
+ * | Voice channel | `voice_panel/.../buttons/VoicePanelVideoButton.tsx`         | render `null`                        |
+ *
+ * Rules locate a control by its position in its own row, never by icon or asset id, and no-op
+ * when the shape is missing. Each surface logs its own outcome (porting rule 3).
  */
-function prune(
-	node: any,
-	depth: number,
-	hidden: (kind: ButtonKind) => boolean,
-	assets: Assets,
-): boolean {
-	if (node === null || typeof node !== "object") return false
 
-	const kind = classify(node, assets)
-	if (kind !== undefined) return hidden(kind)
+type Apply = (ret: any) => any
 
-	if (depth >= MAX_DEPTH) return false
+/** React elements only; `props.children` also holds strings, numbers, `null` and arrays. */
+function isElement(node: any): boolean {
+	return (
+		node !== null &&
+		typeof node === 'object' &&
+		node.$$typeof !== undefined &&
+		node.props !== null &&
+		typeof node.props === 'object'
+	)
+}
 
-	const children = node.props?.children
-	if (Array.isArray(children)) {
-		let removed = 0
-		let kept = 0
-		for (let idx = 0; idx < children.length; idx++) {
-			const child = children[idx]
-			if (child === null || child === undefined || child === false) continue
-			if (prune(child, depth + 1, hidden, assets)) {
-				children[idx] = null
-				removed++
-			} else kept++
+const rebuild = (element: any, props: any): any =>
+	(revenge as any).react.React.cloneElement(element, props)
+
+/** Address in a tree: each step indexes `props.children`, except `-1` = the single non-array child. */
+function getAtPath(root: any, path: number[]): any {
+	let node = root
+	for (const step of path) {
+		if (!isElement(node)) return undefined
+		node = step === -1 ? node.props.children : node.props.children?.[step]
+	}
+	return node
+}
+
+function replaceChildren(root: any, path: number[], children: any): any {
+	if (path.length === 0) return rebuild(root, { children })
+	const [head, ...rest] = path
+	const current = root.props.children
+	if (!Array.isArray(current)) return root
+	const next = [...current]
+	next[head] = replaceChildren(current[head], rest, children)
+	return rebuild(root, { children: next })
+}
+
+/** Depth-first, document order: the path of every element carrying an `onPress`. */
+function pressablePaths(root: any): number[][] {
+	const found: number[][] = []
+	const visit = (node: any, path: number[], depth: number) => {
+		if (depth > 8 || !isElement(node)) return
+		const kids = node.props.children
+		if (isElement(kids)) {
+			const child = [...path, -1]
+			if (typeof kids.props.onPress === 'function') found.push(child)
+			return visit(kids, child, depth + 1)
 		}
-		return removed > 0 && kept === 0
+		if (!Array.isArray(kids)) return
+		for (let i = 0; i < kids.length; i++) {
+			const kid = kids[i]
+			if (!isElement(kid)) continue
+			const child = [...path, i]
+			if (typeof kid.props.onPress === 'function') found.push(child)
+			visit(kid, child, depth + 1)
+		}
+	}
+	visit(root, [], 0)
+	return found
+}
+
+/**
+ * Drop a row's last action without leaving an empty wrapper: climb while the subtree still holds
+ * only that one pressable. A three-button profile row loses the call button itself (keeping the
+ * message icon); a two-button row loses its whole half-width call cell, so the row collapses.
+ */
+function removeLastPressable(root: any): any {
+	const paths = pressablePaths(root)
+	if (paths.length < 2) return null
+	const target = paths[paths.length - 1]
+
+	// Subtree pressable counts only grow as the prefix shortens, so the first miss ends the walk.
+	let chosen = target
+	for (let len = target.length - 1; len >= 1; len--) {
+		const prefix = target.slice(0, len)
+		if (pressablePaths(getAtPath(root, prefix)).length !== 1) break
+		chosen = prefix
 	}
 
-	if (children !== null && typeof children === "object") {
-		return prune(children, depth + 1, hidden, assets)
-	}
+	const path = chosen.slice(0, -1)
+	const container = getAtPath(root, path)
+	if (!container || !Array.isArray(container.props.children)) return null
+	const kept = container.props.children.filter(
+		(_: any, i: number) => i !== chosen[chosen.length - 1],
+	)
+	return kept.length > 0 ? replaceChildren(root, path, kept) : null
+}
 
-	return false
+/** Depth-first pass; `fn` rewrites each node, having already rewritten its children. */
+function mapChildren(node: any, fn: (element: any) => any, depth = 0): any {
+	if (depth > 10) return node
+	if (Array.isArray(node)) {
+		let changed = false
+		const mapped = node.map(child => {
+			const next = mapChildren(child, fn, depth + 1)
+			if (next !== child) changed = true
+			return next
+		})
+		return changed ? mapped : node
+	}
+	if (!isElement(node)) return node
+	const children = node.props.children
+	const next =
+		children == null ? children : mapChildren(children, fn, depth + 1)
+	return fn(next === children ? node : rebuild(node, { children: next }))
+}
+
+/**
+ * User profile -- `UserProfileContactButtons`: its whole output is the action row (message + call,
+ * or add-friend + message + call) with the call always last, and the profile draws no camera, so
+ * only `upHideVoiceButton` acts here.
+ */
+function pruneProfile(root: any, st: HideCallButtonsStorage): any {
+	if (!st.upHideVoiceButton || !isElement(root)) return root
+	return removeLastPressable(root) ?? root
+}
+
+/**
+ * DM header -- `PrivateChannelButtons`. Discord gives the call and video pressables a `disabled`
+ * prop and the search / overflow ones none, which separates the groups without reaching for an
+ * icon. Call first, video second; the App DM header renders only labelled pressables.
+ */
+function pruneDM(root: any, st: HideCallButtonsStorage): any {
+	if ((!st.dmHideCallButton && !st.dmHideVideoButton) || !isElement(root))
+		return root
+	const children = root.props.children
+	if (!Array.isArray(children)) return root
+
+	const toggles = children.flatMap((child: any, i: number) =>
+		isElement(child) &&
+		typeof child.props.onPress === 'function' &&
+		'disabled' in child.props
+			? [i]
+			: [],
+	)
+	const drop = new Set<number>()
+	if (st.dmHideCallButton && toggles.length > 0) drop.add(toggles[0])
+	if (st.dmHideVideoButton && toggles.length > 1) drop.add(toggles[1])
+	if (drop.size === 0) return root
+	const kept = children.filter((_: any, i: number) => !drop.has(i))
+	return kept.length > 0 ? rebuild(root, { children: kept }) : root
+}
+
+/**
+ * Friends list -- `UserRow`. `accessibilityActions` and the `trailing` buttons come from one
+ * `useMemo`, so index `i` in one is index `i` in the other, and dropping `i` from both needs no
+ * knowledge of what the button looks like. Drifted lists are skipped rather than misaligned.
+ */
+function pruneFriends(root: any, st: HideCallButtonsStorage): any {
+	if (!st.friendsHideCallButton || !isElement(root)) return root
+	return mapChildren(root, element => {
+		const actions = element.props.accessibilityActions
+		const trailing = element.props.trailing
+		const buttons = trailing?.props?.children
+		const index = Array.isArray(actions)
+			? actions.findIndex((a: any) => String(a?.name).toLowerCase() === 'call')
+			: -1
+		if (
+			index < 0 ||
+			!Array.isArray(buttons) ||
+			buttons.length !== actions.length
+		)
+			return element
+		return rebuild(element, {
+			accessibilityActions: actions.filter((_: any, i: number) => i !== index),
+			trailing: rebuild(trailing, {
+				children: buttons.filter((_: any, i: number) => i !== index),
+			}),
+		})
+	})
 }
 
 export default function patchCallButtons(
 	jsonStorage: RevengeJsonStorageApi<HideCallButtonsStorage>,
 ): () => void {
-	const { getModules } = revenge.modules.finders
-	const { withName, withProps } = revenge.modules.finders.filters
-	const { after, instead } = revenge.patcher
-
 	const patches: Array<() => void> = []
-	const s = () => jsonStorage.cache ?? DEFAULTS
+	const settings = (): HideCallButtonsStorage =>
+		(jsonStorage.cache as HideCallButtonsStorage | undefined) ?? DEFAULTS
 
-	// Assets are registered before anything renders, so one resolve covers every later render.
-	let assets: Assets | undefined
-	const getAssets = () => (assets ??= resolveAssets())
-
-	/**
-	 * Hides whichever of the two buttons the given settings turn off. `component` is returned
-	 * unchanged -- the pruning happens in place, on the child arrays.
-	 */
-	const hideIn = (component: any, voice: boolean, video: boolean) => {
-		if (!voice && !video) return component
-		prune(component, 0, kind => (kind === "voice" ? voice : video), getAssets())
-		return component
+	/** `after` on the render React calls, reached by the module's Discord source path. */
+	const hook = (path: string, label: string, apply: Apply) => {
+		patches.push(
+			revenge.discord.utils.modules.finders.getModuleWithImportedPath(
+				path,
+				(ns: any) => {
+					const target = ns?.default
+					const memo =
+						target !== null &&
+						typeof target === 'object' &&
+						typeof target.type === 'function'
+					const owner = memo ? target : ns
+					const key = memo ? 'type' : 'default'
+					if (typeof owner?.[key] !== 'function')
+						return console.warn(`[HideCallButtons] ${label}: nothing to patch`)
+					console.log(`[HideCallButtons] ${label}: patched`)
+					let logged = false
+					patches.push(
+						after(owner, key, (ret: any) => {
+							try {
+								const out = apply(ret)
+								if (!logged) {
+									logged = true
+									console.log(
+										`[HideCallButtons] ${label}: ${out === ret ? 'unchanged' : 'changed'}`,
+									)
+								}
+								return out
+							} catch (error) {
+								console.error(`[HideCallButtons] ${label}:`, error)
+								return ret
+							}
+						}),
+					)
+				},
+			),
+		)
 	}
 
-	const hideProfileButtons = (component: any) =>
-		hideIn(component, s().upHideVoiceButton, s().upHideVideoButton)
-
-	const hideDMButtons = (component: any) =>
-		hideIn(component, s().dmHideCallButton, s().dmHideVideoButton)
-
-	// Every surface is applied independently -- one Discord rename must disable one surface,
-	// not the whole plugin.
-	const apply = (label: string, fn: () => void) => {
-		try {
-			fn()
-		} catch (error) {
-			console.error(`[HideCallButtons] failed to patch ${label}:`, error)
-		}
-	}
-
-	/**
-	 * For the finder callbacks below. When a module is already initialized, Revenge runs the
-	 * callback as a bare engine job with no try around it, so a throw there (patching a missing
-	 * export builds a proxy on `undefined`) is uncaught and can close the app. Later loads are
-	 * swallowed silently instead. Guarding here turns both into one logged line.
-	 */
-	const guarded = (label: string, fn: () => void) => {
-		try {
-			fn()
-		} catch (error) {
-			console.error(`[HideCallButtons] failed to patch ${label}:`, error)
-		}
-	}
-
-	// NOTE: this patcher's `after` hook receives only the return value, and its return value is
-	// assigned unconditionally -- so every hook below must return `component`. Vendetta's
-	// `after` treated `undefined` as "keep the original", which is why the source these are
-	// ported from returns nothing. See docs/porting-rules.md rule 2.
-
-	// --- User profile (full) ---
-	apply("UserProfileActions", () => {
-		patches.push(
-			getModules(withName("UserProfileActions"), (mod: any) => {
-				guarded("UserProfileActions", () => {
-					if (typeof mod?.default !== "function") return
-					patches.push(after(mod, "default", hideProfileButtons))
-				})
-			}, { returnNamespace: true }),
-		)
-	})
-
-	// --- User profile (simplified) ---
-	// `SimplifiedUserProfileContactButtons` was dropped: it is absent from every bundle checked (337.10,
-	// 343.11, 348.0), so its subscription could never resolve.
-	apply("UserProfileContactButtons", () => {
-		patches.push(
-			getModules(withName("UserProfileContactButtons"), (mod: any) => {
-				guarded("UserProfileContactButtons", () => {
-					if (typeof mod?.default !== "function") return
-					patches.push(after(mod, "default", hideProfileButtons))
-				})
-			}, { returnNamespace: true }),
-		)
-	})
-
-	// --- Voice channel video button ---
-	apply("VideoButton", () => {
-		patches.push(
-			getModules(withName("VideoButton"), (mod: any) => guarded("VideoButton", () => {
-				if (typeof mod?.default !== "function") return
-				patches.push(
-					instead(mod, "default", function (this: any, args: any[], original: any) {
-						if (s().hideVCVideoButton) return undefined
-						if (typeof original !== "function") return undefined
-						return Reflect.apply(original, this, args)
-					}),
-				)
-			}), { returnNamespace: true }),
-		)
-	})
-
-	// --- Tabs V2 DM header ---
-	apply("PrivateChannelButtons", () => {
-		patches.push(
-			getModules(withTypeName("PrivateChannelButtons"), (mod: any) => {
-				guarded("PrivateChannelButtons", () => {
-					if (typeof mod?.type !== "function") return
-					patches.push(after(mod, "type", hideDMButtons))
-				})
-			}),
-		)
-	})
-
-	// --- Legacy DM header ---
-	apply("ChannelButtons", () => {
-		patches.push(
-			getModules(withProps("ChannelButtons"), (mod: any) => {
-				guarded("ChannelButtons", () => {
-					if (typeof mod?.ChannelButtons !== "function") return
-					patches.push(after(mod, "ChannelButtons", hideDMButtons))
-				})
-			}, { returnNamespace: true }),
-		)
-	})
+	hook(
+		'modules/user_profile/native/UserProfileContactButtons.tsx',
+		'profile',
+		ret => pruneProfile(ret, settings()),
+	)
+	hook(
+		'modules/main_tabs_v2/native/channel/header/PrivateChannelButtons.tsx',
+		'dm header',
+		ret => pruneDM(ret, settings()),
+	)
+	hook(
+		'modules/main_tabs_v2/native/shared_components/user_list/UserRow.tsx',
+		'friends row',
+		ret => pruneFriends(ret, settings()),
+	)
+	hook(
+		'modules/voice_panel/native/controls/buttons/VoicePanelVideoButton.tsx',
+		'voice camera',
+		ret => (settings().hideVCVideoButton ? null : ret),
+	)
 
 	return () => {
 		for (const unpatch of patches) {
@@ -313,5 +268,6 @@ export default function patchCallButtons(
 				/* already gone */
 			}
 		}
+		patches.length = 0
 	}
 }

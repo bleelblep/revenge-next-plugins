@@ -8,20 +8,32 @@
  * chips under it. Report / Block / Delete live in a long-press action sheet, like a message's.
  */
 
-import { blockUser, deleteReview, deleteReviewVote, reportReview, unblockUser, voteReview } from '../lib/api'
-import { confirm, icon, openURL, openUserProfile, toast } from '../lib/discord'
-import { type Badge, type Review, ReviewType, UserType } from '../lib/entities'
-import { currentUserId, getAuth, getToken, settings } from '../lib/state'
 import { dangerIcon, rowIcon } from '../../../../shared/ui/icon'
-import { assetId, isBotUser, Native, Tag, UserAvatar } from './native'
+import {
+	blockUser,
+	deleteReview,
+	deleteReviewVote,
+	reportReview,
+	unblockUser,
+	voteReview,
+} from '../lib/api'
+import { confirm, icon, openURL, openUserProfile, toast } from '../lib/discord'
+import { ReviewType, UserType } from '../lib/entities'
+import { currentUserId, getAuth, getToken, settings } from '../lib/state'
+import { isBotUser, Tag, UserAvatar } from './native'
 import { openBlockedUsers } from './routes'
 import { token } from './theme'
+import type { Badge, Review } from '../lib/entities'
 
 const SHEET_KEY = 'ReviewDBReviewActions'
 
 export function canDeleteReview(profileId: string, review: Review) {
 	const myId = currentUserId()
-	return myId === profileId || review.sender.discordID === myId || getAuth().user?.type === UserType.Admin
+	return (
+		myId === profileId ||
+		review.sender.discordID === myId ||
+		getAuth().user?.type === UserType.Admin
+	)
 }
 
 export function canBlockReviewAuthor(profileId: string, review: Review) {
@@ -36,11 +48,15 @@ export function canReportReview(review: Review) {
 function formatDate(seconds: number) {
 	const date = new Date(seconds * 1000)
 	const now = new Date()
-	const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+	const time = date.toLocaleTimeString([], {
+		hour: 'numeric',
+		minute: '2-digit',
+	})
 	if (date.toDateString() === now.toDateString()) return `Today at ${time}`
 	const yesterday = new Date(now)
 	yesterday.setDate(now.getDate() - 1)
-	if (date.toDateString() === yesterday.toDateString()) return `Yesterday at ${time}`
+	if (date.toDateString() === yesterday.toDateString())
+		return `Yesterday at ${time}`
 	return date.toLocaleDateString()
 }
 
@@ -50,70 +66,105 @@ function ReviewBadge({ badge }: { badge: Badge }) {
 		<Pressable
 			accessibilityLabel={badge.name}
 			hitSlop={6}
-			onPress={() => (badge.redirectURL ? openURL(badge.redirectURL) : toast(badge.name))}
+			onPress={() =>
+				badge.redirectURL ? openURL(badge.redirectURL) : toast(badge.name)
+			}
 			onLongPress={() => toast(badge.description || badge.name)}
 		>
-			<Image source={{ uri: badge.icon }} style={{ width: 16, height: 16 }} resizeMode="contain" />
+			<Image
+				source={{ uri: badge.icon }}
+				style={{ width: 16, height: 16 }}
+				resizeMode="contain"
+			/>
 		</Pressable>
 	)
 }
 
 /**
- * One reaction-style pill: up arrow, the net score, down arrow. ReviewDB only returns the net
- * score (ups minus downs), so it sits between the arrows rather than on either one. Your vote
- * tints its arrow and outlines the pill, like a reaction you've added.
+ * Votes display: plain icons on the right side with the count next to them on the left.
+ * Upvote/downvote arrows are pressable to vote.
  */
 function Votes({ review }: { review: Review }) {
-	const React = revenge.react.React
-	const { View } = revenge.react.ReactNative
-	const { Text, IconButton } = revenge.discord.design.Design as any
+	const { View, Pressable } = revenge.react.ReactNative
+	const { Text } = revenge.discord.design.Design as any
 	const vote = useVote(review)
-	const up = assetId('ArrowSmallUpIcon')
-	const down = assetId('ArrowSmallDownIcon')
-	const fallback = <VotesPill review={review} vote={vote} />
-	if (!IconButton || up === undefined || down === undefined) return fallback
-
 	const { localVote, score, isVoting, submitVote } = vote
+	const Up = icon('ArrowSmallUpIcon')
+	const Down = icon('ArrowSmallDownIcon')
 	const scoreColor =
 		score > 0
 			? token('TEXT_FEEDBACK_POSITIVE', '#4ecb85')
 			: score < 0
 				? token('TEXT_FEEDBACK_CRITICAL', '#f57976')
 				: token('TEXT_MUTED', '#949ba4')
+	const upColor =
+		localVote === true
+			? token('TEXT_FEEDBACK_POSITIVE', '#4ecb85')
+			: token('TEXT_MUTED', '#949ba4')
+	const downColor =
+		localVote === false
+			? token('TEXT_FEEDBACK_CRITICAL', '#f57976')
+			: token('TEXT_MUTED', '#949ba4')
+	// Each arrow gets its own padding instead of a bare icon plus hitSlop: two adjacent slop
+	// rectangles overlap (the row gap is only 4), so a tap near the middle landed on whichever
+	// sibling React Native hit-tested first. Padding widens the target without pushing the
+	// arrows apart, and keeps the two targets from ever sharing a pixel. Slop stays vertical.
+	const arrowStyle = (pressed: boolean) =>
+		({
+			paddingHorizontal: 4,
+			paddingVertical: 8,
+			alignItems: 'center',
+			justifyContent: 'center',
+			borderRadius: 14,
+			opacity: pressed ? 0.6 : 1,
+		}) as any
 	return (
-		<Native name="IconButton" available fallback={fallback}>
-			<View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-				<IconButton
-					icon={up}
-					size="sm"
-					variant={localVote === true ? 'active' : 'secondary'}
-					disabled={isVoting}
-					accessibilityLabel="Upvote"
-					onPress={() => submitVote(true)}
-				/>
-				<Text
-					variant="text-sm/semibold"
-					style={{ color: scoreColor, minWidth: 16, textAlign: 'center' }}
-					accessibilityLabel={`Score ${score}`}
-				>
-					{score}
-				</Text>
-				<IconButton
-					icon={down}
-					size="sm"
-					variant={localVote === false ? 'active' : 'secondary'}
-					disabled={isVoting}
-					accessibilityLabel="Downvote"
-					onPress={() => submitVote(false)}
-				/>
-			</View>
-		</Native>
+		<View
+			style={{
+				flexDirection: 'row',
+				alignItems: 'center',
+				gap: 4,
+				opacity: isVoting ? 0.6 : 1,
+			}}
+		>
+			<Text
+				variant="text-sm/semibold"
+				style={{ color: scoreColor, textAlign: 'center' }}
+				accessibilityLabel={`Score ${score}`}
+			>
+				{score}
+			</Text>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Upvote"
+				accessibilityState={{ selected: localVote === true }}
+				hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
+				disabled={isVoting}
+				onPress={() => submitVote(true)}
+				style={({ pressed }) => arrowStyle(pressed)}
+			>
+				{Up ? <Up size="xs" color={upColor} /> : null}
+			</Pressable>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Downvote"
+				accessibilityState={{ selected: localVote === false }}
+				hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
+				disabled={isVoting}
+				onPress={() => submitVote(false)}
+				style={({ pressed }) => arrowStyle(pressed)}
+			>
+				{Down ? <Down size="xs" color={downColor} /> : null}
+			</Pressable>
+		</View>
 	)
 }
 
 function useVote(review: Review) {
 	const React = revenge.react.React
-	const [localVote, setLocalVote] = React.useState<boolean | null>(review.userVote ?? null)
+	const [localVote, setLocalVote] = React.useState<boolean | null>(
+		review.userVote ?? null,
+	)
 	const [score, setScore] = React.useState(review.score ?? 0)
 	const [isVoting, setIsVoting] = React.useState(false)
 
@@ -124,7 +175,10 @@ function useVote(review: Review) {
 
 	async function submitVote(isUpvote: boolean) {
 		if (isVoting) return
-		if (review.sender.discordID === getAuth().user?.discordID || review.sender.discordID === currentUserId()) {
+		if (
+			review.sender.discordID === getAuth().user?.discordID ||
+			review.sender.discordID === currentUserId()
+		) {
 			toast('You cannot vote on your own review.')
 			return
 		}
@@ -138,7 +192,8 @@ function useVote(review: Review) {
 				return
 			}
 			if (await voteReview(review.id, isUpvote)) {
-				const delta = localVote == null ? (isUpvote ? 1 : -1) : isUpvote ? 2 : -2
+				const delta =
+					localVote == null ? (isUpvote ? 1 : -1) : isUpvote ? 2 : -2
 				setLocalVote(isUpvote)
 				setScore((s: number) => s + delta)
 			}
@@ -150,72 +205,6 @@ function useVote(review: Review) {
 	return { localVote, score, isVoting, submitVote }
 }
 
-/** The hand-drawn pill, for when Discord's IconButton or the arrow assets aren't there. */
-function VotesPill({ review: _review, vote }: { review: Review; vote: ReturnType<typeof useVote> }) {
-	const { View, Pressable } = revenge.react.ReactNative
-	const { Text } = revenge.discord.design.Design as any
-	const { localVote, score, isVoting, submitVote } = vote
-	const Up = icon('ArrowSmallUpIcon')
-	const Down = icon('ArrowSmallDownIcon')
-	const brand = token('BACKGROUND_BRAND', '#5865f2')
-	const idle = token('INTERACTIVE_TEXT_DEFAULT', '#b5bac1')
-	const upColor = localVote === true ? token('TEXT_FEEDBACK_POSITIVE', '#4ecb85') : idle
-	const downColor = localVote === false ? token('TEXT_FEEDBACK_CRITICAL', '#f57976') : idle
-	const scoreColor =
-		score > 0
-			? token('TEXT_FEEDBACK_POSITIVE', '#4ecb85')
-			: score < 0
-				? token('TEXT_FEEDBACK_CRITICAL', '#f57976')
-				: token('TEXT_MUTED', '#949ba4')
-	const voted = localVote !== null
-	const hit = { top: 8, bottom: 8, left: 6, right: 6 }
-
-	return (
-		<View
-			style={{
-				alignSelf: 'flex-start',
-				flexDirection: 'row',
-				alignItems: 'center',
-				gap: 6,
-				height: 28,
-				paddingHorizontal: 6,
-				marginTop: 6,
-				borderRadius: 8,
-				borderWidth: 1,
-				borderColor: voted ? brand : 'transparent',
-				backgroundColor: voted ? `${brand}26` : token('BACKGROUND_MOD_SUBTLE', '#2e3035'),
-				opacity: isVoting ? 0.6 : 1,
-			}}
-		>
-			<Pressable
-				accessibilityLabel="Upvote"
-				accessibilityState={{ selected: localVote === true }}
-				hitSlop={hit}
-				disabled={isVoting}
-				onPress={() => submitVote(true)}
-			>
-				{Up ? <Up size="xs" color={upColor} /> : <Text style={{ color: upColor }}>▲</Text>}
-			</Pressable>
-			<Text
-				variant="text-sm/semibold"
-				style={{ color: scoreColor, minWidth: 12, textAlign: 'center' }}
-				accessibilityLabel={`Score ${score}`}
-			>
-				{score}
-			</Text>
-			<Pressable
-				accessibilityLabel="Downvote"
-				accessibilityState={{ selected: localVote === false }}
-				hitSlop={hit}
-				disabled={isVoting}
-				onPress={() => submitVote(false)}
-			>
-				{Down ? <Down size="xs" color={downColor} /> : <Text style={{ color: downColor }}>▼</Text>}
-			</Pressable>
-		</View>
-	)
-}
-
 function ReviewActionsSheet({
 	review,
 	profileId,
@@ -225,9 +214,11 @@ function ReviewActionsSheet({
 	profileId: string
 	refetch(): void
 }) {
-	const { ActionSheet, BottomSheetTitleHeader, TableRowGroup, TableRow } = revenge.discord.design.Design as any
+	const { ActionSheet, BottomSheetTitleHeader, TableRowGroup, TableRow } =
+		revenge.discord.design.Design as any
 	const { hideActionSheet } = revenge.discord.actions.ActionSheetActionCreators
-	const isAuthorBlocked = getAuth().user?.blockedUsers?.includes(review.sender.discordID) ?? false
+	const isAuthorBlocked =
+		getAuth().user?.blockedUsers?.includes(review.sender.discordID) ?? false
 	const run = (fn: () => void) => () => {
 		hideActionSheet(SHEET_KEY)
 		fn()
@@ -248,7 +239,8 @@ function ReviewActionsSheet({
 					onPress={run(() => {
 						try {
 							const Clipboard = (revenge.react.ReactNative as any)?.Clipboard
-							if (typeof Clipboard?.setString !== 'function') throw new Error('no clipboard')
+							if (typeof Clipboard?.setString !== 'function')
+								throw new Error('no clipboard')
 							Clipboard.setString(review.comment)
 							toast('Copied to clipboard')
 						} catch {
@@ -260,7 +252,9 @@ function ReviewActionsSheet({
 					<TableRow
 						label={isAuthorBlocked ? 'Unblock Reviewer' : 'Block Reviewer'}
 						variant={isAuthorBlocked ? undefined : 'danger'}
-						icon={isAuthorBlocked ? rowIcon('DenyIcon') : dangerIcon('DenyIcon')}
+						icon={
+							isAuthorBlocked ? rowIcon('DenyIcon') : dangerIcon('DenyIcon')
+						}
 						onPress={run(() => {
 							if (isAuthorBlocked) {
 								unblockUser(review.sender.discordID).then(ok => ok && refetch())
@@ -272,7 +266,8 @@ function ReviewActionsSheet({
 								confirmText: 'Block',
 								destructive: true,
 								async onConfirm() {
-									if (!getToken()) return toast('You must be logged in to block users.')
+									if (!getToken())
+										return toast('You must be logged in to block users.')
 									if (await blockUser(review.sender.discordID)) refetch()
 								},
 							})
@@ -291,7 +286,8 @@ function ReviewActionsSheet({
 								confirmText: 'Report',
 								destructive: true,
 								async onConfirm() {
-									if (!getToken()) return toast('You must be logged in to report reviews.')
+									if (!getToken())
+										return toast('You must be logged in to report reviews.')
 									await reportReview(review.id)
 								},
 							}),
@@ -310,7 +306,8 @@ function ReviewActionsSheet({
 								confirmText: 'Delete',
 								destructive: true,
 								async onConfirm() {
-									if (!getToken()) return toast('You must be logged in to delete reviews.')
+									if (!getToken())
+										return toast('You must be logged in to delete reviews.')
 									if (await deleteReview(review.id)) refetch()
 								},
 							}),
@@ -347,7 +344,8 @@ export default function ReviewItem({
 
 	const isSystem = review.type === ReviewType.System
 	const isReal = review.id !== 0
-	const isAuthorBlocked = getAuth().user?.blockedUsers?.includes(review.sender.discordID) ?? false
+	const isAuthorBlocked =
+		getAuth().user?.blockedUsers?.includes(review.sender.discordID) ?? false
 	const openProfile = () => {
 		if (!isSystem) openUserProfile(review.sender.discordID)
 	}
@@ -358,18 +356,39 @@ export default function ReviewItem({
 
 	return (
 		<Pressable
-			onLongPress={isReal ? () => openActions(review, profileId, refetch) : undefined}
+			onLongPress={
+				isReal ? () => openActions(review, profileId, refetch) : undefined
+			}
 			delayLongPress={350}
 			android_ripple={{ color: token('BACKGROUND_MOD_SUBTLE', '#2e3035') }}
-			style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 8 }}
+			style={{
+				flexDirection: 'row',
+				gap: 12,
+				paddingHorizontal: 16,
+				paddingVertical: 8,
+			}}
 		>
 			<Pressable onPress={openProfile} disabled={isSystem}>
-				<UserAvatar userId={review.sender.discordID} photo={review.sender.profilePhoto} />
+				<UserAvatar
+					userId={review.sender.discordID}
+					photo={review.sender.profilePhoto}
+				/>
 			</Pressable>
 
 			<View style={{ flex: 1 }}>
-				<View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 4 }}>
-					<Text variant="text-md/semibold" color="text-strong" onPress={isSystem ? undefined : openProfile}>
+				<View
+					style={{
+						flexDirection: 'row',
+						alignItems: 'center',
+						flexWrap: 'wrap',
+						columnGap: 4,
+					}}
+				>
+					<Text
+						variant="text-md/semibold"
+						color="text-strong"
+						onPress={isSystem ? undefined : openProfile}
+					>
 						{review.sender.username}
 					</Text>
 					{isSystem ? (
@@ -393,15 +412,28 @@ export default function ReviewItem({
 					) : null}
 					{isBot ? <Tag type="BOT" fallback={null} /> : null}
 					{isAuthorBlocked ? (
-						<Pressable accessibilityLabel="You have blocked this user" hitSlop={6} onPress={openBlockedUsers}>
-							{DenyIcon ? <DenyIcon size="xs" color={token('TEXT_FEEDBACK_CRITICAL', '#f57976')} /> : null}
+						<Pressable
+							accessibilityLabel="You have blocked this user"
+							hitSlop={6}
+							onPress={openBlockedUsers}
+						>
+							{DenyIcon ? (
+								<DenyIcon
+									size="xs"
+									color={token('TEXT_FEEDBACK_CRITICAL', '#f57976')}
+								/>
+							) : null}
 						</Pressable>
 					) : null}
 					{(review.sender.badges ?? []).map((badge, i) => (
 						<ReviewBadge key={i} badge={badge} />
 					))}
 					{!hideTimestamps && !isSystem && review.timestamp ? (
-						<Text variant="text-xs/medium" color="text-muted" style={{ marginLeft: 2 }}>
+						<Text
+							variant="text-xs/medium"
+							color="text-muted"
+							style={{ marginLeft: 2 }}
+						>
 							{formatDate(review.timestamp)}
 						</Text>
 					) : null}
@@ -410,14 +442,17 @@ export default function ReviewItem({
 				<Text variant="text-md/normal" color="text-default">
 					{long ? `${review.comment.substring(0, 200)}… ` : review.comment}
 					{long ? (
-						<Text variant="text-md/medium" style={{ color: token('TEXT_LINK', '#00a8fc') }} onPress={() => setShowAll(true)}>
+						<Text
+							variant="text-md/medium"
+							style={{ color: token('TEXT_LINK', '#00a8fc') }}
+							onPress={() => setShowAll(true)}
+						>
 							Read more
 						</Text>
 					) : null}
 				</Text>
-
-				{isReal ? <Votes review={review} /> : null}
 			</View>
+			{isReal ? <Votes review={review} /> : null}
 		</Pressable>
 	)
 }
