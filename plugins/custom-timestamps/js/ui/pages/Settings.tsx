@@ -2,6 +2,7 @@ import type { ReactElement } from "react"
 import renderTimestamp, { DEFAULTS, type Mode, type TimestampStorage } from "../../lib/renderTimestamp"
 import { CustomTimeInputRow } from "../components/CustomTimeInputRow"
 import { SelectableRow } from "../components/SelectableRow"
+import { useChangelog } from "../../../../../shared/changelog"
 
 interface ModeOption {
 	label: string
@@ -14,6 +15,8 @@ export default function Settings({
 }: {
 	api: RevengePluginStartApi<TimestampStorage>
 }) {
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	// Read per-render, never at module scope -- see the "Never touch revenge.* at module scope"
 	// section in the README.
 	const { Page } = revenge.components
