@@ -26,7 +26,6 @@
  */
 
 import { clearUrlsRedirect, clearUrlsTracks, keptOn } from './clearurls'
-import { splitUrl } from './urlBounds'
 
 /** Tracking on every site. */
 const GLOBAL = new Set([
@@ -247,6 +246,8 @@ const PER_HOST: Array<[RegExp, Set<string>]> = [
 const AMAZON_PATH_REF = /\/ref=[^/?#]*/i
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/gi
+/** Punctuation that ends a sentence rather than a URL. */
+const TRAILING = /[.,!?;:)\]}>'"]+$/
 
 function hostOf(url: string): string {
 	const match = /^https?:\/\/([^/?#:]+)/i.exec(url)
@@ -330,8 +331,9 @@ export function cleanUrl(raw: string, unwrapped = false): CleanResult {
  */
 export function mapUrls(text: string, change: (url: string) => string): string {
 	URL_PATTERN.lastIndex = 0
-	return text.replace(URL_PATTERN, (match, offset: number) => {
-		const { url, tail } = splitUrl(match, text.slice(0, offset))
+	return text.replace(URL_PATTERN, match => {
+		const tail = TRAILING.exec(match)?.[0] ?? ''
+		const url = tail ? match.slice(0, -tail.length) : match
 		return change(url) + tail
 	})
 }

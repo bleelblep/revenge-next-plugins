@@ -18,7 +18,6 @@ import { setupChangelog } from '../../../shared/changelog'
 import { CHANGELOG } from './changelog'
 import { DEFAULTS } from './defaults'
 import { refreshClearUrlsIfStale } from './lib/clearurls'
-import { patchComposer } from './lib/composer'
 import { setAi, setRequireReload, setStorage } from './lib/state'
 import patchOutgoing from './patches/outgoing'
 import patchReplyMention from './patches/replyMention'
@@ -71,7 +70,6 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		apply('changelog', () => setupChangelog(api, CHANGELOG))
 		apply('outgoing messages', patchOutgoing)
 		apply('reply mentions', patchReplyMention)
-		apply('live composer', patchComposer)
 		apply('send button', patchSendButton)
 
 		// The ClearURLs rules refresh themselves about weekly. Checked a little after start: storage is

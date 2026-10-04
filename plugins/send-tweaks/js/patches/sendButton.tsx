@@ -8,8 +8,7 @@
  * (`modules/chat_input/native/action_buttons/ChatInputActionButton.tsx`, a `memo(forwardRef(...))`).
  * That same component draws the chat bar's other round buttons too. Its render returns a pressable
  * with `onPress` and `disabled`, holding the icon it was given. The send button is the one whose
- * icon is the `SendMessageIcon` export resolved by imported path. Discord 349.5 strips its function
- * name; neither that name nor the translated accessibility label ("Send") can identify it.
+ * icon is `SendMessageIcon`; the accessibility label ("Send") is translated, so it is not used.
  *
  * `ChatInputActionButton` takes no `onLongPress` and drops unknown props, so the prop is added to
  * the pressable it returns. The pressable honours it, and a long-press does not also send.
@@ -38,7 +37,6 @@
  * happens until there is something to send.
  */
 
-import { composerContext, readComposer } from '../lib/composer'
 import { sendOnce } from '../lib/nextSend'
 import { showPreview } from '../lib/preview'
 import { settings, TAG } from '../lib/state'
@@ -46,7 +44,6 @@ import { type Stop, type SwipeActions, setSwipe, setSwipeDistance, stopAt } from
 import SwipeIndicator from '../ui/components/SwipeIndicator'
 
 const PATH = 'modules/chat_input/native/action_buttons/ChatInputActionButton.tsx'
-const ICON_PATH = 'design/components/Icon/native/redesign/generated/SendMessageIcon.tsx'
 
 const status = { installed: false, moduleId: -1, swiped: 0, previewed: 0, touchesSeen: false }
 
@@ -56,6 +53,9 @@ export function sendButtonStatus() {
 
 /** The touch in progress on the send button. One finger, one button: module state is enough. */
 const gesture = { touched: false, armed: false, stop: 0 as Stop, startY: 0 }
+
+const nameOf = (type: any): string | undefined =>
+	type?.name || type?.displayName || type?.type?.name || type?.render?.name
 
 function buzz(ms: number) {
 	try {
@@ -102,7 +102,7 @@ function chain(element: any, name: string, ours: (event: any) => void) {
 	}
 }
 
-function swipeProps(element: any, send: unknown, actions: SwipeActions, getDraft: () => string | undefined) {
+function swipeProps(element: any, send: unknown, actions: SwipeActions) {
 	const pageY = (event: any): number => event?.nativeEvent?.pageY ?? gesture.startY
 	const end = () => {
 		gesture.touched = false
@@ -149,9 +149,8 @@ function swipeProps(element: any, send: unknown, actions: SwipeActions, getDraft
 			if (!armed) return
 			// Letting go below the first stop cancels.
 			if (stop === 1) {
-				if (showPreview(getDraft(), typeof send === 'function' ? (send as () => void) : undefined)) {
-					status.previewed++
-				}
+				status.previewed++
+				showPreview(typeof send === 'function' ? (send as () => void) : undefined)
 			} else if (stop === 2) {
 				status.swiped++
 				sendOnce('raw', typeof send === 'function' ? (send as () => void) : undefined)
@@ -201,33 +200,15 @@ function buttonColour(element: any, props: any): unknown {
 	}
 }
 
-/** A separate component keeps our context hook out of Discord's own hook chain. */
-function SwipeButton({ element, buttonProps, actions }: { element: any; buttonProps: any; actions: SwipeActions }) {
-	const React = revenge.react.React
-	const composer = React.useContext(composerContext())
-	return React.cloneElement(
-		element,
-		swipeProps(element, element.props.onPress, actions, () => readComposer(composer)),
-		element.props.children,
-		<SwipeIndicator
-			key="send-tweaks-swipe"
-			Icon={buttonProps?.IconComponent}
-			actions={actions}
-			buttonColour={buttonColour(element, buttonProps)}
-			buttonRadius={buttonRadius(element)}
-		/>,
-	)
-}
-
 export default function patchSendButton(): () => void {
 	let undo: (() => void) | undefined
-	let sendIcon: any
 
 	const install = (exports: any, id: number) => {
 		const forwardRef = exports?.default?.type ?? exports?.type
 		const original = forwardRef?.render
 		if (typeof original !== 'function' || undo) return
 
+		const React = revenge.react.React
 		let active = true
 		const wrapper = function (this: unknown, props: any, ref: unknown) {
 			const element = original.call(this, props, ref)
@@ -235,9 +216,21 @@ export default function patchSendButton(): () => void {
 			const actions = { preview: !!s.swipePreview, send: !!s.swipeSendUnchanged }
 			if (!active || (!actions.preview && !actions.send)) return element
 			try {
-				const icon = props?.IconComponent ?? element?.props?.children?.type
-				if (!sendIcon || icon !== sendIcon || !element?.props) return element
-				return <SwipeButton element={element} buttonProps={props} actions={actions} />
+				const icon = nameOf(props?.IconComponent) ?? nameOf(element?.props?.children?.type)
+				if (icon !== 'SendMessageIcon' || !element?.props) return element
+				const send = element.props.onPress
+				return React.cloneElement(
+					element,
+					swipeProps(element, send, actions),
+					element.props.children,
+					<SwipeIndicator
+						key="send-tweaks-swipe"
+						Icon={props?.IconComponent}
+						actions={actions}
+						buttonColour={buttonColour(element, props)}
+						buttonRadius={buttonRadius(element)}
+					/>,
+				)
 			} catch (error) {
 				console.error(`${TAG} send button long-press failed:`, error)
 				return element
@@ -259,14 +252,7 @@ export default function patchSendButton(): () => void {
 	}
 
 	let unsubscribe: (() => void) | undefined
-	let unsubscribeIcon: (() => void) | undefined
 	try {
-		unsubscribeIcon = revenge.discord.utils.modules.finders.getModuleWithImportedPath(
-			ICON_PATH,
-			(exports: any) => {
-				sendIcon = exports?.SendMessageIcon
-			},
-		)
 		unsubscribe = revenge.discord.utils.modules.finders.getModuleWithImportedPath(
 			PATH,
 			(exports: any, id: number) => install(exports, id),
@@ -278,9 +264,7 @@ export default function patchSendButton(): () => void {
 	return () => {
 		status.installed = false
 		unsubscribe?.()
-		unsubscribeIcon?.()
 		undo?.()
-		sendIcon = undefined
 		undo = undefined
 	}
 }

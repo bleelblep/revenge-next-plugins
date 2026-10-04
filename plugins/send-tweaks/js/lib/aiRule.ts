@@ -44,24 +44,24 @@ interface ModelAnswer {
 
 const SHARED = `You write one find-and-replace rule for a Discord client plugin, from the user's description.
 Reply with a single JSON object and nothing else:
-{"name": string, "find": string, "replace": string, "regex": boolean, "caseSensitive": boolean, "wholeWord": boolean,
- "examples": [{"input": string, "output": string}, ...]}
+{\"name\": string, \"find\": string, \"replace\": string, \"regex\": boolean, \"caseSensitive\": boolean, \"wholeWord\": boolean,
+ \"examples\": [{\"input\": string, \"output\": string}, ...]}
 
 Rules:
-- "find" is plain text, or a JavaScript regular expression when "regex" is true. Do not include slashes or flags.
-- The rule always replaces every match. "caseSensitive": false matches any capitalisation.
-- In "replace", $1, $2 refer to captured groups (regex only).
+- \"find\" is plain text, or a JavaScript regular expression when \"regex\" is true. Do not include slashes or flags.
+- The rule always replaces every match. \"caseSensitive\": false matches any capitalisation.
+- In \"replace\", $1, $2 refer to captured groups (regex only).
 - Never put a repeated group inside another repeat, such as (a+)+ or (\\w+\\s?)*: the plugin refuses them.
-- Do not use lookbehind ((?<= or (?<!); lookahead is fine.
-- "wholeWord" only applies to plain-text rules; set it false for regex.
+- Do not use lookbehind ((?< = or (?<!); lookahead is fine.
+- \"wholeWord\" only applies to plain-text rules; set it false for regex.
 - Give 2 or 3 examples, including one the rule must leave unchanged, with the exact expected output.
-- "name" is a short label, like "Twitter to fxtwitter".`
+- \"name\" is a short label, like \"Twitter to fxtwitter\".`
 
 const LINKS = `${SHARED}
 - This is a LINK rule. It runs on one URL at a time, after tracking parameters have been removed, and
   never on the rest of the message. Every example input and output is a single full URL.
 - Typical use: swapping a site for a service that embeds it better in Discord. Only use a replacement
-  domain you are confident still exists; say which service it is in "name".`
+  domain you are confident still exists; say which service it is in \"name\".`
 
 const TEXT = `${SHARED}
 - This is a TEXT rule. It runs on the words of a message; links, mentions, custom emoji, timestamps
@@ -69,7 +69,38 @@ const TEXT = `${SHARED}
 
 const asString = (value: unknown) => (typeof value === 'string' ? value : '')
 
+/**
+ * Attempt to create a rule from the user description.
+ * If the description itself is a valid JSON rule, we parse it locally and skip the AI call.
+ * Otherwise we fall back to AI Core.
+ */
 export async function draftRule(kind: RuleKind, description: string): Promise<Draft> {
+	// Fast‑path: user supplied a ready‑made JSON rule
+	try {
+		const trimmed = description.trim()
+		if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+			const parsed = JSON.parse(trimmed) as any
+			if (parsed && typeof parsed === 'object' && 'find' in parsed && 'replace' in parsed) {
+				const rule = newRule({
+					name: typeof parsed.name === 'string' ? parsed.name.trim() : undefined,
+					find: String(parsed.find),
+					replace: typeof parsed.replace === 'string' ? parsed.replace : String(parsed.replace),
+					regex: !!parsed.regex,
+					caseSensitive: !!parsed.caseSensitive,
+					wholeWord: !parsed.regex && kind !== 'links' && parsed.wholeWord !== false,
+					enabled: true,
+				})
+				const compiled = compileRule(rule)
+				if (compiled.error) {
+					return { ok: false, error: `The rule you supplied can't be used: ${compiled.error}` }
+				}
+				return { ok: true, rule, examples: [] }
+			}
+		}
+	} catch (_) {
+		// Not valid JSON – continue to AI path
+	}
+
 	const ai = getAi()
 	if (!ai) return { ok: false, error: 'AI Core is not installed.' }
 	if (!ai.isAvailable()) {

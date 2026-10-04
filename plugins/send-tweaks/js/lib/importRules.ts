@@ -49,8 +49,6 @@ function jsonChunks(text: string): string[] {
 			}
 		}
 	}
-	// Keep incomplete JSON so parsing reports a broken/truncated block rather than "No rule found".
-	if (start >= 0 && depth > 0) chunks.push(text.slice(start))
 	return chunks
 }
 
@@ -79,12 +77,7 @@ export function importRules(text: string): ImportResult {
 	const rules: Rule[] = []
 	const skipped: string[] = []
 	const chunks = jsonChunks(text)
-	if (!chunks.length) return {
-		rules,
-		skipped: [!text.trim()
-			? 'The import box is empty. Paste the full rule JSON or use Import from clipboard.'
-			: 'No JSON object found. Copy the full rule, starting with { and ending with }, not just its replacement text.'],
-	}
+	if (!chunks.length) return { rules, skipped: ['No rule found. Paste the JSON, braces included.'] }
 
 	let index = 0
 	for (const [block, chunk] of chunks.entries()) {
@@ -92,7 +85,7 @@ export function importRules(text: string): ImportResult {
 		try {
 			parsed = JSON.parse(chunk)
 		} catch {
-			skipped.push(`Block ${block + 1}: invalid or incomplete JSON. Include the closing braces, use straight double quotes, and write line breaks inside strings as \\n.`)
+			skipped.push(`Block ${block + 1}: not valid JSON`)
 			continue
 		}
 		for (const raw of Array.isArray(parsed) ? parsed : [parsed]) {
