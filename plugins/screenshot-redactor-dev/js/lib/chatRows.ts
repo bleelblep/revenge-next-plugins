@@ -39,7 +39,8 @@ import { ChangeType, redactRows } from "./rowSchema"
 import { count, noteRefreshOutcome } from "./diagnostics"
 import { nudgeStores } from "./nudge"
 import { rerenderViaFlux } from "./rerender"
-import { currentUserId, isEnabled, redactOptions, settings } from "./state"
+import { isEnabled, redactOptions } from "./state"
+import { cancelScheduledRefresh, notifyPresentationRefresh } from "./refreshSignal"
 
 interface TagState {
 	/** `undefined` mirrors native's `rows == null`, i.e. "the next batch is a full sync". */
@@ -200,6 +201,8 @@ export function setChatBridge(next: ChatBridge | undefined) {
  * since the plugin started.
  */
 export function refreshChat(): string | undefined {
+	cancelScheduledRefresh()
+	notifyPresentationRefresh()
 	// The DM header, member list and profile sheets are ordinary React components subscribed to
 	// stores, so an emit is exactly the right tool for them — it just never was for the message
 	// list. Done first and unconditionally: it is independent of whether any chat is mirrored.
@@ -209,16 +212,14 @@ export function refreshChat(): string | undefined {
 	// regenerate the open channel's rows through its own pipeline is the only repaint path.
 	// Each cached message gets a MESSAGE_UPDATE dispatch; MessageStore re-emits and the row
 	// regenerates through RowManager.generate (our hook redacts or restores it per toggle).
-	const fluxOutcome = rerenderViaFlux()
-
 	if (!bridge) {
+		const fluxOutcome = rerenderViaFlux()
 		const outcome = `chat bridge unavailable; ${fluxOutcome}`
 		noteRefreshOutcome(outcome)
-		return outcome
+		return fluxOutcome.startsWith("asked Discord") ? outcome : undefined
 	}
 
 	const enabled = isEnabled()
-	const { style, redactAvatars, redactBadges, redactSelf } = settings()
 
 	let repainted = 0
 	let untrusted = 0
@@ -272,16 +273,17 @@ export function refreshChat(): string | undefined {
 	const nudgeNote = nudged.length ? `, nudged ${nudged.length} stores` : ", no store nudged"
 
 	if (repainted === 0) {
-		const outcome =
-			(untrusted > 0
+		const fluxOutcome = rerenderViaFlux()
+		const reason = untrusted > 0
 				? `${untrusted} list${untrusted === 1 ? "" : "s"} mirrored only partially`
-				: "nothing mirrored yet") + `${nudgeNote}; ${fluxOutcome}`
+				: "nothing mirrored yet"
+		const outcome = `${reason}${nudgeNote}; ${fluxOutcome}`
 		noteRefreshOutcome(outcome)
-		return outcome
+		return fluxOutcome.startsWith("asked Discord") ? outcome : undefined
 	}
 
 	count("repaints")
-	const outcome = `repainted ${repainted} chat list${repainted === 1 ? "" : "s"}${nudgeNote}; ${fluxOutcome}`
+	const outcome = `repainted ${repainted} chat list${repainted === 1 ? "" : "s"}${nudgeNote}`
 	noteRefreshOutcome(outcome)
 	return outcome
 }

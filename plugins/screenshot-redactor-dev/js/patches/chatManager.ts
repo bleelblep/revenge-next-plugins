@@ -1,7 +1,7 @@
 import { applyBatch, isReplaying, noteCleared, setChatBridge } from "../lib/chatRows"
 import { count, noteChatManagerPatch } from "../lib/diagnostics"
 import { redactRows } from "../lib/rowSchema"
-import { currentUserId, isEnabled, redactOptions, settings } from "../lib/state"
+import { isEnabled, redactOptions } from "../lib/state"
 
 /**
  * Redaction at the JS/native boundary.
@@ -196,16 +196,15 @@ function installFabric(commands: any) {
 						// bridge where `JSON.parse` already handed us a private copy. Both the
 						// mirror and the redaction pass therefore have to work on clones, or we
 						// would be rewriting the client's own state rather than the frame.
+						// forceReload invalidates native views; it does not make a delta a full sync.
 						applyBatch(tag, JSON.parse(JSON.stringify(rows)))
 
 						if (isEnabled()) {
-							const { style, redactAvatars, redactBadges, redactSelf } = settings()
-
 							const outgoing = JSON.parse(JSON.stringify(rows))
 							const redacted = redactRows(outgoing, redactOptions())
 
 							if (redacted > 0) count("rowsRedacted")
-							options.rows = outgoing
+							args[1] = { ...options, rows: outgoing }
 						}
 					}
 				}
@@ -334,8 +333,6 @@ function install(manager: any) {
 							applyBatch(tag, rows)
 
 							if (isEnabled()) {
-								const { style, redactAvatars, redactBadges, redactSelf } = settings()
-
 								// A second parse rather than a clone of `rows`: the mirror keeps
 								// the originals and this copy gets rewritten. Only paid while
 								// redaction is armed.

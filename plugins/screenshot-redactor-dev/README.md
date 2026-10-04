@@ -1,5 +1,48 @@
 # Screenshot Redactor
 
+## Current release: 0.27.9
+
+This release scopes original row generation to real resolver output and redacts a private outgoing
+message. This prevents an alias produced by a shared resolver from being saved as the original
+DM name. Reload once after installing to discard caches populated by older builds.
+
+This build refactors member/reaction identity presentation and refresh. **Device verification is
+still required**; the historical coverage notes below describe earlier versions.
+
+- `resolverHooks.ts` patches each named/default export slot independently. Discord 349.2's
+  `UserUtils` has both hosts; the previous either/or selection missed callers of the other one.
+- `userSurfaces.tsx` covers the memoized `UserRow`, reaction-list `renderItem` output and the shared
+  `Avatar`. Each boundary subscribes to settings and to explicit refreshes (including alias reset).
+  Member status sublabels are hidden while redacted; reaction nickname and secondary username are
+  replaced together. Rendered elements are copied; store records are not modified.
+- `NicknameUtils.getNickname(guildId, channelId, user)` is a separate resolver and is now covered.
+- Native Fabric outgoing options are copied, and a successful
+  mirror replay no longer also dispatches synthetic message updates. Unavailable refreshes are no
+  longer reported as successful. Message-body setting changes now request a repaint too.
+- A shared storage subscription refreshes presentation for settings changed through any entry
+  point; explicit refreshes cancel the queued duplicate. Native `forceReload` remains a view
+  invalidation flag, not evidence of a complete row batch (confirmed in `ChatListManager`).
+- Reply previews are copied before transformation, including the self-exclusion case.
+
+The member and reaction call sites were inspected in the available **349.5** Hermes bundle;
+DevTools confirmed the dual-export UserUtils and shared memo Avatar in the connected **349.2**
+client. Runtime eval and the React tree were unavailable during that inspection pass.
+
+The message-menu fix was subsequently checked against the live Discord 349.5 menu structure.
+Plugin actions now target groups inside `Design.ActionSheet` by component identity rather than
+component names, keeping them out of the outer provider beneath the status bar.
+
+Verification: `bun test plugins/screenshot-redactor-dev/tests/redaction.test.ts`,
+`npm run lint:types`, `bun run build screenshot-redactor-dev`.
+
+Device checks: with a member list or reaction sheet already open, toggle on/off, change style,
+reset numbering, and test self exclusion. Check nicknames, secondary handles, avatar decorations,
+and restoration. Repeat on chat opened both before and after enabling, then switch channels and
+load more messages. Profile sheets, typing indicators and other unwrapped memoized surfaces still
+need their own coverage checks; shared resolver installation alone does not prove coverage.
+
+## Historical implementation notes
+
 A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be
 screenshotted and shared without doxxing anyone in it.
 

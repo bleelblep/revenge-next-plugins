@@ -348,7 +348,12 @@ export function redactMessage(message: any, options: RedactOptions): boolean {
 	// systemContent}), so it redacts through exactly the same path rather than a parallel
 	// implementation that can drift. `state` 0 is LOADED; a system reference carries no author.
 	const referenced = message.referencedMessage
-	if (referenced?.message && redactMessage(referenced.message, options)) changed = true
+	if (referenced?.message) {
+		// Reply previews can also come from a shared parser/row cache. Own the nested envelope
+		// before replacing names, not just its content array.
+		message.referencedMessage = { ...referenced, message: { ...referenced.message } }
+		if (redactMessage(message.referencedMessage.message, options)) changed = true
+	}
 
 	// The message body. Deliberately before the author checks below: what somebody typed is
 	// worth blanking whether or not the row names them, and "redact me too" being off must not
@@ -367,7 +372,7 @@ export function redactMessage(message: any, options: RedactOptions): boolean {
 	if (!options.self) {
 		// `isCurrentUserMessageAuthor` is on the wire already (Message$$serializer), so the
 		// common case needs no store lookup at all on a path that runs per row.
-		if (message.isCurrentUserMessageAuthor === true) return changed
+		if (message.isCurrentUserMessageAuthor === true || authorId === options.selfId) return changed
 	}
 
 	if (typeof message.username === "string") {

@@ -2,6 +2,7 @@ import { redactedName } from "../lib/alias"
 import { noteNamePatch, noteResolverSkipped } from "../lib/diagnostics"
 import { isEnabled, settings } from "../lib/state"
 import { findUserObject } from "../lib/userArgs"
+import { patchResolver, resolverHosts, ResolverSlots } from "../lib/resolverHooks"
 
 /**
  * Redacting names *wherever the client resolves them* — inline `@mentions`, the member list, the
@@ -98,25 +99,8 @@ export function isGetNameHooked(): boolean {
  * synchronous and not re-entrant, so one slot between the two is safe.
  */
 function patchOne(namespace: any, key: string, label: string, cleanups: Array<() => void>) {
-	let pendingUserId: string | undefined
-
 	cleanups.push(
-		revenge.patcher.before(namespace, key, (args: any[]) => {
-			try {
-				pendingUserId = findUserObject(args)?.id
-			} catch {
-				pendingUserId = undefined
-			}
-			// Must return the args array -- see docs/porting-rules.md rule 2.
-			return args
-		}),
-	)
-
-	cleanups.push(
-		revenge.patcher.after(namespace, key, (ret: any) => {
-			const userId = pendingUserId
-			pendingUserId = undefined
-
+		patchResolver(namespace, key, args => findUserObject(args)?.id as string | undefined, (ret, userId) => {
 			try {
 				if (!isEnabled()) return ret
 				// Every resolver in this family returns a plain string -- `getUserTag` and
@@ -159,7 +143,7 @@ function patchOne(namespace: any, key: string, label: string, cleanups: Array<()
 function patchNamespace(
 	mod: any,
 	where: string,
-	seen: Set<any>,
+	seen: ResolverSlots,
 	cleanups: Array<() => void>,
 	only?: string,
 ): number {
@@ -169,19 +153,12 @@ function patchNamespace(
 		if (only && key !== only) continue
 
 		try {
-			const host = typeof mod?.[key] === "function" ? mod : mod?.default
-
-			if (typeof host?.[key] !== "function") continue
-			if (seen.has(host[key])) continue
-			seen.add(host[key])
-
-			patchOne(host, key, `${key} (${where})`, cleanups)
-			// The patcher leaves a proxy in the slot, a different object from the function just
-			// recorded. Without recording it too, the next route to this same module (the prop
-			// sweep, a later `waitForModules` hit) sees an unseen function and hooks it again --
-			// which is what every session through 0.27.2 did to all seven resolvers.
-			seen.add(host[key])
-			hooked++
+			for (const host of resolverHosts(mod, key)) {
+				if (seen.has(host, key)) continue
+				patchOne(host, key, `${key} (${where}, ${host === mod ? "exports" : "default"})`, cleanups)
+				seen.add(host, key)
+				hooked++
+			}
 		} catch (error) {
 			console.error(`[ScreenshotRedactor] failed to patch ${key}:`, error)
 		}
@@ -218,7 +195,7 @@ function resolverCount(mod: any): number {
  * Every miss is counted. "The callback fired and found nothing callable" and "the callback never
  * fired" look identical from a settings page, and telling them apart is what took five releases.
  */
-function sweepFor(key: string, seen: Set<any>, cleanups: Array<() => void>): () => void {
+function sweepFor(key: string, seen: ResolverSlots, cleanups: Array<() => void>): () => void {
 	const { lookupModules, waitForModules } = revenge.modules.finders
 	const { withProps } = revenge.modules.finders.filters
 
@@ -254,7 +231,7 @@ export default function patchDisplayName(): () => void {
 	const unsubscribes: Array<() => void> = []
 	// Two paths can reach the same function. Patching it twice would install two hook pairs whose
 	// `before` halves clobber each other's pending slot, so the function itself is the key.
-	const seen = new Set<any>()
+	const seen = new ResolverSlots()
 
 	// The sweeps are only for a build where the path has moved. Once the path has answered they
 	// are pointless at best, and at worst hook some other module's `getName`.
@@ -296,6 +273,19 @@ export default function patchDisplayName(): () => void {
 		for (const key of RESOLVERS) sweeps.push(sweepFor(key, seen, cleanups))
 	}
 	unsubscribes.push(stopSweeps)
+	// Reaction rows call this distinct resolver with (guildId, channelId, user). A guild
+	// nickname can bypass UserUtils entirely; the user is the subject, not either id argument.
+	try {
+		unsubscribes.push(revenge.discord.utils.modules.finders.getModuleWithImportedPath("utils/NicknameUtils.tsx", (mod: any) => {
+			for (const host of resolverHosts(mod, "getNickname")) {
+				if (seen.has(host, "getNickname")) continue
+				patchOne(host, "getNickname", "NicknameUtils.getNickname", cleanups)
+				seen.add(host, "getNickname")
+			}
+		}))
+	} catch (error) {
+		console.error("[ScreenshotRedactor] NicknameUtils discovery failed:", error)
+	}
 
 	return () => {
 		getNameHooked = false

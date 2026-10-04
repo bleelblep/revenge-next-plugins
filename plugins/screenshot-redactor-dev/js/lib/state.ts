@@ -4,6 +4,26 @@ import type { RedactOptions } from "./rowSchema"
 import type { ScreenshotRedactorStorage } from "../types"
 
 let storage: RevengeJsonStorageApi<ScreenshotRedactorStorage> | undefined
+let originalResolutionDepth = 0
+
+/** Render a private presentation boundary from real values, keeping resolver caches reversible. */
+export function withOriginalResolution<T>(render: () => T): T {
+	originalResolutionDepth++
+	try { return render() } finally { originalResolutionDepth-- }
+}
+
+/** Wrap only the original producer, before installing its redaction after-hook. */
+export function preserveOriginalResolution(host: any, key: string): () => void {
+	const original = host[key]
+	if (typeof original !== "function") throw new TypeError(`${key} is not callable`)
+	function producer(this: any, ...args: any[]) {
+		return withOriginalResolution(() => Reflect.apply(original, this, args))
+	}
+	host[key] = producer
+	return () => {
+		if (host[key] === producer) host[key] = original
+	}
+}
 
 export function setStorage(handle: RevengeJsonStorageApi<ScreenshotRedactorStorage>) {
 	storage = handle
@@ -34,6 +54,7 @@ export function settings(): ScreenshotRedactorStorage {
  * returns, touching no user data and allocating nothing.
  */
 export function isEnabled(): boolean {
+	if (originalResolutionDepth > 0) return false
 	return storage?.cache?.enabled ?? DEFAULTS.enabled
 }
 

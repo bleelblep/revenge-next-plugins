@@ -24,6 +24,8 @@ const STORE_NAMES = [
 	"GuildMemberStore",
 	"SelectedChannelStore",
 	"PresenceStore",
+	"MessageReactionsStore",
+	"TypingStore",
 ]
 
 const EMIT_METHODS = ["emitChange", "doEmitChanges"]
@@ -86,26 +88,6 @@ export function nudgeStores(): string[] {
 			/* try the next store */
 		}
 	}
-
-	// The group-DM header still needs a channel refresh or switch, but sweeping initialized stores
-	// refreshes other resolver-backed surfaces and may cover future Discord subscription changes.
-	// An invokeAll on a store nobody listens to returns immediately when hasAny is false.
-	let swept = 0
-	try {
-		for (const name of Reflect.ownKeys(stores)) {
-			if (typeof name !== "string" || STORE_NAMES.includes(name)) continue
-			try {
-				emitOn(stores[name])
-				swept++
-			} catch {
-				/* next */
-			}
-		}
-	} catch {
-		/* Reflect.ownKeys fails if the proxy isn't ready — fine */
-	}
-
-	if (swept > 0) called.push(`${swept} more stores swept`)
 
 	return called
 }

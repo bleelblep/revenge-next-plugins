@@ -5,7 +5,7 @@
 	"description": "Blur messages from chosen people, channels or keywords like spoilers, and tap to reveal.",
 	"author": "bleelblep",
 	"icon": "EyeSlashIcon",
-	"version": "0.4.4",
+	"version": "0.4.5",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
