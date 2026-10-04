@@ -99,14 +99,15 @@ function previewMessage(content: string): any {
 }
 
 /**
- * Opens the preview for the current channel's draft. [send] is the send button's own `onPress`;
+ * Opens the preview for the send button's live composer text. [send] is its own `onPress`;
  * without it the dialog only has Close. Returns false if there was nothing to preview.
  */
-export function showPreview(send?: () => void): boolean {
-	const stores = revenge.discord.flux.Stores as any
-	const channelId: string | undefined = stores.SelectedChannelStore?.getChannelId?.()
-	const draft: string = channelId ? (stores.DraftStore?.getDraft?.(channelId, 0) ?? '') : ''
-	if (!channelId || !draft.trim()) {
+export function showPreview(draft: string | undefined, send?: () => void): boolean {
+	if (draft === undefined) {
+		toast("Couldn't read the message box yet — reopen the chat and try again")
+		return false
+	}
+	if (!draft.trim()) {
 		toast('Nothing to preview yet')
 		return false
 	}

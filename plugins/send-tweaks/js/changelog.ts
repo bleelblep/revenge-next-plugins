@@ -3,6 +3,22 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.5.18',
+		date: '2026-10-05',
+		title: 'Preview the live draft',
+		changes: [
+			'Preview now reads the current message box directly instead of a saved draft that can lag behind typing or pasting.',
+		],
+	},
+	{
+		version: '0.5.17',
+		date: '2026-10-05',
+		title: 'Swipe up on newer Discord builds',
+		changes: [
+			'Fixed holding send and swiping up doing nothing on Discord builds that strip component names.',
+		],
+	},
+	{
 		version: '0.5.16',
 		date: '2026-10-04',
 		title: 'Replace rules',
