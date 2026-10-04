@@ -20,7 +20,7 @@
  * not worth coordinating over.
  */
 
-import { findInReactTree } from '../lib/findInReactTree'
+import { findMessageSheetGroupParent } from '../../../../shared/messageSheet'
 import { debug, settings } from '../lib/state'
 import { rowStateFor, toggleTranslation } from '../lib/translate'
 
@@ -84,32 +84,8 @@ function isMessageSheet(key: string) {
 	return /message/i.test(key) && !/channel|forum|guild|thread/i.test(key)
 }
 
-/**
- * A component's name, however it is wrapped. `type.name` alone is not enough: a `React.memo()`
- * wrapper has no name of its own, and `forwardRef` hides it under `render` (porting rule 3).
- */
-function typeNameOf(node: any): string | undefined {
-	const t = node?.type
-	if (!t) return undefined
-	return (
-		t.name ||
-		t.displayName ||
-		t.type?.name ||
-		t.type?.displayName ||
-		t.render?.name ||
-		undefined
-	)
-}
-
-const isRowGroup = (node: any) =>
-	/ActionSheetRowGroup$/.test(typeNameOf(node) ?? '')
-
 function findGroupParent(tree: any): any {
-	return findInReactTree(tree, (node: any) => {
-		const children = node?.props?.children
-		if (Array.isArray(children)) return children.some(isRowGroup)
-		return isRowGroup(children)
-	})
+	return findMessageSheetGroupParent(tree, revenge.discord.design.Design.ActionSheet, ActionSheetRowComponent()?.Group)
 }
 
 let actionSheetRow: any
@@ -209,18 +185,6 @@ function inject(
 		// Single child: promote it to an array so the new group can sit alongside it. React only
 		// freezes props in development builds.
 		else parent.props.children = [row, children]
-		return true
-	}
-
-	// No recognisable group: aim for the sheet's own children. Less precise, but a row in an odd
-	// place beats a feature that silently does not exist.
-	const children = rendered?.props?.children
-	if (Array.isArray(children)) {
-		children.unshift(row)
-		return true
-	}
-	if (children) {
-		rendered.props.children = [row, children]
 		return true
 	}
 

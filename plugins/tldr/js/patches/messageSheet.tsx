@@ -9,7 +9,7 @@
  * the session, and closing it leaves the chat exactly as it was.
  */
 
-import { findInReactTree } from '../lib/findInReactTree'
+import { findMessageSheetGroupParent } from '../../../../shared/messageSheet'
 import { debug, settings, TAG, toast } from '../lib/state'
 import { readableMentions, summarise, textOf } from '../lib/summarise'
 
@@ -25,20 +25,8 @@ function isMessageSheet(key: string) {
 	return /message/i.test(key) && !/channel|forum|guild|thread/i.test(key)
 }
 
-function typeNameOf(node: any): string | undefined {
-	const t = node?.type
-	if (!t) return undefined
-	return t.name || t.displayName || t.type?.name || t.type?.displayName || t.render?.name
-}
-
-const isRowGroup = (node: any) => /ActionSheetRowGroup$/.test(typeNameOf(node) ?? '')
-
 function findGroupParent(tree: any): any {
-	return findInReactTree(tree, (node: any) => {
-		const children = node?.props?.children
-		if (Array.isArray(children)) return children.some(isRowGroup)
-		return isRowGroup(children)
-	})
+	return findMessageSheetGroupParent(tree, revenge.discord.design.Design.ActionSheet, ActionSheetRowComponent()?.Group)
 }
 
 let actionSheetRow: any
@@ -122,7 +110,7 @@ function inject(rendered: any, target: Target): boolean {
 	const group = buildGroup(target)
 	if (!group) return false
 
-	const holder = findGroupParent(rendered) ?? rendered
+	const holder = findGroupParent(rendered)
 	const children = holder?.props?.children
 	if (Array.isArray(children)) {
 		children.unshift(group)

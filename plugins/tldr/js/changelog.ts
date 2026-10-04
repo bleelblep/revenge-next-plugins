@@ -3,6 +3,12 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.2.5',
+		date: '2026-10-05',
+		title: 'Message menu placement',
+		changes: ['Keep TL;DR inside the message menu on Discord builds with unnamed components, instead of beneath the status bar.'],
+	},
+	{
 		version: '0.2.4',
 		date: '2026-10-03',
 		title: 'Changelog',

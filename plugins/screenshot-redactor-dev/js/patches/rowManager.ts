@@ -7,7 +7,7 @@ import {
 } from "../lib/diagnostics"
 import { forgetOriginal, rememberOriginal } from "../lib/originals"
 import { redactMessage } from "../lib/rowSchema"
-import { currentUserId, isEnabled, redactOptions, settings } from "../lib/state"
+import { isEnabled, preserveOriginalResolution, redactOptions, settings } from "../lib/state"
 import { ensureChatManagerPatched } from "./chatManager"
 import { ensureDmHeaderPatched } from "./dmHeader"
 
@@ -65,6 +65,10 @@ const MAX_DEPTH = 32
 
 function patchOne(RowManager: any, cleanups: Array<() => void>) {
 	const { HookPriority } = revenge.patcher as any
+	// The shared name/avatar hooks must not bake aliases into the producer's caches or the
+	// saved "original". Scope only the producer; our after-hook runs outside it and redacts
+	// a private result. A finally block restores resolver behavior even if generation throws.
+	cleanups.push(preserveOriginalResolution(RowManager.prototype, "generate"))
 
 	// Deliberately NOT `instead`: custom-timestamps already owns the one permitted `instead` on
 	// this method, and a second one can infinitely recurse in this patcher. before/after are
@@ -129,7 +133,7 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 						count("skippedNoRow")
 						return ret
 					}
-					if (row.rowType !== 1) {
+					if (row.rowType !== 1 && !ret?.message) {
 						count("skippedRowType")
 						// A divider or date separator being skipped is correct. A skipped row
 						// that carries an author is a leak, and the two were indistinguishable
@@ -144,24 +148,23 @@ function patchOne(RowManager: any, cleanups: Array<() => void>) {
 						return ret
 					}
 
-					const { style, redactAvatars, redactBadges, redactSelf, verboseLogging } = settings()
+					const { verboseLogging } = settings()
 
 					if (verboseLogging) dumpRowShape(generated)
 
-					if (!generated.authorId) {
-						count("skippedNoAuthor")
-						return ret
-					}
+					if (!generated.authorId) count("skippedNoAuthor")
 
 					// Shared with the `updateRows` hook rather than reimplemented here: both
 					// rewrite the same `Message` shape, and the two drifting apart is how the
 					// reply preview ended up with its own slightly different avatar clearing.
 					// The mirror needs the unredacted row to switch back to; see lib/originals.ts.
 					rememberOriginal(generated)
-					const changed = redactMessage(generated, redactOptions())
+					const outgoing = { ...generated }
+					const changed = redactMessage(outgoing, redactOptions())
 
 					if (changed) count("rowsRedacted")
 					else count("skippedSelf")
+					return { ...ret, message: outgoing }
 				} catch (error) {
 					console.error("[ScreenshotRedactor] generate hook failed:", error)
 				}
@@ -217,7 +220,7 @@ export default function patchRowManager(): () => void {
 
 	return () => {
 		unsubscribe()
-		cleanups.forEach(unpatch => {
+		cleanups.reverse().forEach(unpatch => {
 			try {
 				unpatch()
 			} catch {

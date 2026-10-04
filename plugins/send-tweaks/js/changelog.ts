@@ -3,6 +3,51 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.5.21',
+		date: '2026-10-05',
+		title: 'Local JSON rules in the rule creator',
+		changes: [
+			'The AI rule creator now accepts a JSON rule with find and replace fields locally, without an AI call.',
+			'Thanks to @everestmcarthur (Rosie Val) for PR #8: https://github.com/bleelblep/revenge-next-plugins/pull/8.',
+		],
+	},
+	{
+		version: '0.5.20',
+		date: '2026-10-05',
+		title: 'Import rule JSON',
+		changes: [
+			'Use a multiline text area for rule imports and add Import from clipboard for complete JSON batches.',
+			'Explain empty, missing, and incomplete JSON instead of reporting every incomplete block as no rule found.',
+			'Credit to @everestmcarthur (Rosie Val) for the local JSON-rule handling contribution in PR #8: https://github.com/bleelblep/revenge-next-plugins/pull/8.',
+		],
+	},
+	{
+		version: '0.5.19',
+		date: '2026-10-05',
+		title: 'Markdown links and replacements',
+		changes: [
+			'Preserve closing markdown markers when removing tracking from a formatted link.',
+			'Allow replacement rules to match text immediately after a markdown link.',
+			'Keep balanced parentheses in URLs while separating surrounding punctuation.',
+		],
+	},
+	{
+		version: '0.5.18',
+		date: '2026-10-05',
+		title: 'Preview the live draft',
+		changes: [
+			'Preview now reads the current message box directly instead of a saved draft that can lag behind typing or pasting.',
+		],
+	},
+	{
+		version: '0.5.17',
+		date: '2026-10-05',
+		title: 'Swipe up on newer Discord builds',
+		changes: [
+			'Fixed holding send and swiping up doing nothing on Discord builds that strip component names.',
+		],
+	},
+	{
 		version: '0.5.16',
 		date: '2026-10-04',
 		title: 'Replace rules',

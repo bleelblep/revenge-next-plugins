@@ -5,7 +5,7 @@
 	"description": "Swaps names, avatars and personal details for placeholders so chats are safe to screenshot.",
 	"author": "bleelblep",
 	"icon": "EyeSlashIcon",
-	"version": "0.27.8",
+	"version": "0.27.9",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

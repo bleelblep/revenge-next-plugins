@@ -11,6 +11,8 @@ import patchDmHeader from "./patches/dmHeader"
 import patchGroupDmTitle from "./patches/groupDmTitle"
 import patchMessageActionSheet from "./patches/messageActionSheet"
 import patchRowManager from "./patches/rowManager"
+import patchUserSurfaces from "./patches/userSurfaces"
+import { watchRedactionSettings } from "./lib/settingsRefresh"
 import { registerPages } from "./ui/routes"
 import Settings from "./ui/pages/Settings"
 import type { ScreenshotRedactorStorage } from "./types"
@@ -38,6 +40,7 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		setStorage(jsonStorage)
+		cleanup(watchRedactionSettings(jsonStorage))
 
 		// The Visuals and Debug sub-screens are their own navigator routes, leaving the root
 		// page short enough to read at a glance -- same split as anti-ghost-ping.
@@ -86,6 +89,7 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 		// the header's avatar are resolved by two unrelated mechanisms, and treating them as one
 		// surface is what let the avatar leak while the name next to it redacted.
 		apply("avatar", patchAvatar)
+		apply("userSurfaces", patchUserSurfaces)
 			apply("messageActionSheet", patchMessageActionSheet)
 		}, 0)
 		cleanup(() => clearTimeout(installTimer))

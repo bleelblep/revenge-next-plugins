@@ -1,5 +1,4 @@
 import { DEFAULTS } from "../../defaults"
-import { onEnabledChanged } from "../../lib/state"
 import { refreshChat } from "../../lib/chatRows"
 import { RELOAD_NOTICE_LONG, toggleToast } from "../../lib/notices"
 import { rowIcon } from "../icon"
@@ -44,7 +43,6 @@ export default function Settings({
 
 	function setEnabled(enabled: boolean) {
 		api.jsonStorage.set({ enabled })
-		onEnabledChanged(enabled)
 
 		showToast(toggleToast(enabled, refreshChat()))
 	}
@@ -92,7 +90,10 @@ export default function Settings({
 							subLabel="Emails, phone numbers, addresses, card numbers, invite links and API keys people typed. Matched on this device — nothing is sent anywhere."
 							icon={rowIcon("LockIcon")}
 							value={!!settings.redactBodyDetails}
-							onValueChange={value => setSetting({ redactBodyDetails: value })}
+								onValueChange={value => {
+									setSetting({ redactBodyDetails: value })
+									refreshChat()
+								}}
 						/>
 					</TableRowGroup>
 

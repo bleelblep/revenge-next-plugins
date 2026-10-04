@@ -1,9 +1,10 @@
 import { DEFAULTS } from "../defaults"
+import { findMessageSheetGroupParent } from '../../../../shared/messageSheet'
 import { findInReactTree } from "../lib/findInReactTree"
 import { noteInjectOutcome, noteSheetKey, noteSheetPatch, noteSheetType } from "../lib/diagnostics"
 import { refreshChat } from "../lib/chatRows"
 import { RELOAD_NOTICE } from "../lib/notices"
-import { getStorage, onEnabledChanged, settings } from "../lib/state"
+import { getStorage, settings } from "../lib/state"
 
 /**
  * The quick toggle, as a row in the message long-press sheet.
@@ -60,8 +61,6 @@ function typeNameOf(node: any): string | undefined {
 	return t.name || t.displayName || t.type?.name || t.type?.displayName || t.render?.name || undefined
 }
 
-const isRowGroup = (node: any) => /ActionSheetRowGroup$/.test(typeNameOf(node) ?? "")
-
 /**
  * Finds the element that *contains* the row groups, so a new group can be added beside them.
  *
@@ -72,11 +71,7 @@ const isRowGroup = (node: any) => /ActionSheetRowGroup$/.test(typeNameOf(node) ?
  * *parent* works for both shapes.
  */
 function findGroupParent(tree: any) {
-	return findInReactTree(tree, node => {
-		const children = node?.props?.children
-		if (!children) return false
-		return Array.isArray(children) ? children.some(isRowGroup) : isRowGroup(children)
-	})
+	return findMessageSheetGroupParent(tree, revenge.discord.design.Design.ActionSheet, ActionSheetRowComponent()?.Group)
 }
 
 /** Records every component name in a rendered sheet, so a failed match can be diagnosed. */
@@ -146,7 +141,6 @@ function buildToggleRow() {
 		const next = !enabled
 		try {
 			storage?.set({ enabled: next })
-			onEnabledChanged(next)
 			refreshChat()
 
 			revenge.discord.actions.ToastActionCreators.open({
@@ -215,25 +209,10 @@ function inject(rendered: any): boolean {
 		return true
 	}
 
-	// Fallback: no recognisable group anywhere, so aim for the sheet's own children instead.
-	// Less precise -- the row may land in the wrong visual section -- but a row in an odd place
-	// beats a feature that silently doesn't exist.
-	const children = rendered?.props?.children
-	if (Array.isArray(children)) {
-		children.unshift(row)
-		noteInjectOutcome("inserted into sheet children (fallback)")
-		return true
-	}
-	if (children) {
-		rendered.props.children = [row, children]
-		noteInjectOutcome("inserted into sheet children, promoted (fallback)")
-		return true
-	}
-
 	// Nothing worked. Record the tree's component names so the next round has something to aim
 	// at instead of another guess.
 	recordSheetTypes(rendered)
-	noteInjectOutcome("failed: no row group and no children found")
+	noteInjectOutcome("failed: no row group inside ActionSheet")
 	// Unconditional, not behind the debug switch: this only runs when the feature has already
 	// failed, and it is the one thing that makes the next attempt something other than a guess.
 	console.log("[ScreenshotRedactor] sheet tree:\n" + dumpSheetTree(rendered).join("\n"))

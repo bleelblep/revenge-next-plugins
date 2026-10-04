@@ -1,5 +1,7 @@
 import { noteNamePatch } from "../lib/diagnostics"
-import { getStorage } from "../lib/state"
+import { getStorage, isEnabled, redactOptions, settings, withOriginalResolution } from "../lib/state"
+import { redactedName } from "../lib/alias"
+import { usePresentationRefresh } from "../lib/refreshSignal"
 
 /**
  * The group-DM header, which redacted correctly but only after a screen change.
@@ -55,14 +57,22 @@ function channelNameModule(): any {
 function GroupDmTitle({ element, channelId, title }: { element: any; channelId: string; title: string }) {
 	// The subscription: any settings change (the toggle, the style) re-renders this component alone.
 	getStorage()?.use()
+	usePresentationRefresh()
 
 	try {
 		const { ChannelStore, UserStore, RelationshipStore } = revenge.discord.flux.Stores as any
 		const channel = ChannelStore?.getChannel?.(channelId)
 		const names = channelNameModule()
-		if (!channel || channel.type !== 3 || channel.name || !names) return element
+		if (channel?.type !== 3 || channel.name || !names) return element
 
-		const fresh = names.computeChannelName(channel, UserStore, RelationshipStore)
+		let fresh = withOriginalResolution(() => names.computeChannelName(channel, UserStore, RelationshipStore))
+		if (isEnabled() && settings().redactResolvedNames && Array.isArray(channel.recipients)) {
+			const options = redactOptions()
+			fresh = channel.recipients.map((id: string) => {
+				if (options.self || id !== options.selfId) return redactedName(id, options.style)
+				return withOriginalResolution(() => RelationshipStore.getNickname(id) ?? UserStore.getUser(id)?.globalName ?? UserStore.getUser(id)?.username ?? "???")
+			}).join(", ")
+		}
 		if (typeof fresh !== "string" || fresh === element?.props?.title) return element
 
 		const accessible = element?.props?.accessibleTitle

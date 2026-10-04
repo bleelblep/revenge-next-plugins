@@ -2,6 +2,7 @@ import { redactedAvatarUrl } from "../lib/alias"
 import { noteAvatarPatch, noteResolverSkipped } from "../lib/diagnostics"
 import { isEnabled, settings } from "../lib/state"
 import { findUserIdField, findUserObject } from "../lib/userArgs"
+import { patchResolver, resolverHosts, ResolverSlots } from "../lib/resolverHooks"
 
 /**
  * The avatar beside a name, on every surface that isn't a message row.
@@ -107,27 +108,8 @@ function subjectOf(args: any[]): string | undefined {
 }
 
 function patchOne(namespace: any, key: string, kind: "url" | "source", cleanups: Array<() => void>) {
-	// before + after, never `instead` -- porting rule 2. The resolvers are synchronous and not
-	// re-entrant, so a single pending slot between the two is safe.
-	let pendingUserId: string | undefined
-
 	cleanups.push(
-		revenge.patcher.before(namespace, key, (args: any[]) => {
-			try {
-				pendingUserId = subjectOf(args)
-			} catch {
-				pendingUserId = undefined
-			}
-			// Must return the args array -- see docs/porting-rules.md rule 2.
-			return args
-		}),
-	)
-
-	cleanups.push(
-		revenge.patcher.after(namespace, key, (ret: any) => {
-			const userId = pendingUserId
-			pendingUserId = undefined
-
+		patchResolver(namespace, key, subjectOf, (ret, userId) => {
 			try {
 				if (!userId) return ret
 
@@ -167,24 +149,19 @@ function patchOne(namespace: any, key: string, kind: "url" | "source", cleanups:
 }
 
 /** @returns how many hooks were installed. */
-function patchNamespace(mod: any, seen: Set<any>, cleanups: Array<() => void>): number {
+function patchNamespace(mod: any, seen: ResolverSlots, cleanups: Array<() => void>): number {
 	let hooked = 0
 
 	const install = (key: string, kind: "url" | "source") => {
 		try {
 			// Both shapes, for the same reason as the name resolvers: `withProps` matches a
 			// module whose helper is one level down on `default` (porting rule 3).
-			const host = typeof mod?.[key] === "function" ? mod : mod?.default
-
-			if (typeof host?.[key] !== "function") return
-			if (seen.has(host[key])) return
-			seen.add(host[key])
-
-			patchOne(host, key, kind, cleanups)
-			// The slot now holds the patcher's proxy, a new object; record it too so the sweep
-			// does not hook the same function a second time (see displayName.ts).
-			seen.add(host[key])
-			hooked++
+			for (const host of resolverHosts(mod, key)) {
+				if (seen.has(host, key)) continue
+				patchOne(host, key, kind, cleanups)
+				seen.add(host, key)
+				hooked++
+			}
 		} catch (error) {
 			console.error(`[ScreenshotRedactor] failed to patch ${key}:`, error)
 		}
@@ -199,7 +176,7 @@ function patchNamespace(mod: any, seen: Set<any>, cleanups: Array<() => void>): 
 export default function patchAvatar(): () => void {
 	const cleanups: Array<() => void> = []
 	const unsubscribes: Array<() => void> = []
-	const seen = new Set<any>()
+	const seen = new ResolverSlots()
 	// The sweep is for a build where the path has moved; once the path has answered it can only
 	// hook the same functions a second time.
 	let pathHooked = false
