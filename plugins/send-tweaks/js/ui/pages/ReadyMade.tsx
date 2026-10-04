@@ -1,4 +1,4 @@
-import { copyText } from '../../lib/clipboard'
+import { copyText, readClipboardText } from '../../lib/clipboard'
 import { importRules, PRESETS, type Preset, THREAD } from '../../lib/importRules'
 import { addRule, readRules, type RuleKind, useRules, writeRules } from '../../lib/ruleStore'
 import AiDraft from '../components/AiDraft'
@@ -57,16 +57,18 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 	const { React } = revenge.react
 	const { Page } = revenge.components
 	const { ScrollView, View } = revenge.react.ReactNative
-	const { Stack, Text, Card, TableRowGroup, TableRow, TextInput } = revenge.discord.design.Design
+	const { Stack, Text, Card, TableRowGroup, TableRow, TextInput, TextArea } = revenge.discord.design.Design
+	const ImportInput = (TextArea ?? TextInput) as any
 
 	const links = kind === 'links'
 	const rules = useRules(kind)
 	const presets = PRESETS.filter(preset => preset.kind === kind)
 	const [pasted, setPasted] = React.useState('')
 	const [skipped, setSkipped] = React.useState<string[]>([])
+	const [readingClipboard, setReadingClipboard] = React.useState(false)
 
-	const runImport = () => {
-		const result = importRules(pasted)
+	const runImport = (text: string) => {
+		const result = importRules(text)
 		setSkipped(result.skipped)
 		if (result.rules.length) {
 			writeRules(kind, [...readRules(kind), ...result.rules])
@@ -77,6 +79,19 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 				? `Imported ${result.rules.length} rule${result.rules.length === 1 ? '' : 's'}${result.skipped.length ? `, skipped ${result.skipped.length}` : ''}.`
 				: 'Nothing imported — see below.',
 		)
+	}
+	const importClipboard = async () => {
+		setReadingClipboard(true)
+		try {
+			const text = await readClipboardText()
+			setPasted(text)
+			runImport(text)
+		} catch {
+			setSkipped(['Could not read the clipboard. Paste the full rule JSON into the import box instead.'])
+			showToast('Could not read the clipboard.')
+		} finally {
+			setReadingClipboard(false)
+		}
 	}
 
 	return (
@@ -154,7 +169,7 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 								label={links ? 'Import link rules' : 'Import rules'}
 								description={`Text Replace's format: one rule, a list, or a whole message with \`\`\`json blocks in it. Goes into your ${links ? 'link rules' : 'replacement rules'}.`}
 							>
-								<TextInput
+								<ImportInput
 									placeholder='Paste a rule, e.g. { "name": …, "match": …, "replace": … }'
 									value={pasted}
 									multiline
@@ -166,7 +181,14 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 								label="Import"
 								icon={rowIcon('DownloadIcon', 'ic_download_24px')}
 								disabled={!pasted.trim()}
-								onPress={runImport}
+								onPress={() => runImport(pasted)}
+							/>
+							<TableRow
+								label="Import from clipboard"
+								subLabel="Copy the full JSON first. Imports all rules in the copied text."
+								icon={rowIcon('ClipboardIcon', 'CopyIcon')}
+								disabled={readingClipboard}
+								onPress={importClipboard}
 							/>
 						</TableRowGroup>
 						{skipped.length ? (

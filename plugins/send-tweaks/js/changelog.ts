@@ -3,6 +3,26 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.5.20',
+		date: '2026-10-05',
+		title: 'Import rule JSON',
+		changes: [
+			'Use a multiline text area for rule imports and add Import from clipboard for complete JSON batches.',
+			'Explain empty, missing, and incomplete JSON instead of reporting every incomplete block as no rule found.',
+			'Credit to @everestmcarthur (Rosie Val) for the local JSON-rule handling contribution in PR #8: https://github.com/bleelblep/revenge-next-plugins/pull/8.',
+		],
+	},
+	{
+		version: '0.5.19',
+		date: '2026-10-05',
+		title: 'Markdown links and replacements',
+		changes: [
+			'Preserve closing markdown markers when removing tracking from a formatted link.',
+			'Allow replacement rules to match text immediately after a markdown link.',
+			'Keep balanced parentheses in URLs while separating surrounding punctuation.',
+		],
+	},
+	{
 		version: '0.5.18',
 		date: '2026-10-05',
 		title: 'Preview the live draft',
