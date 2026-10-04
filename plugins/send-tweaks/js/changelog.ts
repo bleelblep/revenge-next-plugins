@@ -3,6 +3,15 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.5.21',
+		date: '2026-10-05',
+		title: 'Local JSON rules in the rule creator',
+		changes: [
+			'The AI rule creator now accepts a JSON rule with find and replace fields locally, without an AI call.',
+			'Thanks to @everestmcarthur (Rosie Val) for PR #8: https://github.com/bleelblep/revenge-next-plugins/pull/8.',
+		],
+	},
+	{
 		version: '0.5.20',
 		date: '2026-10-05',
 		title: 'Import rule JSON',
