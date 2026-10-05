@@ -21,7 +21,7 @@ const UNLOCK_HASH = 'bcbfa284fdf9f1f16c505b7b04c319a3545fba81af5824d2f8a79c2e899
 /** Discord's "X joined the server" system message. */
 const USER_JOIN = 7
 
-export const PLACEHOLDERS = ['greeting', 'mention', 'name', 'server', 'channel', 'me', 'date', 'time', 'timestamp', 'username', 'displayname', 'servercount', 'joined', 'created'] as const
+export const PLACEHOLDERS = ['greeting', 'mention', 'name', 'server', 'channel', 'me', 'date', 'time', 'timestamp', 'username', 'displayname', 'servercount', 'joined', 'created', 'rainbow', 'gradient'] as const
 
 export function greetingsUnlocked(): boolean {
 	return settings().greetingsUnlocked === true
@@ -63,11 +63,47 @@ export function withSendContext<T>(next: SendContext, fn: () => T): T {
 // --- Expansion -------------------------------------------------------------------------------
 
 /**
+ * Turns any text into Discord's ANSI rainbow codeblock:
+ * Cycles through 6 ANSI foreground colors (red, yellow, green, cyan, blue, magenta)
+ * for infinite characters.
+ */
+export function toRainbowAnsi(text: string, bold = false): string {
+	const fmt = bold ? '1' : '0'
+	const RAINBOW = [`${fmt};31`, `${fmt};33`, `${fmt};32`, `${fmt};36`, `${fmt};34`, `${fmt};35`]
+	let colorIndex = 0
+	let out = '```ansi\n'
+	for (const char of text) {
+		if (char === '\n') {
+			out += '\n'
+			continue
+		}
+		if (char === ' ' || char === '\t') {
+			out += char
+			continue
+		}
+		const color = RAINBOW[colorIndex % RAINBOW.length]
+		out += `\u001b[${color}m${char}`
+		colorIndex++
+	}
+	out += '\u001b[0m\n```'
+	return out
+}
+
+export function expandDynamicPlaceholders(text: string): string {
+	if (!text.includes('{rainbow') && !text.includes('{gradient')) return text
+	return text.replace(/\{(?:rainbow|gradient)(?::(bold|b))?:([\s\S]*?)\}/g, (_, boldOpt, content) => {
+		return toRainbowAnsi(content, Boolean(boldOpt))
+	})
+}
+
+/**
  * Fills the placeholders in a rule's replacement. `replacement` goes on to `String.replace`, so
  * every value has its `$` doubled to stay literal. Each value is worked out at most once per call.
  */
 export function expandPlaceholders(replacement: string): string {
-	if (!replacement.includes('{') || !greetingsUnlocked()) return replacement
+	if (!replacement.includes('{')) return replacement
+	const unlocked = greetingsUnlocked()
+	if (!unlocked && !replacement.includes('{timestamp')) return replacement
 
 	const cache = new Map<string, string>()
 	const now = context?.now ?? new Date()

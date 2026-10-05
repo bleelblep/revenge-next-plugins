@@ -30,14 +30,12 @@ import { validateTemplate } from './templateValidation'
  * code with it. Text only: attachments waiting to upload are not shown.
  */
 
+import { showToast } from './toast'
+
 const ALERT_KEY = 'SendTweaksPreview'
 
 function toast(content: string) {
-	try {
-		revenge.discord.actions.ToastActionCreators.open({ key: 'SendTweaksPreviewToast', content })
-	} catch {
-		/* no toast */
-	}
+	showToast(content, { key: 'SendTweaksPreviewToast' })
 }
 
 /** The text a send would carry right now, as Send Tweaks would change it. */

@@ -142,7 +142,7 @@ async function callOnce(
 		if (!result.ok) {
 			// 401 and 402 are the two the user can actually fix, so they are never swallowed.
 			if (result.error === 'http')
-				console.error(`${TAG} ${pluginId}: provider returned HTTP ${result.status}`)
+				console.error(`${TAG} ${pluginId}: provider returned HTTP ${result.status}${result.details ? `: ${result.details}` : ''}`)
 			else debug(`${pluginId}: refused or failed (${result.error})`)
 			return undefined
 		}

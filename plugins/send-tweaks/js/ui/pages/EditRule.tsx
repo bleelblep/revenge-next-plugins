@@ -15,12 +15,10 @@ import { TemplateHelpButton } from '../components/TemplateHelp'
 import { validateTemplate } from '../../lib/templateValidation'
 import { settings } from '../../lib/state'
 import { clearTemplateSession } from '../templateSession'
+import { showToast as triggerToast } from '../../lib/toast'
 
 function showToast(content: string) {
-	revenge.discord.actions.ToastActionCreators.open({
-		key: 'SendTweaksRuleToast',
-		content,
-	})
+	triggerToast(content, { key: 'SendTweaksRuleToast' })
 }
 
 /**
@@ -177,8 +175,10 @@ export default function EditRule() {
 								(rule.regex
 									? `Use $1, $2 … for captured groups, and \\n for a line break.${links ? '' : ' Find ^ or $ alone to add text to the start or end of every message.'}`
 									: 'Used exactly as typed, line breaks included.') +
-								(!links && greetingsUnlocked()
-									? ` Greetings: ${PLACEHOLDERS.map(key => `{${key}}`).join(' ')}. {mention} is who you reply to, or whoever joined last.`
+								(!links
+									? greetingsUnlocked()
+										? ` Placeholders: ${PLACEHOLDERS.map(key => `{${key}}`).join(' ')}. {mention} is who you reply to, or whoever joined last.`
+										: ' Tip: use {timestamp} for a timestamp (<t:time:F>), or {rainbow:$1} / {rainbow} for an ANSI rainbow codeblock.'
 									: '')
 							}
 						>

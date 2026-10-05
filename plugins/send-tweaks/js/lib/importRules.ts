@@ -77,6 +77,12 @@ function toRule(raw: any, label: string): Rule | string {
 	return rule
 }
 
+function sanitizeJson(raw: string): string {
+	return raw.replace(/"(?:[^"\\]|\\.)*"/gs, match => {
+		return match.replace(/\r?\n/g, '\\n').replace(/\t/g, '\\t')
+	})
+}
+
 export function importRules(text: string): ImportResult {
 	const rules: Rule[] = []
 	const skipped: string[] = []
@@ -92,7 +98,7 @@ export function importRules(text: string): ImportResult {
 	for (const [block, chunk] of chunks.entries()) {
 		let parsed: unknown
 		try {
-			parsed = JSON.parse(chunk)
+			parsed = JSON.parse(sanitizeJson(chunk))
 		} catch {
 			skipped.push(`Block ${block + 1}: invalid or incomplete JSON. Include the closing braces, use straight double quotes, and write line breaks inside strings as \\n.`)
 			continue
@@ -252,6 +258,19 @@ export const PRESETS: Preset[] = [
 			name: "Disable Discord's message markdown",
 			find: '([`"*_<>~|#.-])',
 			replace: String.raw`\$1`,
+			regex: true,
+			caseSensitive: false,
+			wholeWord: false,
+		},
+	},
+	{
+		kind: 'text',
+		source: 'added',
+		note: 'Turns `/rainbow <text>` into an ANSI rainbow codeblock of any length.',
+		rule: {
+			name: '/rainbow',
+			find: String.raw`^\/rainbow\s+([\s\S]+)$`,
+			replace: '{rainbow:$1}',
 			regex: true,
 			caseSensitive: false,
 			wholeWord: false,

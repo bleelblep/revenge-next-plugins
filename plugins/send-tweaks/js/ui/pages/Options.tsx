@@ -1,12 +1,9 @@
 import { updateClearUrls } from '../../lib/clearurls'
 import { getStorage, requireReload, useSettings } from '../../lib/state'
+import { showToast } from '../../lib/toast'
 
 function toast(content: string) {
-	try {
-		revenge.discord.actions.ToastActionCreators.open({ key: 'SendTweaksClearUrls', content })
-	} catch {
-		/* a toast is not worth a crash */
-	}
+	showToast(content, { key: 'SendTweaksClearUrls' })
 }
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'

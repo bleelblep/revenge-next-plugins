@@ -3,9 +3,9 @@
 	"id": "bleelblep.ai-core",
 	"name": "AI Core",
 	"description": "Shared AI key, spending cap and request queue for plugins that use AI. Does nothing on its own.",
-	"author": "bleelblep",
+	"author": "bleelblep, Rosie",
 	"icon": "MagicWandIcon",
-	"version": "2.3.3",
+	"version": "2.3.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

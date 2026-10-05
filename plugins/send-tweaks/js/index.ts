@@ -20,6 +20,7 @@ import { DEFAULTS } from './defaults'
 import { refreshClearUrlsIfStale } from './lib/clearurls'
 import { patchComposer } from './lib/composer'
 import { setAi, setRequireReload, setStorage } from './lib/state'
+import { setToastApi } from './lib/toast'
 import patchOutgoing from './patches/outgoing'
 import patchReplyMention from './patches/replyMention'
 import patchSendButton from './patches/sendButton'
@@ -46,6 +47,10 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		setStorage(jsonStorage)
 		setRequireReload(() => plugin.requireReload())
 		cleanup(() => setRequireReload(undefined))
+
+		const toasts = (api as any).unscoped?.toasts ?? (api as any).toasts
+		if (toasts) setToastApi(toasts)
+		cleanup(() => setToastApi(undefined))
 
 		// Attached by AI Core's `decorate` when it is installed; undefined otherwise.
 		const ai = (api as any).ai as AiHandle | undefined
