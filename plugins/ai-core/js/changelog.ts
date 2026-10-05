@@ -3,6 +3,23 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '2.3.6',
+		date: '2026-10-05',
+		title: 'Release notes for the PR update',
+		changes: ['Added the missing release notes and contributor credit for the 2.3.5 update.'],
+	},
+	{
+		version: '2.3.5',
+		date: '2026-10-05',
+		title: 'Groq and reasoning models',
+		changes: [
+			'Added Groq to the provider picker, with its API address and a default model filled in for you.',
+			'Adjusted completion-token limits and temperature handling for Groq and reasoning models, including GPT-OSS.',
+			'Provider HTTP errors now include response details in the logs to help diagnose failed requests.',
+			'Thanks to @everestmcarthur (Rosie Val) for PR #9: https://github.com/bleelblep/revenge-next-plugins/pull/9.',
+		],
+	},
+	{
 		version: '2.3.3',
 		date: '2026-10-03',
 		title: 'Changelog',

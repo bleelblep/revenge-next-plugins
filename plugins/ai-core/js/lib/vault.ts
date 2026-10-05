@@ -126,6 +126,7 @@ export interface NativeResult {
 	completionTokens?: number
 	status?: number
 	error?: string
+	details?: string
 }
 
 export async function nativeRequest(

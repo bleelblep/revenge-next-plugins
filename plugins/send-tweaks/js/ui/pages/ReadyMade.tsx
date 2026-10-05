@@ -85,6 +85,10 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 		setReadingClipboard(true)
 		try {
 			const text = await readClipboardText()
+			if (!text?.trim()) {
+				showToast('Clipboard is empty or inaccessible.')
+				return
+			}
 			setPasted(text)
 			runImport(text)
 		} catch {
@@ -93,27 +97,6 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 		} finally {
 			setReadingClipboard(false)
 		}
-	}
-
-	const importClipboard = async () => {
-		const text = await readClipboardText()
-		if (!text?.trim()) {
-			showToast('Clipboard is empty or inaccessible.')
-			return
-		}
-		const result = importRules(text)
-		setSkipped(result.skipped)
-		if (result.rules.length) {
-			writeRules(kind, [...readRules(kind), ...result.rules])
-			setPasted('')
-		} else {
-			setPasted(text)
-		}
-		showToast(
-			result.rules.length
-				? `Imported ${result.rules.length} rule${result.rules.length === 1 ? '' : 's'}${result.skipped.length ? `, skipped ${result.skipped.length}` : ''}.`
-				: 'Nothing imported from clipboard — see below.',
-		)
 	}
 
 	return (
@@ -187,12 +170,6 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 
 					<View style={{ gap: 8 }}>
 						<TableRowGroup hasIcons>
-							<TableRow
-								label="Import from clipboard"
-								subLabel="Read rule JSON directly from your clipboard"
-								icon={rowIcon('CopyIcon')}
-								onPress={importClipboard}
-							/>
 							<FieldRow
 								label={links ? 'Import link rules' : 'Import rules'}
 								description={`Text Replace's format: one rule, a list, or a whole message with \`\`\`json blocks in it. Goes into your ${links ? 'link rules' : 'replacement rules'}.`}

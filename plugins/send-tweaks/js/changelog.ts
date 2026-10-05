@@ -3,6 +3,24 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.7.4',
+		date: '2026-10-05',
+		title: 'Release notes for the PR update',
+		changes: ['Added the missing release notes and contributor credit for the 0.7.3 update.'],
+	},
+	{
+		version: '0.7.3',
+		date: '2026-10-05',
+		title: 'Timestamps, rainbow text and rule imports',
+		changes: [
+			'Added timestamp expansion in outgoing messages and rainbow ANSI text formatting. Gradient is an alias for the same rainbow effect.',
+			'Improved ANSI escape-code handling and recognition of pasted or embedded JSON rules in the rule creator.',
+			'Added support for kmio\'s ToastsAPI when available, with a native toast fallback.',
+			'Combined the PR changes with the existing editor tools and consolidated clipboard importing into one action.',
+			'Thanks to @everestmcarthur (Rosie Val) for PR #9: https://github.com/bleelblep/revenge-next-plugins/pull/9.',
+		],
+	},
+	{
 		version: '0.7.2',
 		date: '2026-10-05',
 		title: 'A clearer editing flow',

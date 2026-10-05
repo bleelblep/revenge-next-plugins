@@ -5,7 +5,7 @@
 	"description": "Strips link tracking, rewrites links, sends silently and applies your own find-and-replace rules.",
 	"author": "bleelblep, Rosie",
 	"icon": "SendMessageIcon",
-	"version": "0.7.2",
+	"version": "0.7.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

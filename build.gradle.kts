@@ -76,18 +76,23 @@ val pluginDefs = file("plugins").listFiles().orEmpty()
 // Gradle's exec runs with a minimal, non-login PATH that usually omits user-level install dirs,
 // so the well-known locations are probed explicitly.
 data class JsTool(val kind: String, val exe: File) {
+    private val launcher: List<String>
+        get() = if (exe.extension.lowercase() in listOf("cmd", "bat"))
+            listOf("cmd.exe", "/c", exe.absolutePath)
+        else listOf(exe.absolutePath)
+
     val installCommand: List<String>
         get() = when (kind) {
-            "bun" -> listOf(exe.absolutePath, "install", "--silent")
-            "npm" -> listOf(exe.absolutePath, "install", "--no-audit", "--no-fund", "--silent")
-            "deno" -> listOf(exe.absolutePath, "install", "--quiet")
+            "bun" -> launcher + listOf("install", "--silent")
+            "npm" -> launcher + listOf("install", "--no-audit", "--no-fund", "--silent")
+            "deno" -> launcher + listOf("install", "--quiet")
             else -> error("Unknown JS tool: $kind")
         }
 
     val buildCommand: List<String>
         get() = when (kind) {
-            "npm" -> listOf(exe.absolutePath, "run", "build")
-            "bun" -> listOf(exe.absolutePath, "--bun", "run", "build")
+            "npm" -> launcher + listOf("run", "build")
+            "bun" -> launcher + listOf("--bun", "run", "build")
             // Deno creates no node_modules/.bin shims, so `deno task build` cannot resolve the CLI,
             // so we run its bin file directly.
             "deno" -> listOf(
@@ -117,7 +122,9 @@ fun findJsTool(): JsTool? {
     val pathDirs = System.getenv("PATH").orEmpty().split(File.pathSeparator).filter(String::isNotEmpty)
 
     fun candidatesFor(kind: String): List<File> = buildList {
-        pathDirs.forEach { add(File(it, kind)) }
+        val windows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+        val names = if (windows) listOf("$kind.exe", "$kind.cmd", "$kind.bat") else listOf(kind)
+        pathDirs.forEach { dir -> names.forEach { add(File(dir, it)) } }
         when (kind) {
             "bun" -> homes.forEach { add(File(it, ".bun/bin/bun")) }
             // nvm keeps npm next to node, under versions/node/<ver>/bin.
