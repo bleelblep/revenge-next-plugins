@@ -6,10 +6,10 @@
     "bleelblep.ai-core": {
       "name": "AI Core",
       "description": "Shared AI key, spending cap and request queue for plugins that use AI. Does nothing on its own.",
-      "author": "bleelblep",
+      "author": "bleelblep, Rosie",
       "icon": "MagicWandIcon",
       "channels": {
-        "latest": "2.3.3"
+        "latest": "2.3.6"
       },
       "versions": {
         "1.2.0": {
@@ -94,6 +94,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.3.3.zip",
           "sha256": "c8a58d23e0498197feff6f3c54cb30b9adea6e61d3bcb880950836136eafe7cf",
           "size": 56418,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "2.3.6": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.3.6.zip",
+          "sha256": "92d6c99866bc6803b2efa3417d7cfad1a4bd4dbb7ef40e51d472317f8b737804",
+          "size": 57292,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -225,7 +238,7 @@
       "description": "Choose how chat timestamps look: calendar, relative, ISO 8601 or your own format.",
       "author": "bleelblep, Fiery",
       "channels": {
-        "latest": "1.2.5"
+        "latest": "1.2.6"
       },
       "versions": {
         "1.2.2": {
@@ -279,6 +292,47 @@
               "version": "*"
             }
           }
+        },
+        "1.2.6": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.custom-timestamps@1.2.6.zip",
+          "sha256": "67b35699b99f8503c16b54d69284633c9c63dd90f2aa62d8e694a1f6b3a9acd4",
+          "size": 5581,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.dreamscape": {
+      "name": "Dreamscape",
+      "description": "Liquid glass, holographic avatars, reality tears, gesture spells and AI-designed channel atmospheres.",
+      "author": "bleelblep",
+      "icon": "MagicWandIcon",
+      "channels": {
+        "latest": "0.2.0"
+      },
+      "versions": {
+        "0.2.0": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.dreamscape@0.2.0.zip",
+          "sha256": "a3094ae6b341fbfa53cca84279456657c4b7ebe2e5b187fb898aba42b2511148",
+          "size": 48993,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
         }
       }
     },
@@ -288,7 +342,7 @@
       "author": "bleelblep",
       "icon": "StickerIcon",
       "channels": {
-        "latest": "0.1.2"
+        "latest": "0.1.3"
       },
       "versions": {
         "0.1.1": {
@@ -316,17 +370,29 @@
               "version": "*"
             }
           }
+        },
+        "0.1.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.free-stickers@0.1.3.zip",
+          "sha256": "82ab09b0b79549c6741c3a2842e1cdcb0496c80368b14f4bdc3c7517f813e905",
+          "size": 23880,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
     "bleelblep.ghost-log-native-beta": {
       "name": "Ghost Log Native Beta",
-      "description": "Native-first rewrite beta of Ghost Log. Logs deleted messages with AES-GCM encryption, restores them in chat across reloads, and keeps an encrypted backup. Testing track for the stable plugin.",
+      "description": "Beta of Ghost Log with encrypted storage and backups. The testing track for Ghost Log.",
       "author": "bleelblep",
       "icon": "TrashIcon",
       "channels": {
-        "beta": "0.5.0-beta6",
-        "latest": "0.5.0-beta5"
+        "latest": "0.6.0"
       },
       "versions": {
         "0.5.0-beta3": {
@@ -372,6 +438,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log-native-beta@0.5.0-beta6.zip",
           "sha256": "ae91c8a7dc7dea37634f5d95ba84d3298a05a3ec9912b2bdf5cf741e05f38f0a",
           "size": 56097,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.6.0": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log-native-beta@0.6.0.zip",
+          "sha256": "4eb744e53027639aa1ead306c49c1af781e06b7800828e9bb1256e4316d17ec6",
+          "size": 78399,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -477,7 +556,7 @@
       "author": "bleelblep, blerp",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "1.6.8"
+        "latest": "1.6.9"
       },
       "versions": {
         "1.6.1": {
@@ -549,6 +628,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.6.8.zip",
           "sha256": "6fdd39ee1a7accb0c16e7a546f8e497ace9faf706dc378ec3e11e49b8189dfb2",
           "size": 15011,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.6.9": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.6.9.zip",
+          "sha256": "4bccf99c5ef537721c693b48b4f96523344cd05e3a379d88057e79b14535063c",
+          "size": 15314,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -814,13 +906,37 @@
         }
       }
     },
+    "bleelblep.scenes": {
+      "name": "Scenes",
+      "description": "Living atmospheres for Discord: aurora, nebula, underwater light, rain, embers, enchanted light, Halloween, Thanksgiving and Christmas. Built-in GPU shaders, entirely offline.",
+      "author": "bleelblep",
+      "icon": "ThemeMidnightIcon",
+      "channels": {
+        "latest": "0.2.2"
+      },
+      "versions": {
+        "0.2.2": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.scenes@0.2.2.zip",
+          "sha256": "4c31e14ccc260171bb7f09083965fdd886551999d3b7c5ef1adc92e6f03d78b2",
+          "size": 25280,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.screenshot-redactor-legacy": {
       "name": "Screenshot Redactor (Legacy)",
-      "description": "Pre-347 build, kept for Discord versions older than 347 only — install Screenshot Redactor instead. A toggle that replaces usernames and avatars with stable placeholders, so a conversation can be screenshotted without doxxing anyone. The thread still reads in order — the same person keeps the same placeholder.",
+      "description": "Screenshot Redactor for Discord before version 347. On newer versions, use Screenshot Redactor.",
       "author": "bleelblep",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "0.19.4"
+        "latest": "0.19.9"
       },
       "versions": {
         "0.19.3": {
@@ -840,6 +956,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor-legacy@0.19.4.zip",
           "sha256": "6018e332ac44d13e552ba1a2c8afbaf438dccdebe3039a3ad293dab18867f7c8",
           "size": 12325,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.19.9": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screenshot-redactor-legacy@0.19.9.zip",
+          "sha256": "11c0e37c06e81a07e163eed163539afc2e0d6550e43f61c67140e61e688dce55",
+          "size": 14679,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -1099,10 +1228,10 @@
     "bleelblep.send-tweaks": {
       "name": "Send Tweaks",
       "description": "Strips link tracking, rewrites links, sends silently and applies your own find-and-replace rules.",
-      "author": "bleelblep",
+      "author": "bleelblep, Rosie",
       "icon": "SendMessageIcon",
       "channels": {
-        "latest": "0.5.21"
+        "latest": "0.7.4"
       },
       "versions": {
         "0.1.0": {
@@ -1284,6 +1413,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.5.7.zip",
           "sha256": "f4eca74874176f264ae4bd173c911cf7137e1ac4144a62b43e827a85360be3b0",
           "size": 24584,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.7.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.7.4.zip",
+          "sha256": "0d2b3b8179f4c527805af23706439e405a4d9e72b59949141faf7242a0872b45",
+          "size": 38126,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
