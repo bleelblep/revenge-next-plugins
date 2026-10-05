@@ -2,6 +2,11 @@ import { renderMarkdown } from './markdown'
 import { makeSilent } from './silent'
 import { settings, TAG } from './state'
 import { transform } from './transform'
+import { captureRandom, sendWithPreviewRandom } from './random'
+import { greetingsUnlocked, hasGreetingTarget, ruleScopeMatches } from './greetings'
+import { compileRule } from './textReplace'
+import { expandSnippets } from './templateSyntax'
+import { validateTemplate } from './templateValidation'
 
 /**
  * Preview: a Discord dialog showing the draft as the message it would become, with Send and Close.
@@ -55,7 +60,7 @@ function avatarUrl(me: any): string | undefined {
 }
 
 /** The message as it would appear: who it's from, then the formatted text, scrollable. */
-function previewMessage(content: string): any {
+function previewMessage(content: string, warnings: string[] = []): any {
 	const React = revenge.react.React
 	const { Image, ScrollView, View, Dimensions } = revenge.react.ReactNative
 	const { Text } = revenge.discord.design.Design as any
@@ -95,6 +100,7 @@ function previewMessage(content: string): any {
 		},
 		author,
 		body,
+		...warnings.map(warning => React.createElement(Text, { key: warning, variant: 'text-sm/normal', color: 'text-feedback-warning', style: { marginTop: 8 } }, warning)),
 	)
 }
 
@@ -112,7 +118,19 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 		return false
 	}
 
-	const content = previewText(draft)
+	const { result: content, choices } = captureRandom(() => previewText(draft))
+	const warnings: string[] = []
+	if (greetingsUnlocked()) {
+		const s = settings()
+		for (const rule of s.textReplace ? s.rules : []) {
+			if (!rule.enabled || !ruleScopeMatches(rule.scope) || !compileRule(rule).pattern?.test(draft)) continue
+			const expanded = expandSnippets(rule.replace, s.snippets ?? [])
+			warnings.push(...validateTemplate(expanded, content, s.snippets ?? [], Infinity))
+			if (/\{mention\}/.test(expanded) && !hasGreetingTarget()) warnings.push('No recipient found for {mention}. Reply to someone or provide a fallback.')
+		}
+		// Account limits can vary by Discord entitlement/experiment: use a conservative advisory.
+		if (content.length > 2000) warnings.push(`Output has ${content.length} characters. Check your account's message-length limit before sending.`)
+	}
 	const { AlertModal, AlertActionButton } = revenge.discord.design.Design as any
 	const alerts = revenge.discord.actions.AlertActionCreators
 	const React = revenge.react.React
@@ -123,7 +141,7 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 			ALERT_KEY,
 			React.createElement(AlertModal, {
 				title: 'Preview',
-				extraContent: previewMessage(content),
+				extraContent: previewMessage(content, [...new Set(warnings)]),
 				actions: React.createElement(
 					React.Fragment,
 					null,
@@ -133,7 +151,7 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 								variant: 'primary',
 								onPress: () => {
 									close()
-									send()
+									sendWithPreviewRandom(draft, choices, send)
 								},
 							})
 						: null,

@@ -13,6 +13,7 @@
  */
 
 import { getStorage, settings, TAG } from './state'
+import { discordTimestamp, formatLocal, scopeMatches, type RuleScope } from './templateSyntax'
 
 /** SHA-256 of the unlock phrase, after `normalize`. */
 const UNLOCK_HASH = 'bcbfa284fdf9f1f16c505b7b04c319a3545fba81af5824d2f8a79c2e89945779'
@@ -20,7 +21,7 @@ const UNLOCK_HASH = 'bcbfa284fdf9f1f16c505b7b04c319a3545fba81af5824d2f8a79c2e899
 /** Discord's "X joined the server" system message. */
 const USER_JOIN = 7
 
-export const PLACEHOLDERS = ['greeting', 'mention', 'name', 'server', 'channel', 'me', 'date', 'time'] as const
+export const PLACEHOLDERS = ['greeting', 'mention', 'name', 'server', 'channel', 'me', 'date', 'time', 'timestamp', 'username', 'displayname', 'servercount', 'joined', 'created'] as const
 
 export function greetingsUnlocked(): boolean {
 	return settings().greetingsUnlocked === true
@@ -41,6 +42,9 @@ export function tryUnlock(text: string): boolean {
 interface SendContext {
 	channelId?: string
 	replyToId?: string
+	/** Playground data is explicit and never mixed with real Discord identities. */
+	sample?: Record<string, string | undefined>
+	now?: Date
 }
 
 let context: SendContext | undefined
@@ -66,18 +70,37 @@ export function expandPlaceholders(replacement: string): string {
 	if (!replacement.includes('{') || !greetingsUnlocked()) return replacement
 
 	const cache = new Map<string, string>()
-	return replacement.replace(/\{(\w+)\}/g, (token, key: string) => {
+	const now = context?.now ?? new Date()
+	return replacement.replace(/\{(\w+)(?::([^{}|]+))?(?:\|([^{}]*))?\}/g, (token, key: string, argument: string | undefined, fallback: string | undefined) => {
 		if (!(PLACEHOLDERS as readonly string[]).includes(key)) return token
-		if (!cache.has(key)) {
+		const cacheKey = `${key}:${argument ?? ''}:${fallback ?? ''}`
+		if (!cache.has(cacheKey)) {
 			let value = ''
 			try {
-				value = resolve(key)
+				if (key === 'timestamp') {
+					const stamp = discordTimestamp(now, argument)
+					if (!stamp) return token
+					value = stamp
+				} else if (key === 'date' || key === 'time') {
+					const format = argument ?? (key === 'date' ? settings().dateFormat : settings().timeFormat)
+					const formatted = format ? formatLocal(now, format, key) : resolve(key, now)
+					if (formatted === undefined) return token
+					value = formatted
+				} else if (key === 'joined' || key === 'created') {
+					if (argument && !/^[tTdDfFR]$/.test(argument)) return token
+					const date = targetDate(key)
+					value = date ? discordTimestamp(date, argument ?? 'f') ?? '' : ''
+				} else {
+					if (argument) return token
+					value = context?.sample && key !== 'greeting' ? context.sample[key] ?? '' : (key === 'name' && !target() ? '' : resolve(key, now))
+				}
 			} catch (error) {
 				console.error(`${TAG} placeholder {${key}} failed:`, error)
 			}
-			cache.set(key, value.replace(/\$/g, '$$$$'))
+			if (!value) value = fallback ?? (key === 'name' ? 'there' : '')
+			cache.set(cacheKey, value.replace(/\$/g, '$$$$'))
 		}
-		return cache.get(key)!
+		return cache.get(cacheKey)!
 	})
 }
 
@@ -89,9 +112,45 @@ function channelId(): string | undefined {
 	return context?.channelId ?? stores().SelectedChannelStore?.getChannelId?.()
 }
 
-function resolve(key: string): string {
-	const now = new Date()
+export function ruleScopeMatches(scope?: RuleScope): boolean {
+	if (!scope || scope.kind === 'all') return true
+	if (!greetingsUnlocked()) return false
+	const current = channel()
+	return scopeMatches(scope, channelId(), current?.guild_id, current?.type)
+}
+
+function targetDate(kind: 'joined' | 'created'): Date | undefined {
+	if (context?.sample) {
+		const value = context.sample[kind]
+		const date = value ? new Date(value) : undefined
+		return date && Number.isFinite(date.getTime()) ? date : undefined
+	}
+	const user = target()
+	if (!user?.id) return undefined
+	if (kind === 'created') {
+		if (!/^\d{15,22}$/.test(user.id)) return undefined
+		// Snowflake timestamp: dropping the lower 22 bits remains within safe millisecond precision.
+		return new Date(Math.floor(Number(user.id) / 4194304) + 1420070400000)
+	}
+	const guildId = channel()?.guild_id
+	const member = guildId ? stores().GuildMemberStore?.getMember?.(guildId, user.id) : undefined
+	const value = member?.joinedAt ?? member?.joined_at
+	const date = value == null ? undefined : new Date(value)
+	return date && Number.isFinite(date.getTime()) ? date : undefined
+}
+
+function resolve(key: string, now: Date): string {
 	switch (key) {
+		case 'username': return target()?.username ?? ''
+		case 'displayname': {
+			const user = target()
+			return user?.globalName ?? user?.global_name ?? user?.username ?? ''
+		}
+		case 'servercount': {
+			const guild = stores().GuildStore?.getGuild?.(channel()?.guild_id)
+			const count = guild?.memberCount ?? guild?.member_count
+			return typeof count === 'number' ? String(count) : ''
+		}
 		case 'greeting': {
 			const hour = now.getHours()
 			return hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 18 ? 'Good afternoon' : 'Good evening'
@@ -155,6 +214,10 @@ function target(): any {
 		if (list[i]?.type === USER_JOIN && list[i].author) return list[i].author
 	}
 	return undefined
+}
+
+export function hasGreetingTarget(): boolean {
+	return context?.sample ? !!context.sample.mention : !!target()?.id
 }
 
 // --- SHA-256 -------------------------------------------------------------------------------------

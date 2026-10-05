@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '1.6.9',
+		date: '2026-10-04',
+		title: 'Discord 349.5',
+		changes: [
+			'Hiding servers works again on Discord 349.5. Older versions keep working.',
+		],
+	},
+	{
 		version: '1.6.8',
 		date: '2026-10-03',
 		title: 'Reload prompt',

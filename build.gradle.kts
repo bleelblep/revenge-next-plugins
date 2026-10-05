@@ -219,13 +219,20 @@ configure(subprojects.filter { it.path.startsWith(":plugins:") }) {
 
             val out = outJar.get().asFile
             out.parentFile.mkdirs()
+            // The class list goes in an argument file: passed inline, a plugin with a few dozen
+            // classes pushes d8.bat past Windows' 8191-character command-line limit, and cmd
+            // fails with exit 255 and no message. d8 reads `@file` on every platform.
+            val argFile = layout.buildDirectory.file("tmp/d8-inputs.txt").get().asFile
+            argFile.parentFile.mkdirs()
+            // One path per line, unquoted: d8 takes each line as a whole argument, spaces included.
+            argFile.writeText(classFiles.joinToString(System.lineSeparator()) { it.absolutePath })
             execOps.exec {
                 commandLine(
                     d8.absolutePath,
                     "--min-api", minSdkVer,
                     "--lib", androidJar.absolutePath,
                     "--output", out.absolutePath,
-                    *classFiles.map { it.absolutePath }.toTypedArray(),
+                    "@" + argFile.absolutePath,
                 )
             }
             logger.lifecycle("Dexed $path -> ${out.relativeTo(rootProject.projectDir)}")

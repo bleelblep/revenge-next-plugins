@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.1.3',
+		date: '2026-10-04',
+		title: 'Fix',
+		changes: [
+			'No more "could not replace canUseCustomStickersEverywhere" error on newer Discord versions.',
+		],
+	},
+	{
 		version: '0.1.2',
 		date: '2026-10-03',
 		title: 'Changelog',

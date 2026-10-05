@@ -321,8 +321,8 @@ Guessed by analogy with classic Revenge, and confirmed absent from revenge-bundl
 | `revenge.discord.common.moment` | Doesn't exist — self-contained date formatter (`custom-timestamps/src/lib/renderTimestamp.ts`) |
 | `revenge.utils.react.findInReactTree` | Doesn't exist — local implementation (`staff-tags/src/lib/findInReactTree.ts`) |
 | `filters.withStoreName` / `withTypeName` / `withPredicate` | Don't exist — Flux stores come from the `revenge.discord.flux.Stores` proxy |
-| `revenge.discord.design.RawColors` | Doesn't exist — `@revenge-mod/discord/design` exports only `Design` and `FormSwitch`. Use literal hex |
-| `revenge.discord.design.Tokens` | Wrong namespace — `Tokens` is on `revenge.discord.common`, and is typed `any` |
+| `revenge.discord.design.RawColors` | Doesn't exist — `@revenge-mod/discord/design` exports only `Design` and `FormSwitch`. Colours come from `revenge.discord.common.tokens.Tokens` via the `token()` helper ([design language §3.5](./plugin-design-language.md#35-colour-follows-the-users-theme)), with the old hex as its fallback |
+| `revenge.discord.design.Tokens` / `revenge.discord.common.Tokens` | Wrong path — it is `revenge.discord.common.tokens.Tokens` (lower-case `tokens`), typed `any`. The capital-T path fails silently behind `?.` |
 | `revenge.discord.haptics` | Doesn't exist at all. No haptics API is exposed to plugins |
 | `revenge.discord.common.Constants.Permissions` | Doesn't exist — hardcode the permission bits |
 

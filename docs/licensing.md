@@ -18,8 +18,9 @@ plugin's `NOTICE.md` and `THIRD_PARTY_LICENSES/` directory before copying its co
 | Translate | CC0-1.0 |
 | Send Tweaks | CC0-1.0 |
 | Plugin Hub | CC0-1.0 |
-| Free Stickers | CC0-1.0 |
 | ReviewDB | GPL-3.0; port of ReviewDB by mantikafasi and Vendicated from Vencord |
+| Free Stickers | CC0-1.0 |
+| Themes | CC0-1.0; theme engine ported from classic Revenge under BSD-3-Clause; `js/lib/rawAliases.ts` from Themeify under GPL-3.0; icon packs adapted from nexpid's Themes+ under CC-BY-4.0 |
 
 Show Tag's original repository and website are no longer available. Its Unlicense status was
 recovered from a surviving clone whose history contains the license in Cynosphere's initial

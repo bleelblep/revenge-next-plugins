@@ -27,4 +27,7 @@ export const DEFAULTS: SendTweaksStorage = {
 	applyToEdits: true,
 	debugLogging: false,
 	greetingsUnlocked: false,
+	snippets: [],
+	dateFormat: '',
+	timeFormat: '',
 }

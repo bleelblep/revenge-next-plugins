@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Test all placeholders",
+    "match": "^wwtest$",
+    "flags": "gi",
+    "regex": true,
+    "replace": "**Welcome Wagon test**\n\n$random{Hai, Hewo, Hey}, {mention|friend}!\nShuffle: $shuffle{Apple, Banana, Cherry}\n\n**People and context**\nGreeting: {greeting}\nName: {name|friend}\nUsername: {username|unavailable}\nDisplay name: {displayname|unavailable}\nMe: {me}\nServer: {server|Direct messages}\nChannel: {channel}\nMembers: {servercount|unavailable}\nJoined: {joined:R|join date unavailable}\nAccount created: {created:D|unavailable}\n\n**Local dates and times**\nDefault date: {date}\nDefault time: {time}\nDay first: {date:dd/mm/yy}\nISO-style: {date:YYYY-MM-DD}\n24-hour: {time:HH:mm:ss}\n12-hour: {time:hh:mm A}\n\n**Discord timestamps**\nDefault: {timestamp}\nShort time: {timestamp:t}\nSeconds: {timestamp:T}\nShort date: {timestamp:d}\nLong date: {timestamp:D}\nDate and time: {timestamp:f}\nFull: {timestamp:F}\nRelative: {timestamp:R}\nIn 30 minutes: {timestamp:+30m:R}\nIn 2 hours: {timestamp:+2h:t}\nTomorrow: {timestamp:+1d:F}\nYesterday: {timestamp:-1d:D}\n\n**Snippet**\n{snippet:test-help}"
+  },
+  {
+    "name": "Test DM-only scope",
+    "match": "^wwdm$",
+    "flags": "gi",
+    "regex": true,
+    "replace": "DM-only rule worked. Server fallback: {server|No server here}.",
+    "scope": { "kind": "dms" }
+  },
+  {
+    "name": "Test selected channel",
+    "match": "^wwchannel$",
+    "flags": "gi",
+    "regex": true,
+    "replace": "Channel-scoped rule worked in {channel}.",
+    "scope": { "kind": "channels", "ids": [] }
+  },
+  {
+    "name": "Test selected server",
+    "match": "^wwserver$",
+    "flags": "gi",
+    "regex": true,
+    "replace": "Server-scoped rule worked in {server}.",
+    "scope": { "kind": "servers", "ids": [] }
+  },
+  {
+    "name": "Test validation — preview only",
+    "match": "^wwwarnings$",
+    "flags": "gi",
+    "regex": true,
+    "replace": "Unknown: {notreal}\nInvalid timestamp: {timestamp:+2x:R}\nMissing snippet: {snippet:not-saved}\nUnclosed code: `example"
+  }
+]

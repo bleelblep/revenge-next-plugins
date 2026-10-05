@@ -1,8 +1,10 @@
-import { rowIcon } from '../icon'
+import { dangerIcon, rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
+import { groupHeaderText } from '../theme'
 import { clearNativeLog, refreshLog, useLog, type DeletedMessage } from '../state'
 import { jumpToDeletedMessage } from '../../lib/navigate'
 import Avatar from '../components/Avatar'
+import Pager from '../components/Pager'
 
 function ago(timestamp: number): string {
 	const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
@@ -35,8 +37,8 @@ function groupByOrigin(entries: DeletedMessage[]) {
 export default function Log() {
 	const { Page } = revenge.components
 	const { React } = revenge.react
-	const { ScrollView, View, Text, Alert, Pressable } = revenge.react.ReactNative
-	const { Stack, TableRowGroup, TableRow, Card } = revenge.discord.design.Design
+	const { ScrollView, View, Text, Alert } = revenge.react.ReactNative
+	const { Stack, TableRowGroup, TableRow } = revenge.discord.design.Design
 
 	const entries = useLog()
 	const pageSize = 50
@@ -81,56 +83,7 @@ export default function Log() {
 		<Page>
 			<ScrollView contentContainerStyle={{ paddingBottom: bottomPadding }}>
 				<Stack spacing={24}>
-					{totalPages > 1 ? (
-						<Card variant="secondary" border="none">
-							<View style={{ flexDirection: 'row', padding: 10, gap: 8 }}>
-								<Pressable
-									onPress={() => safePage > 1 && setPage(safePage - 1)}
-									disabled={safePage <= 1}
-									style={{
-										flex: 1,
-										minHeight: 38,
-										borderRadius: 12,
-										alignItems: 'center',
-										justifyContent: 'center',
-										backgroundColor: safePage <= 1 ? '#23262b' : '#2b2f36',
-									}}
-								>
-									<Text style={{ color: safePage <= 1 ? '#6b7280' : '#d7dce2', fontWeight: '700' }}>Prev</Text>
-								</Pressable>
-
-								<View
-									style={{
-										flex: 1,
-										minHeight: 38,
-										borderRadius: 12,
-										alignItems: 'center',
-										justifyContent: 'center',
-										backgroundColor: '#2b2f36',
-										borderWidth: 1,
-										borderColor: '#3a3f47',
-									}}
-								>
-									<Text style={{ color: '#d7dce2', fontWeight: '700' }}>{`Page ${safePage}/${totalPages}`}</Text>
-								</View>
-
-								<Pressable
-									onPress={() => safePage < totalPages && setPage(safePage + 1)}
-									disabled={safePage >= totalPages}
-									style={{
-										flex: 1,
-										minHeight: 38,
-										borderRadius: 12,
-										alignItems: 'center',
-										justifyContent: 'center',
-										backgroundColor: safePage >= totalPages ? '#23262b' : '#2b2f36',
-									}}
-								>
-									<Text style={{ color: safePage >= totalPages ? '#6b7280' : '#d7dce2', fontWeight: '700' }}>Next</Text>
-								</Pressable>
-							</View>
-						</Card>
-					) : null}
+					{totalPages > 1 ? <Pager page={safePage} totalPages={totalPages} onChange={setPage} /> : null}
 
 					{grouped.map(group => (
 						<View key={group.id ?? '@me'}>
@@ -144,7 +97,7 @@ export default function Log() {
 								}}
 							>
 								<Avatar kind="guild" id={group.id} hash={group.icon} name={group.label} size={20} />
-								<Text style={{ color: '#B5BAC1', fontSize: 12, fontWeight: '600' }}>
+								<Text style={{ color: groupHeaderText(), fontSize: 12, fontWeight: '600' }}>
 									{group.label.toUpperCase()}
 								</Text>
 							</View>
@@ -186,9 +139,10 @@ export default function Log() {
 							onPress={() => void refreshLog()}
 						/>
 						<TableRow
+							variant="danger"
 							label="Clear log"
 							subLabel={`Removes all ${entries.length} entries.`}
-							icon={rowIcon('TrashIcon', 'ic_trash')}
+							icon={dangerIcon('TrashIcon', 'ic_trash')}
 							onPress={clearLog}
 						/>
 					</TableRowGroup>

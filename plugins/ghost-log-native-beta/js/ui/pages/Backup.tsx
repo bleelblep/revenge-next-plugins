@@ -8,6 +8,7 @@ import {
 } from '../../defaults'
 import { getSettingsStorage, refreshLog, refreshStorageStatus, useLog, useStorageStatus } from '../state'
 import { rowIcon } from '../icon'
+import { refreshEdits, useEdits } from '../../lib/edits'
 import { useBottomPadding } from '../safeArea'
 import type { GhostLogSettings } from '../../types'
 
@@ -33,6 +34,9 @@ export default function Backup() {
 	const s = { ...DEFAULTS, ...(storage?.use() ?? {}) }
 	const entries = useLog()
 	const count = entries.length
+	// Edit history rides in the same encrypted backup (version 2 of the file).
+	const editCount = useEdits().length
+	const anything = count + editCount
 	const status = useStorageStatus()
 
 	const toast = (content: string) =>
@@ -115,12 +119,13 @@ export default function Backup() {
 	}
 
 	const runBackup = () => {
-		if (!storage || count <= 0) return
+		if (!storage || anything <= 0) return
 		void (async () => {
 			const res = await callNativeMethod(`${ID}.exportBackup`, [path])
 			if (res) {
 				storage.set({ lastBackupAt: Date.now() } as Partial<GhostLogSettings>)
-				toast(`Encrypted backup saved (${res.count} entries) to ${res.path}.`)
+				const edited = typeof res.edits === 'number' && res.edits > 0 ? ` and ${res.edits} edited` : ''
+				toast(`Encrypted backup saved (${res.count} deleted${edited}) to ${res.path}.`)
 			} else {
 				toast('Backup failed. Check the backup location.')
 			}
@@ -134,10 +139,21 @@ export default function Backup() {
 				text: 'Restore',
 				onPress: () => {
 					void (async () => {
-						const added = await callNativeMethod(`${ID}.importBackup`, [path])
+						const result: any = await callNativeMethod(`${ID}.importBackup`, [path]).catch(() => -1)
 						await refreshLog()
-						if (typeof added === 'number' && added >= 0) {
-							toast(`Restored ${added} deleted message${added === 1 ? '' : 's'}.`)
+						await refreshEdits()
+						// Older native builds answer with a number; this one with { added, edits }.
+						const added = typeof result === 'number' ? result : Number(result?.added ?? -1)
+						const edits = typeof result === 'number' ? 0 : Number(result?.edits ?? 0)
+						if (added > 0 || edits > 0) {
+							const parts = [
+								added > 0 && `${added} deleted message${added === 1 ? '' : 's'}`,
+								edits > 0 && `history for ${edits} edited message${edits === 1 ? '' : 's'}`,
+							].filter(Boolean)
+							toast(`Restored ${parts.join(' and ')}.`)
+						} else if (added === 0) {
+							// Found and opened, but nothing new: the merge skips ids already in the log.
+							toast('Backup found — everything in it is already in the log.')
 						} else {
 							toast('No restorable backup found at that location.')
 						}
@@ -207,19 +223,17 @@ export default function Backup() {
 						<TableRow
 							label="Create encrypted backup"
 							subLabel={
-								count > 0
-									? s.lastBackupAt
-										? `Last backup ${ago(s.lastBackupAt)}. Saves ${count} entries now.`
-										: `Saves ${count} entries now.`
-									: 'Disabled until at least one deleted message is logged.'
+								anything > 0
+									? `${s.lastBackupAt ? `Last backup ${ago(s.lastBackupAt)}. ` : ''}Saves ${count} deleted and ${editCount} edited message${editCount === 1 ? '' : 's'} now.`
+									: 'Disabled until a deleted or edited message is logged.'
 							}
 							icon={rowIcon('DownloadIcon', 'ic_download')}
-							disabled={count <= 0}
+							disabled={anything <= 0}
 							onPress={runBackup}
 						/>
 						<TableRow
 							label="Restore from encrypted backup"
-							subLabel="Always available. Merges backup entries into this log."
+							subLabel="Always available. Merges deleted messages and edit history from the backup into this log."
 							icon={rowIcon('UploadIcon', 'ic_upload')}
 							onPress={askAndRestore}
 						/>

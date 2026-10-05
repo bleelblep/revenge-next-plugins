@@ -38,6 +38,10 @@ plugins/multi-scrobbler/
 # Local-only, not ready to publish.
 plugins/who-reacted/
 
+# Local-only work in progress; must not be published.
+plugins/auto-quest/
+plugins/text-brightness/
+
 # Planning notes, kept local.
 docs/plugin-ideas.md
 
@@ -46,3 +50,22 @@ docs/plugin-ideas.md
 plugins/anti-ghost-ping/
 plugins/ghost-log/
 plugins/relationship-notifier/
+
+# Local debugging reference -- mirrored upstream docs and our cross-repo notes. Never published.
+docs/upstream/
+docs/debugging/
+
+# Local-only until tried on the phone.
+plugins/screen-effects/
+plugins/tilt-physics/
+plugins/night-light/
+plugins/focus-bubble/
+plugins/sparkle/
+plugins/quick-toggles/
+plugins/checkup/
+plugins/themes/
+
+# Local-only until the user says to publish it.
+plugins/review-db/
+
+# Local-only until the user says to publish it.

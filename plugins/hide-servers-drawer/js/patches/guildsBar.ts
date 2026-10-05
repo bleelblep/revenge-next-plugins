@@ -1,3 +1,4 @@
+import { getModuleByPath } from "../../../../shared/modules"
 import { isEmpty, instant } from "../lib/hidden"
 import { consumeDumpArmed, dumpElementTree, dumpIncomingProps, noteBranch, notifyDumpDone, stockBar } from "../lib/probe"
 import CustomGuildsBar from "../ui/components/CustomGuildsBar"
@@ -126,6 +127,18 @@ export default function patchGuildsBar(): () => void {
 	// since there's no confirmed equivalent of classic Revenge's findByTypeNameAll (which
 	// scanned rendered React element types, not metro modules) -- these are the closest
 	// available primitives and may match zero or several "GuildsBar" closures.
+	// Discord 349.5 minifies function names, so neither name filter below matches there; the
+	// module path (identical in 348.5) does. patchBar skips a bar it already patched, so
+	// running all three is safe.
+	const unsubscribePath = getModuleByPath(
+		"modules/guilds_bar/native/GuildsBar.tsx",
+		null,
+		(mod: any) => {
+			if (mod?.default?.type) patchBar(mod.default)
+			else console.warn("[HideServersDrawer] GuildsBar.tsx default is not a memo wrapper:", typeof mod?.default)
+		},
+		"[HideServersDrawer]",
+	)
 	let unsubscribeNamed = () => {}
 	let unsubscribeMemo = () => {}
 	try {
@@ -140,6 +153,7 @@ export default function patchGuildsBar(): () => void {
 	}
 
 	return () => {
+		unsubscribePath()
 		unsubscribeNamed()
 		unsubscribeMemo()
 		patches.forEach(unpatch => {

@@ -81,4 +81,8 @@ export interface SendTweaksStorage {
 	debugLogging: boolean
 	/** Greeting placeholders in text rules, unlocked with a phrase. See lib/greetings.ts. */
 	greetingsUnlocked?: boolean
+	/** Arrays replace atomically so deleting a snippet persists. */
+	snippets?: import('./lib/templateSyntax').Snippet[]
+	dateFormat?: string
+	timeFormat?: string
 }

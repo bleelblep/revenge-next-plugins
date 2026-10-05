@@ -13,6 +13,8 @@ import patchRowManager from "./patches/rowManager"
 import { registerPages } from "./ui/routes"
 import Settings from "./ui/pages/Settings"
 import type { ScreenshotRedactorStorage } from "./types"
+import { CHANGELOG } from "./changelog"
+import { setupChangelog } from "../../../shared/changelog"
 
 export type { ScreenshotRedactorStorage }
 export { DEFAULTS }
@@ -30,6 +32,9 @@ export default plugin<{ jsonStorage: ScreenshotRedactorStorage }>({
 			plugin.requireReload()
 			return
 		}
+
+		// The changelog: clock icon on the settings page, "What's new" after an update.
+		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		setStorage(jsonStorage)
 

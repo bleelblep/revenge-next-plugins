@@ -23,8 +23,25 @@ export function setCreateMessageRecord(fn: any) {
 // entries, scaling linearly, against a 16ms frame budget. Deleting messages in quick succession
 // grows that set fast, which is what turned a burst of deletions into an unrecoverable freeze.
 // Building each record once collapses the per-call cost to the presence scan below.
-const recordCache = new Map<string, any>()
+//
+// Keyed by entry id, but each record also remembers which media URLs it was built with. Saved
+// images are decrypted per channel AFTER the first draw (`rehydrateChannel`), which rewrites the
+// entry's urls from the Discord CDN link to a local file:// copy and bumps the log version. The
+// cache used to drop only entries that had left the log, so the record built on first sight -- with
+// the CDN link, which Discord deletes along with the message -- was reused forever and the saved
+// copy never reached the screen: "media doesn't restore at all".
+const recordCache = new Map<string, { record: any; media: string }>()
 let recordCacheVersion = -1
+
+/** Every media URL an entry would render, as one comparable string. */
+function mediaKey(entry: DeletedMessage): string {
+	const urls: string[] = []
+	for (const attachment of entry.attachments ?? []) urls.push(String(attachment?.url ?? ''), String(attachment?.proxy_url ?? ''))
+	for (const embed of entry.embeds ?? []) {
+		for (const part of [embed?.image, embed?.thumbnail, embed?.video]) if (part) urls.push(String(part.url ?? ''), String(part.proxy_url ?? ''))
+	}
+	return urls.join('|')
+}
 
 /**
  * Drop memoized records for entries that have left the log (trim, clear, reload).
@@ -41,13 +58,14 @@ function syncRecordCache(allEntries: DeletedMessage[], version: number) {
 
 /** Build once, reuse thereafter. Returns undefined if the record could not be built. */
 function recordFor(entry: DeletedMessage, channelId: string): any {
+	const media = mediaKey(entry)
 	const hit = recordCache.get(entry.id)
-	if (hit !== undefined) return hit
+	if (hit && hit.media === media) return hit.record
 	try {
 		const record = createMessageRecord!(buildRaw(entry, channelId))
 		if (!record) return undefined
 		record.__vml_deleted = true
-		recordCache.set(entry.id, record)
+		recordCache.set(entry.id, { record, media })
 		return record
 	} catch (error) {
 		console.error(`[GhostLogNativeBeta] createMessageRecord failed for ${entry.id}:`, error)
@@ -148,7 +166,9 @@ function buildRaw(entry: DeletedMessage, channelId: string): any {
 		// These were hardcoded empty, which is why a bulk-deleted message came back stripped: no
 		// mentions (they rendered as raw <@id> markup), no reply context, no edited marker, and
 		// every message forced to type 0 regardless of what it actually was.
-		mentions: entry.mentions ?? [],
+		// Older entries stored record mentions (id strings) as { id: '' }: a user without an id
+		// crashes Discord's user search, so only complete ones go back out.
+		mentions: (entry.mentions ?? []).filter((user: any) => user?.id && user?.username),
 		mention_roles: entry.mentionRoles ?? [],
 		mention_everyone: entry.mentionEveryone ?? false,
 		timestamp: new Date(entry.sentAt).toISOString(),

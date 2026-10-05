@@ -49,6 +49,7 @@ import { transform } from '../lib/transform'
 import { type OneOff, takeNextSend } from '../lib/nextSend'
 import { makeSilent } from '../lib/silent'
 import { withSendContext } from '../lib/greetings'
+import { withSendRandom } from '../lib/random'
 
 const status = {
 	installed: false,
@@ -113,7 +114,7 @@ export default function patchOutgoing(): () => void {
 					if (!settings().applyToEdits) return payload
 					// A copy, so nothing else holding the original payload sees it change.
 					const draft = { ...payload }
-					rewrite(draft, 'draft')
+					withSendContext({ channelId: payload.channelId ?? payload.channel_id }, () => rewrite(draft, 'draft'))
 					return draft
 				} catch (error) {
 					console.error(`${TAG} edit draft rewrite failed:`, error)
@@ -142,7 +143,7 @@ export default function patchOutgoing(): () => void {
 						const reference = args.find((arg: any) => arg?.messageReference)?.messageReference
 						withSendContext(
 							{ channelId: args[0], replyToId: reference?.message_id ?? reference?.messageId },
-							() => rewrite(args[1], 'send'),
+							() => withSendRandom(args[1]?.content ?? '', () => rewrite(args[1], 'send')),
 						)
 						silence(args[1], once)
 					}),
@@ -151,7 +152,7 @@ export default function patchOutgoing(): () => void {
 				// editMessage(channelId, messageId, { content })
 				patches.push(
 					wrapMethod(host, 'editMessage', args => {
-						if (settings().applyToEdits) rewrite(args[2], 'edit')
+						if (settings().applyToEdits) withSendContext({ channelId: args[0] }, () => rewrite(args[2], 'edit'))
 					}),
 				)
 

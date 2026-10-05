@@ -1,0 +1,18 @@
+{
+	"format": 1,
+	"id": "bleelblep.dreamscape",
+	"name": "Dreamscape",
+	"description": "Liquid glass, holographic avatars, reality tears, gesture spells and AI-designed channel atmospheres.",
+	"author": "bleelblep",
+	"icon": "MagicWandIcon",
+	"version": "0.2.0",
+	"dependencies": {
+		"revenge.api": { "version": ">=1 <2" },
+		"discord": { "version": "*" },
+		"bleelblep.ai-core": { "version": ">=1 <3", "optional": true }
+	},
+	"dist": {
+		"script": "index.js",
+		"android": { "path": "plugin.jar", "class": "com.bleelblep.dreamscape.DreamscapePlugin" }
+	}
+}

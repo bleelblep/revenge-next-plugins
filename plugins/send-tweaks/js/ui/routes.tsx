@@ -6,6 +6,7 @@ import Options from './pages/Options'
 import { ReadyMadeLinks, ReadyMadeText } from './pages/ReadyMade'
 import { LinkRules, TextRules } from './pages/Rules'
 import TryIt from './pages/TryIt'
+import Templates, { TemplateGuide, TemplateHelper, TemplatePlayground, TemplateSnippets, TemplateFormats } from './pages/Templates'
 
 const PREFIX = 'bleelblep.send-tweaks'
 
@@ -19,6 +20,12 @@ export const READY_LINKS_ROUTE = `${PREFIX}.ready-made-links`
 export const READY_TEXT_ROUTE = `${PREFIX}.ready-made-text`
 export const TRY_ROUTE = `${PREFIX}.try`
 export const DEBUG_ROUTE = `${PREFIX}.debug`
+export const TEMPLATE_ROUTE = `${PREFIX}.templates`
+export const TEMPLATE_HELPER_ROUTE = `${PREFIX}.template-helper`
+export const TEMPLATE_GUIDE_ROUTE = `${PREFIX}.template-guide`
+export const TEMPLATE_PLAY_ROUTE = `${PREFIX}.template-playground`
+export const TEMPLATE_SNIPPETS_ROUTE = `${PREFIX}.template-snippets`
+export const TEMPLATE_FORMATS_ROUTE = `${PREFIX}.template-formats`
 
 /**
  * Upstream commit 10371ff merged `refreshSettingsNavigator` + `refreshSettingsOverviewScreen`
@@ -60,6 +67,12 @@ export function registerPages(): () => void {
 			route(READY_TEXT_ROUTE, 'Ready-made rules', ReadyMadeText),
 			route(TRY_ROUTE, 'Try a message', TryIt),
 			route(DEBUG_ROUTE, 'Debug', Debug),
+			route(TEMPLATE_ROUTE, 'Template helpers', Templates),
+			route(TEMPLATE_HELPER_ROUTE, 'Insert helper', TemplateHelper),
+			route(TEMPLATE_GUIDE_ROUTE, 'Placeholders', TemplateGuide),
+			route(TEMPLATE_PLAY_ROUTE, 'Try a template', TemplatePlayground),
+			route(TEMPLATE_SNIPPETS_ROUTE, 'Snippets', TemplateSnippets),
+			route(TEMPLATE_FORMATS_ROUTE, 'Date & time', TemplateFormats),
 		]
 		// Only with AI Core installed: without it there is nothing to show and nothing links here.
 		if (getAi()) unregister.push(route(AI_ROUTE, 'Write a rule with AI', AiRules))

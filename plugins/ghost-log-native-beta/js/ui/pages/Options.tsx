@@ -29,9 +29,32 @@ export default function Options() {
 						<TableSwitchRow
 							label="Log deletions"
 							subLabel="Save deleted message text to the encrypted native log."
-							icon={rowIcon('PencilIcon', 'ic_edit')}
+							icon={rowIcon('TrashIcon', 'ic_trash')}
 							value={!!s.logDeletions}
 							onValueChange={v => set({ logDeletions: v })}
+						/>
+						<TableSwitchRow
+							label="Log edits"
+							subLabel="Keep the earlier versions of edited messages in a separate encrypted log."
+							icon={rowIcon('PencilIcon', 'ic_edit')}
+							value={!!s.logEdits}
+							onValueChange={v => set({ logEdits: v })}
+						/>
+						<TableSwitchRow
+							label="Include my own edits"
+							subLabel={s.logEdits ? 'Keep the earlier versions of messages you edit, too.' : 'Turn on Log edits to use this.'}
+							icon={rowIcon('UserIcon', 'ic_profile_24px')}
+							disabled={!s.logEdits}
+							value={!!s.logOwnEdits}
+							onValueChange={v => set({ logOwnEdits: v })}
+						/>
+						<TableSwitchRow
+							label="Show edit history in chat"
+							subLabel={s.logEdits ? 'Earlier versions appear as small grey lines above the message.' : 'Turn on Log edits to use this.'}
+							icon={rowIcon('ClockIcon', 'ic_timer')}
+							disabled={!s.logEdits}
+							value={!!s.showEditHistory}
+							onValueChange={v => set({ showEditHistory: v })}
 						/>
 						<TableSwitchRow
 							label="Save embeds and attachments"
@@ -42,7 +65,7 @@ export default function Options() {
 						/>
 						<TableSwitchRow
 							label="Ignore bots"
-							subLabel="Don't capture deleted messages from bot accounts."
+							subLabel="Don't capture deleted or edited messages from bot accounts."
 							icon={rowIcon('ClydeIcon', 'RobotIcon', 'UserIcon')}
 							value={!!s.ignoreBots}
 							onValueChange={v => set({ ignoreBots: v })}
@@ -93,7 +116,7 @@ export default function Options() {
 							subLabel={
 								s.unlimitedEntries
 									? 'Keeping every caught message.'
-									: `Off - only the newest ${s.maxEntries ?? DEFAULTS.maxEntries} entries are kept, oldest are dropped when full.`
+									: `Off - only the newest ${s.maxEntries ?? DEFAULTS.maxEntries} entries are kept in each log (deleted and edited), oldest are dropped when full.`
 							}
 							icon={rowIcon('ListBulletsIcon', 'ListViewIcon')}
 							value={!!s.unlimitedEntries}

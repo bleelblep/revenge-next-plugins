@@ -35,4 +35,11 @@ export const DEFAULTS: GhostLogSettings = {
 	saveEmbeds: true,
 	embedsPerFile: 100,
 	ignoreBots: false,
+	// On, like logging deletions: this is a message logger, and an edit is the other way a message
+	// changes under you.
+	logEdits: true,
+	// Off, like own deletions: the point is what other people change. But seeing your own history is
+	// an everyday want rather than a test, so it is a real setting and not the Debug page's switch.
+	logOwnEdits: false,
+	showEditHistory: true,
 }

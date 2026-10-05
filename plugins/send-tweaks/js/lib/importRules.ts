@@ -64,6 +64,8 @@ function toRule(raw: any, label: string): Rule | string {
 	const rule = newRule({
 		name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : undefined,
 		find,
+		scope: raw.scope && ['all', 'servers', 'channels', 'dms'].includes(raw.scope.kind)
+			? { kind: raw.scope.kind, ids: Array.isArray(raw.scope.ids) ? raw.scope.ids.filter((id: unknown) => typeof id === 'string') : [] } : undefined,
 		replace: raw.replace,
 		regex: raw.regex === true,
 		caseSensitive: !flags.includes('i'),
@@ -114,6 +116,7 @@ export function exportRule(rule: Rule): string {
 			flags: `g${rule.caseSensitive ? '' : 'i'}${sanitizeFlags(rule.extraFlags)}`,
 			replace: rule.replace,
 			regex: rule.regex,
+			scope: rule.scope,
 		},
 		null,
 		4,

@@ -1,7 +1,9 @@
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
-import { LOG_ROUTE, OPTIONS_ROUTE, VISUALS_ROUTE, BACKUP_ROUTE, LICENSE_ROUTE, DEBUG_ROUTE } from '../routes'
+import { EDITS_ROUTE, LOG_ROUTE, OPTIONS_ROUTE, VISUALS_ROUTE, BACKUP_ROUTE, LICENSE_ROUTE, DEBUG_ROUTE } from '../routes'
 import { useLog, useStorageStatus } from '../state'
+import { useEdits } from '../../lib/edits'
+import { useChangelog } from '../../../../../shared/changelog'
 
 /**
  * Root page for the native beta. Warning card (this is a message logger), then the Deleted
@@ -15,7 +17,10 @@ export default function Settings() {
 	const { useNavigation } = revenge.externals.ReactNavigation.ReactNavigationNative
 
 	const navigation = useNavigation() as { navigate: (route: string) => void }
+	// The changelog icon at the top right, and "What's new" once after an update.
+	useChangelog()
 	const entries = useLog()
+	const edited = useEdits()
 	const status = useStorageStatus()
 
 	return (
@@ -75,6 +80,13 @@ export default function Settings() {
 							icon={rowIcon('TrashIcon', 'ic_trash')}
 							arrow
 							onPress={() => navigation.navigate(LOG_ROUTE)}
+						/>
+						<TableRow
+							label="Edited messages"
+							subLabel={edited.length ? `${edited.length} with earlier versions` : 'Nothing caught yet'}
+							icon={rowIcon('PencilIcon', 'ic_edit')}
+							arrow
+							onPress={() => navigation.navigate(EDITS_ROUTE)}
 						/>
 					</TableRowGroup>
 

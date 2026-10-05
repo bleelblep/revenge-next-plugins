@@ -12,9 +12,13 @@
  * belongs to instead of the send path discovering it.
  */
 
-import { expandPlaceholders } from './greetings'
+import { expandPlaceholders, greetingsUnlocked, ruleScopeMatches } from './greetings'
+import { expandRandom } from './random'
+import { expandSnippets, type RuleScope } from './templateSyntax'
+import { settings } from './state'
 
 export interface Rule {
+	scope?: RuleScope
 	/** Stable id, so the settings list can key and edit rules without relying on position. */
 	id: string
 	/** Optional label, e.g. from an imported Text Replace rule ("Twitter to fxtwitter"). */
@@ -185,14 +189,18 @@ export function applyRules(
 
 	for (const rule of rules) {
 		if (!rule.enabled) continue
+		if (!ruleScopeMatches(rule.scope)) continue
 		const compiled = compileRule(rule)
 		if (!compiled.pattern) continue
+		if (!compiled.pattern.test(out)) continue
+		compiled.pattern.lastIndex = 0
 
 		// A plain-text rule's replacement is plain text too: without escaping, `$&`, `$1` or `$$`
 		// in it would be read as substitution codes, and a replacement of "$$" would send "$".
 		// Greeting placeholders go in last, with their values' `$` already doubled (greetings.ts).
+		const template = greetingsUnlocked() ? expandRandom(expandSnippets(rule.replace, settings().snippets ?? []), rule.id) : rule.replace
 		const replacement = expandPlaceholders(
-			rule.regex ? unescapeReplacement(rule.replace) : rule.replace.replace(/\$/g, '$$$$'),
+			rule.regex ? unescapeReplacement(template) : template.replace(/\$/g, '$$$$'),
 		)
 		const next = safeReplace(out, compiled.pattern, replacement)
 		if (next !== out) {

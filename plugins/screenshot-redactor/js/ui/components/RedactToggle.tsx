@@ -1,6 +1,7 @@
 import { DEFAULTS } from "../../defaults"
 import { refreshChat } from "../../lib/chatRows"
 import { getStorage, onEnabledChanged } from "../../lib/state"
+import { toggleBackground, toggleBorder, toggleIcon } from "../theme"
 
 /** How long the button stays out of sight after arming, so it isn't in the screenshot. */
 const HIDE_MS = 8000
@@ -110,13 +111,13 @@ export default function RedactToggle() {
 					borderRadius: 22,
 					alignItems: "center",
 					justifyContent: "center",
-					// Literal hex: revenge.discord.design.RawColors doesn't exist (rule 4).
-					backgroundColor: enabled ? "#F23F43" : "#2B2D31",
+					// Theme tokens, so it reads as a Discord control on light themes too.
+					backgroundColor: toggleBackground(enabled),
 					borderWidth: 1,
-					borderColor: "#1E1F22",
+					borderColor: toggleBorder(),
 				}}
 			>
-				<Image source={icon} style={{ width: 20, height: 20, tintColor: "#FFFFFF" }} />
+				<Image source={icon} style={{ width: 20, height: 20, tintColor: toggleIcon(enabled) }} />
 			</Pressable>
 		</Animated.View>
 	)

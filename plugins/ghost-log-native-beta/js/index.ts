@@ -2,11 +2,14 @@ import { callNativeMethod } from './lib/native'
 import { DEFAULT_BACKUP_PATH, DEFAULTS } from './defaults'
 import patchBlockGhostActions from './patches/blockGhostActions'
 import { patchRenderRestore } from './lib/restore'
-import { patchVisuals } from './lib/visuals'
+import { mentionUsers, patchVisuals } from './lib/visuals'
 import { registerPages } from './ui/routes'
 import { addToCache, flushPendingAdds, refreshLog, refreshStorageStatus, setSettingsStorage } from './ui/state'
 import { stopAllProbes } from './lib/probe'
 import { richContentForCapture } from './lib/richContent'
+import { captureEdit, refreshEdits } from './lib/edits'
+import { setupChangelog } from '../../../shared/changelog'
+import { CHANGELOG } from './changelog'
 import Settings from './ui/pages/Settings'
 import type { GhostLogSettings } from './types'
 
@@ -70,8 +73,15 @@ function scheduleBackup(cfg: GhostLogSettings) {
 	backupTimer = setTimeout(() => {
 		backupTimer = undefined
 		const path = cfg.backupFilePath || DEFAULT_BACKUP_PATH
+		// Native returns null when the write fails -- it does not reject -- so the result has to be
+		// checked. Logging success unconditionally is how every auto-backup failing went unnoticed.
 		callNativeMethod(`${ID}.exportBackup`, [path])
-			.then(() => console.log(`${TAG} auto backup written to ${path}`))
+			.then(result => {
+				if (result) console.log(`${TAG} auto backup written to ${result.path} (${result.count} entries)`)
+				else console.error(`${TAG} auto backup failed: could not write ${path} (see Backup > storage status)`)
+				// The storage row on the Backup page reads lastWriteError; refresh it either way.
+				void refreshStorageStatus()
+			})
 			.catch(error => console.error(`${TAG} auto backup failed:`, error))
 	}, 2000)
 }
@@ -104,7 +114,25 @@ function plainUser(user: any): any | undefined {
 	}
 }
 
+/**
+ * Deletions captured in the last few seconds, by message id. A single delete reaches `handle` twice:
+ * from the dispatcher hook in `lib/visuals.ts` and from the MESSAGE_DELETE fallback subscriber
+ * below. The second capture started a second download of the same media, and the two writes
+ * damaged the saved file (native `downloadMedia` is now locked per file as well).
+ */
+const recentCaptures = new Map<string, number>()
+const RECENT_CAPTURE_MS = 10_000
+
+function alreadyCaptured(messageId: string): boolean {
+	const now = Date.now()
+	for (const [id, at] of recentCaptures) if (now - at > RECENT_CAPTURE_MS) recentCaptures.delete(id)
+	if (recentCaptures.has(messageId)) return true
+	recentCaptures.set(messageId, now)
+	return false
+}
+
 function handle(channelId: string, messageId: string) {
+	if (alreadyCaptured(String(messageId))) return
 	const s = stores()
 	const message = s.MessageStore?.getMessage?.(channelId, messageId)
 	if (!message) return
@@ -136,7 +164,7 @@ function handle(channelId: string, messageId: string) {
 			// A single delete never leaves the store, so it keeps its real record; a bulk delete is a
 			// real removal and is rebuilt entirely from this entry.
 			mentions: Array.isArray(message.mentions)
-				? message.mentions.map(plainUser).filter(Boolean).slice(0, 64)
+				? mentionUsers(message.mentions).map(plainUser).slice(0, 64)
 				: undefined,
 			mentionRoles: Array.isArray(message.mention_roles)
 				? message.mention_roles.map(String).slice(0, 64)
@@ -171,6 +199,58 @@ function handle(channelId: string, messageId: string) {
 		meta.authorName,
 		meta.channelName,
 	)
+}
+
+/**
+ * One edit, caught from MESSAGE_UPDATE before the store applies it -- so the store still holds the
+ * text as it was, which is the version worth keeping.
+ *
+ * Plenty of MESSAGE_UPDATEs are not edits: an embed unfurling, a reaction count, a pin. Those carry
+ * no `content`, or the same content, and are skipped. So are this plugin's own converted deletes
+ * (`__vml_deleted`), which reach here only if something else re-dispatches them.
+ */
+function handleEdit(payload: any) {
+	const incoming = payload?.message
+	if (!incoming || incoming.__vml_deleted) return
+	if (typeof incoming.content !== 'string') return
+	const channelId = String(incoming.channel_id ?? incoming.channelId ?? '')
+	const messageId = String(incoming.id ?? '')
+	if (!channelId || !messageId) return
+
+	const cfg = settings()
+	if (!cfg.logEdits) return
+
+	const s = stores()
+	const message = s.MessageStore?.getMessage?.(channelId, messageId)
+	if (!message || message.__vml_deleted) return
+	const before = String(message.content ?? '')
+	if (before === incoming.content) return
+
+	if (!cfg.logOwnEdits) {
+		const me = s.UserStore?.getCurrentUser?.()?.id
+		if (me && message.author?.id === me) return
+	}
+	if (cfg.ignoreBots && message.author?.bot) return
+
+	const meta = describe(message, channelId)
+	const now = Date.now()
+	captureEdit({
+		id: messageId,
+		channelId,
+		guildId: meta.guildId,
+		authorId: String(message.author?.id ?? ''),
+		authorName: meta.authorName,
+		channelName: meta.channelName,
+		guildName: meta.guildName,
+		authorAvatar: message.author?.avatar,
+		guildIcon: meta.guildIcon,
+		sentAt: epochMs(message.timestamp, now),
+		previous: before.slice(0, 2000),
+		current: incoming.content.slice(0, 2000),
+		editedAt: epochMs(incoming.edited_timestamp, now),
+	})
+	// The encrypted backup carries edit history too, so an edit refreshes it like a catch does.
+	if (cfg.autoBackupEnabled) scheduleBackup(cfg)
 }
 
 export default plugin<{ jsonStorage: GhostLogSettings }>({
@@ -216,6 +296,8 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 			// everything.
 			await refreshStorageStatus()
 			void refreshLog()
+			// Loaded at start rather than on first visit: the chat needs it to draw edit history.
+			void refreshEdits()
 		}
 		bootstrap().catch(error => console.error(`${TAG} bootstrap failed:`, error))
 
@@ -223,6 +305,11 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 			api.cleanup(registerPages())
 		} catch (error) {
 			console.error(`${TAG} failed to register settings pages:`, error)
+		}
+		try {
+			api.cleanup(setupChangelog(api, CHANGELOG))
+		} catch (error) {
+			console.error(`${TAG} failed to set up the changelog:`, error)
 		}
 
 		// A restored message is still an ordinary SENT message to the rest of the client, so
@@ -248,6 +335,14 @@ export default plugin<{ jsonStorage: GhostLogSettings }>({
 					handle(payload.channelId, payload.id)
 				} catch (error) {
 					console.error(`${TAG} MESSAGE_DELETE handler failed:`, error)
+				}
+				return payload
+			}),
+			onFluxEventDispatched('MESSAGE_UPDATE', (payload: any) => {
+				try {
+					handleEdit(payload)
+				} catch (error) {
+					console.error(`${TAG} MESSAGE_UPDATE handler failed:`, error)
 				}
 				return payload
 			}),
@@ -316,8 +411,14 @@ declare module '@revenge-mod/modules/native' {
 		'bleelblep.ghost-log-native-beta.clearLog': [args: any[], returnValue: boolean]
 		'bleelblep.ghost-log-native-beta.getLogFilePath': [args: any[], returnValue: string]
 		'bleelblep.ghost-log-native-beta.setLimits': [args: [max: number, unlimited: boolean], returnValue: boolean]
-		'bleelblep.ghost-log-native-beta.exportBackup': [args: [path: string], returnValue: { path: string; count: number } | null]
-		'bleelblep.ghost-log-native-beta.importBackup': [args: [path: string], returnValue: number]
+		'bleelblep.ghost-log-native-beta.exportBackup': [
+			args: [path: string],
+			returnValue: { path: string; count: number; edits?: number } | null,
+		]
+		'bleelblep.ghost-log-native-beta.importBackup': [
+			args: [path: string],
+			returnValue: number | { added: number; edits: number },
+		]
 		'bleelblep.ghost-log-native-beta.getStorageStatus': [args: any[], returnValue: string]
 		'bleelblep.ghost-log-native-beta.exportBundle': [
 			args: [path: string],
@@ -325,5 +426,8 @@ declare module '@revenge-mod/modules/native' {
 		]
 		'bleelblep.ghost-log-native-beta.importBundle': [args: [path: string], returnValue: number]
 		'bleelblep.ghost-log-native-beta.seedEntries': [args: [entries: Record<string, unknown>[]], returnValue: number]
+		'bleelblep.ghost-log-native-beta.captureEdit': [args: [edit: Record<string, unknown>], returnValue: string | null]
+		'bleelblep.ghost-log-native-beta.getEdits': [args: any[], returnValue: string]
+		'bleelblep.ghost-log-native-beta.clearEdits': [args: any[], returnValue: boolean]
 	}
 }

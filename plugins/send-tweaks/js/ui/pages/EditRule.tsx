@@ -11,6 +11,10 @@ import { compileRule, type Rule } from '../../lib/textReplace'
 import { FieldRow } from '../fieldGroup'
 import { dangerIcon, rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
+import { TemplateHelpButton } from '../components/TemplateHelp'
+import { validateTemplate } from '../../lib/templateValidation'
+import { settings } from '../../lib/state'
+import { clearTemplateSession } from '../templateSession'
 
 function showToast(content: string) {
 	revenge.discord.actions.ToastActionCreators.open({
@@ -71,6 +75,16 @@ export default function EditRule() {
 	const kind = target?.kind ?? 'text'
 	const rules = useRules(kind)
 	const rule = rules.find(r => r.id === target?.id)
+	const unlocked = greetingsUnlocked()
+	React.useEffect(() => clearTemplateSession, [])
+	const [replacementRevision, bumpReplacement] = React.useReducer((n: number) => n + 1, 0)
+	React.useLayoutEffect(() => {
+		navigation.setOptions?.({ headerRight: unlocked && rule && target ? () => <TemplateHelpButton initial={rule.replace} apply={text => {
+			updateRule(kind, target.id, { replace: text })
+			bumpReplacement()
+		}} /> : () => null })
+		return () => navigation.setOptions?.({ headerRight: () => null })
+	}, [navigation, unlocked, rule?.replace, target, kind])
 
 	if (!target || !rule) {
 		return (
@@ -169,12 +183,15 @@ export default function EditRule() {
 							}
 						>
 							<LinesField
+								key={`replacement-${replacementRevision}`}
 								placeholder="Leave empty to delete what was found"
 								value={rule.replace}
 								onChange={(value: string) => set({ replace: value })}
 							/>
 						</FieldRow>
 					</TableRowGroup>
+
+					{unlocked ? validateTemplate(rule.replace, rule.replace, settings().snippets ?? []).map(warning => <Text key={warning} variant="text-sm/normal" color="text-feedback-warning">{warning}</Text>) : null}
 
 					<TableRowGroup title="Options">
 						<TableSwitchRow

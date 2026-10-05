@@ -75,6 +75,25 @@ async function resolveMediaUri(localFile: string): Promise<string | undefined> {
 	return undefined
 }
 
+// Files already sent for repair this session, so a dead CDN link is not retried on every frame.
+const repairTried = new Set<string>()
+
+/**
+ * A saved copy that exists but won't open (damaged before beta19) can be downloaded again while
+ * Discord's CDN still has the original. Native checks the name matches the url before touching it.
+ */
+async function repairMediaUri(localFile: string, remoteUrl: unknown): Promise<string | undefined> {
+	if (typeof remoteUrl !== 'string' || !remoteUrl || repairTried.has(localFile)) return undefined
+	repairTried.add(localFile)
+	try {
+		const ok = await callNativeMethod(`${PLUGIN_ID}.repairMedia`, [localFile, remoteUrl])
+		if (ok === true) return await resolveMediaUri(localFile)
+	} catch (error) {
+		console.error('[GhostLogNativeBeta] media repair failed:', error)
+	}
+	return undefined
+}
+
 /** Collect every media sub-object in a rich record that carries a saved encrypted copy. */
 function mediaObjects(rich: RichContent): any[] {
 	const out: any[] = []
@@ -112,7 +131,7 @@ export async function rehydrateLocalMedia(rich: RichContent) {
 	if (!objs.length) return
 	await Promise.all(
 		objs.map(async obj => {
-			const uri = await resolveMediaUri(obj.localFile)
+			const uri = (await resolveMediaUri(obj.localFile)) ?? (await repairMediaUri(obj.localFile, obj.remoteUrl))
 			if (uri) applyUri(obj, uri)
 		}),
 	)

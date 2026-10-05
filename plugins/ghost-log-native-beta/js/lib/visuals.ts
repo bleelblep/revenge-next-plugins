@@ -1,5 +1,6 @@
 import { setCreateMessageRecord } from './restore'
 import { getCachedLog } from '../ui/state'
+import { getEditRecord } from './edits'
 import type { GhostLogSettings } from '../types'
 
 const log = (...m: any[]) => console.log('[GhostLogNativeBeta]', ...m)
@@ -22,6 +23,30 @@ function guarded<A extends any[]>(label: string, fn: (...args: A) => void) {
 			console.error(`[GhostLogNativeBeta] ${label} failed; feature disabled for this session:`, error)
 		}
 	}
+}
+
+/**
+ * Mentioned users in the shape a MESSAGE_UPDATE carries. A MessageRecord keeps `mentions` as user id
+ * strings, but a real MESSAGE_UPDATE carries user objects, and Discord adds each one to its user
+ * store and its native user-search worker. Passing the ids through made users with no id or
+ * username, and the worker's parser (`UserSearchTransformedUser`, which requires both) threw a
+ * NullPointerException that took the app down whenever a deleted message mentioned someone
+ * (2026-10-03). Ids are resolved through UserStore; anything still missing an id or username is
+ * dropped.
+ */
+export function mentionUsers(mentions: unknown): any[] {
+	if (!Array.isArray(mentions)) return []
+	const UserStore = stores().UserStore
+	return mentions
+		.map(m => (typeof m === 'string' ? UserStore?.getUser?.(m) : m))
+		.filter(user => user?.id && user?.username)
+}
+
+/** A message's author as a user the stores accept, or undefined when none has an id and username. */
+function usableAuthor(author: any): any | undefined {
+	if (author?.id && author?.username) return author
+	const user = author?.id ? stores().UserStore?.getUser?.(author.id) : undefined
+	return user?.id && user?.username ? user : undefined
 }
 
 /**
@@ -77,6 +102,11 @@ function patchDispatcher(
 
 				if (settings.deleteStyle === 'off') return args
 
+				// An update with an author the user search can't parse crashes the app (see
+				// mentionUsers); letting the delete through only loses the styling.
+				const author = usableAuthor(message.author)
+				if (!author) return args
+
 				const msgData: any = {
 					id: message.id,
 					channel_id: message.channel_id,
@@ -87,10 +117,10 @@ function patchDispatcher(
 					// missing id/username -- which crashed createMessageRecord below on every
 					// non-self delete. The record is immutable and only read from here, so handing
 					// the reference straight through is safe.
-					author: message.author,
+					author,
 					attachments: message.attachments ? [...message.attachments] : [],
 					embeds: message.embeds ?? [],
-					mentions: message.mentions ?? [],
+					mentions: mentionUsers(message.mentions),
 					mention_roles: message.mention_roles ?? [],
 					mention_everyone: message.mention_everyone ?? false,
 					timestamp: message.timestamp,
@@ -104,7 +134,28 @@ function patchDispatcher(
 				}
 
 				if (message.referenced_message) {
-					msgData.referenced_message = message.referenced_message
+					// Rebuilt by field name rather than passed as the record: its `mentions` are id
+					// strings too. Left out when its author is unusable; the reference alone still
+					// links the reply.
+					const ref = message.referenced_message
+					const refAuthor = usableAuthor(ref.author)
+					if (refAuthor) {
+						msgData.referenced_message = {
+							id: ref.id,
+							channel_id: ref.channel_id,
+							content: ref.content ?? '',
+							author: refAuthor,
+							attachments: ref.attachments ? [...ref.attachments] : [],
+							embeds: ref.embeds ?? [],
+							mentions: mentionUsers(ref.mentions),
+							mention_roles: ref.mention_roles ?? [],
+							mention_everyone: ref.mention_everyone ?? false,
+							timestamp: ref.timestamp,
+							edited_timestamp: ref.edited_timestamp,
+							flags: ref.flags ?? 0,
+							type: ref.type ?? 0,
+						}
+					}
 					msgData.message_reference = {
 						channel_id: message.referenced_message.channel_id,
 						message_id: message.referenced_message.id,
@@ -127,6 +178,32 @@ function patchDispatcher(
 	)
 
 	return () => {}
+}
+
+const clipVersion = (text: string) => {
+	const flat = text.replace(/\s+/g, ' ').trim()
+	if (!flat) return '(no text)'
+	return flat.length > 300 ? `${flat.slice(0, 299)}…` : flat
+}
+
+/**
+ * Earlier versions of an edited message, as muted `subtext` lines (Discord's `-#` small text)
+ * above the current text, oldest first.
+ *
+ * `content` here is Discord's per-record parse cache (docs: discord-row-content-is-parse-cache), so
+ * it is never changed in place: the row gets a new array that holds the cached nodes after ours.
+ */
+function applyEditHistory(ret: any, message: any, settings: GhostLogSettings) {
+	if (!settings.showEditHistory || !message?.id) return
+	const record = getEditRecord(String(message.id))
+	if (!record?.versions?.length) return
+	const content = ret?.message?.content
+	if (!Array.isArray(content)) return
+	const trail = record.versions.map(version => ({
+		type: 'subtext',
+		content: [{ type: 'text', content: clipVersion(version.content) }],
+	}))
+	ret.message.content = [...trail, ...content]
 }
 
 function patchRowManager(getSettings: () => GhostLogSettings, patches: (() => void)[]) {
@@ -166,9 +243,15 @@ function patchRowManager(getSettings: () => GhostLogSettings, patches: (() => vo
 
 					try {
 						if (data?.rowType !== 1) return ret
-						if (!data?.message?.__vml_deleted) return ret
-
 						const settings = getSettings()
+
+						try {
+							applyEditHistory(ret, data.message, settings)
+						} catch (error) {
+							console.error('[GhostLogNativeBeta] edit history row failed:', error)
+						}
+
+						if (!data?.message?.__vml_deleted) return ret
 
 						if (settings.deleteStyle === 'overlay') {
 							ret.message = ret.message ?? {}
@@ -268,51 +351,6 @@ function patchMessageRecordUtils(patches: (() => void)[]) {
 	return unsub
 }
 
-function patchMessageRecord(patches: (() => void)[]) {
-	const { getModules } = revenge.modules.finders
-	const { withName } = revenge.modules.finders.filters
-
-	// Same `max` trap again -- see patchRowManager.
-	const seenRecords = new Set<any>()
-
-	const unsub = getModules(
-		withName('MessageRecord'),
-		guarded('MessageRecord patch', (MessageRecord: any) => {
-			if (typeof MessageRecord?.default !== 'function') {
-				console.error('[GhostLogNativeBeta] MessageRecord.default not found')
-				return
-			}
-			if (seenRecords.has(MessageRecord)) return
-			seenRecords.add(MessageRecord)
-
-			let pendingDeleted = false
-
-			patches.push(
-				revenge.patcher.before(MessageRecord, 'default', (args: any[]) => {
-					pendingDeleted = !!args?.[0]?.__vml_deleted
-					return args
-				}),
-			)
-
-			patches.push(
-				revenge.patcher.after(MessageRecord, 'default', (ret: any) => {
-					const deleted = pendingDeleted
-					pendingDeleted = false
-					try {
-						if (ret) ret.__vml_deleted = deleted
-					} catch (error) {
-						console.error('[GhostLogNativeBeta] MessageRecord constructor hook failed:', error)
-					}
-					return ret
-				}),
-			)
-		}),
-		{ max: 10 },
-	)
-
-	return unsub
-}
-
 export function patchVisuals(
 	getSettings: () => GhostLogSettings,
 	onDelete?: (channelId: string, messageId: string) => void,
@@ -339,7 +377,10 @@ export function patchVisuals(
 		() => patchDispatcher(getSettings, patches, onDelete),
 		() => patchRowManager(getSettings, patches),
 		() => patchMessageRecordUtils(patches),
-		() => patchMessageRecord(patches),
+		// No hook on the MessageRecord class itself. Its lookup never matched until 0.5.0-beta14
+		// (withName returns the class, so `.default` was always missing), and once beta14 made it
+		// install by wrapping the constructor, message timestamps broke. createMessageRecord and
+		// updateMessageRecord above already carry the deleted flag, so it isn't needed.
 	]) {
 		// One failing patch must not stop the others from installing, or skip cleanup for those
 		// that did.

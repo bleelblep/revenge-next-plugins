@@ -30,18 +30,39 @@ const FORMAT = { PNG: 1, APNG: 2, LOTTIE: 3, GIF: 4 } as const
 /** Sticker `type`: standard ones (Discord's own packs) are free for everyone. */
 const STANDARD = 1
 
-/** Replaces `host[key]` with `make(original)`; the undo only restores if it's still ours. */
+/**
+ * Replaces `host[key]` with `make(original)`; the undo only restores if it's still ours.
+ *
+ * A plain assignment fails silently on a read-only export (a getter, as modules that only
+ * re-export a function have), so a configurable one is redefined instead. One that can't be
+ * redefined at all is skipped quietly: it's a re-export, and the module that really defines the
+ * function matches the same finder and gets replaced there.
+ */
 function replaceMethod(host: any, key: string, make: (original: (...args: any[]) => any) => (...args: any[]) => any) {
 	const original = host?.[key]
 	if (typeof original !== 'function') return undefined
 	const wrapper = make(original)
-	host[key] = wrapper
+	const descriptor = Object.getOwnPropertyDescriptor(host, key)
+	try {
+		host[key] = wrapper
+	} catch {
+		/* read-only in strict mode; handled below */
+	}
+	if (host[key] !== wrapper && descriptor?.configurable) {
+		try {
+			Object.defineProperty(host, key, { value: wrapper, writable: true, configurable: true, enumerable: descriptor.enumerable ?? true })
+		} catch {
+			/* handled below */
+		}
+	}
 	if (host[key] !== wrapper) {
-		console.error(`${TAG} could not replace ${key}`)
+		console.log(`${TAG} ${key} is read-only here, skipped`)
 		return undefined
 	}
 	return () => {
-		if (host[key] === wrapper) host[key] = original
+		if (host[key] !== wrapper) return
+		if (descriptor && !('value' in descriptor)) Object.defineProperty(host, key, descriptor)
+		else host[key] = original
 	}
 }
 

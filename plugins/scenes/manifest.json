@@ -1,0 +1,17 @@
+{
+	"format": 1,
+	"id": "bleelblep.scenes",
+	"name": "Scenes",
+	"description": "Living atmospheres for Discord: aurora, nebula, underwater light, rain, embers, enchanted light, Halloween, Thanksgiving and Christmas. Built-in GPU shaders, entirely offline.",
+	"author": "bleelblep",
+	"icon": "ThemeMidnightIcon",
+	"version": "0.2.2",
+	"dependencies": {
+		"revenge.api": { "version": ">=1 <2" },
+		"discord": { "version": "*" }
+	},
+	"dist": {
+		"script": "index.js",
+		"android": { "path": "plugin.jar", "class": "com.bleelblep.scenes.ScenesPlugin" }
+	}
+}

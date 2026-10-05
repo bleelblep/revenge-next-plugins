@@ -3,6 +3,47 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.7.2',
+		date: '2026-10-05',
+		title: 'A clearer editing flow',
+		changes: [
+			'Reorganized editor assistance around individual tasks, with shorter labels and examples.',
+			'Added confirmation before deleting saved reusable text.',
+		],
+	},
+	{
+		version: '0.7.1',
+		date: '2026-10-05',
+		title: 'More room to edit',
+		changes: ['Moved extended editor assistance out of a crowded dialog into focused screens.'],
+	},
+	{
+		version: '0.7.0',
+		date: '2026-10-05',
+		title: 'Preview checks',
+		changes: ['Added advisory checks for incomplete formatting and unavailable information in previews. Sending remains under your control.'],
+	},
+	{
+		version: '0.6.2',
+		date: '2026-10-05',
+		title: 'Formatting consistency',
+		changes: ['Expanded internal formatting support and added regression checks for generated date and time text.'],
+	},
+	{
+		version: '0.6.1',
+		date: '2026-10-05',
+		title: 'Release notes cleanup',
+		changes: ['Revised the editor help wording and kept release notes focused on general changes.'],
+	},
+	{
+		version: '0.6.0',
+		date: '2026-10-05',
+		title: 'Preview continuity',
+		changes: [
+			'Improved how generated replacement text carries through from Preview to Send.',
+		],
+	},
+	{
 		version: '0.5.21',
 		date: '2026-10-05',
 		title: 'Local JSON rules in the rule creator',

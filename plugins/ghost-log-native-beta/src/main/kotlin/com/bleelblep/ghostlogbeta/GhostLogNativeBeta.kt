@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -48,6 +49,9 @@ private const val PERSIST_DEBOUNCE_MS = 400L
 // published here for it to call.
 private var flushOnStop: (() -> Unit)? = null
 
+/** Undoes LocalVideoHook, for the same reason flushOnStop lives out here. */
+private var unhookLocalVideo: (() -> Unit)? = null
+
 /**
  * Native-first Ghost Log.
  *
@@ -72,8 +76,19 @@ val ghostLogNativeBeta = plugin {
 		val downloadSemaphore = Semaphore(4)
 		// Our own scope, not the bridge's: the debounced flush outlives the native call that
 		// scheduled it, so it cannot ride on a handler coroutine that is about to complete.
-		val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+		// With a handler: an exception escaping a coroutine on a scope without one goes to the thread's
+		// default handler, which kills the whole app. Nothing in here throws today (writeLogNow is
+		// runCatching), but that should not be the only thing standing between a bug and a crash.
+		val scope = CoroutineScope(
+			SupervisorJob() + Dispatchers.IO +
+				CoroutineExceptionHandler { _, error -> Log.e(TAG, "background task failed", error) },
+		)
         val entries = mutableListOf<JSONObject>()
+		// Edit history: one record per edited message, newest first, each holding the versions it
+		// had before its current text. A separate file from the deleted log so the two can be
+		// cleared, counted and trimmed independently, but living in the same base dir, under the
+		// same key, flushed by the same debounce and carried by the same bundle.
+		val edits = mutableListOf<JSONObject>()
 		// EVERYTHING lives in one portable base directory — the backup location (default
 		// /storage/emulated/0/Download/GhostLog) — so the encrypted log, the rolling embed shards
 		// and the encrypted media blobs all survive an app uninstall/data wipe together. baseDir
@@ -81,6 +96,7 @@ val ghostLogNativeBeta = plugin {
 		// on startup (and re-pushes it on every capture, so a late configure is still safe).
 		var baseDir: File = storageDir
 		var logFile: File = File(baseDir, "deleted-log.json.enc")
+		var editsFile: File = File(baseDir, "edited-log.json.enc")
 		var richIndexFile: File = File(baseDir, "deleted-embeds.index.v1.json")
 		fun richShard(file: Int) = File(baseDir, "deleted-embeds-%05d.json".format(file))
 		var mediaDir: File = File(baseDir, "media")
@@ -101,6 +117,7 @@ val ghostLogNativeBeta = plugin {
 		var lastWriteError: String? = null
 
 		var dirty = false
+		var editsDirty = false
 		var persistJob: Job? = null
 
 		fun hideFromMediaScanner(dir: File) {
@@ -121,6 +138,12 @@ val ghostLogNativeBeta = plugin {
 			return mediaCacheDir
 		}
 
+		// Saved videos play from the decrypted cache; Discord's player only speaks HTTP without this.
+		unhookLocalVideo?.invoke()
+		unhookLocalVideo = runCatching { LocalVideoHook.install(classLoader, ensureMediaCacheDir()) }
+			.onFailure { Log.e("GhostLogNativeBeta", "local video hook failed", it) }
+			.getOrNull()
+
 		fun wipeMediaCache() {
 			runCatching { mediaCacheDir.listFiles()?.forEach { if (it.isFile && it.name != ".nomedia") it.delete() } }
 		}
@@ -137,6 +160,21 @@ val ghostLogNativeBeta = plugin {
 			val abs = if (raw.isAbsolute) raw else File(storageDir, backupPath)
 			// A path ending in a file name means "the directory holding it".
 			return if (abs.extension.isNotEmpty()) abs.parentFile else abs
+		}
+
+		/**
+		 * The file a backup/bundle path names, resolved the same way as [resolveBaseDir]: absolute as
+		 * given, RELATIVE against app-private storageDir.
+		 *
+		 * exportBackup/importBackup/exportBundle/importBundle used a bare `File(path)`, which resolves
+		 * a relative path against the process working directory (`/`). The defaults ARE relative
+		 * ("GhostLog/deleted-log.backup.json"), so every auto-backup wrote to `/GhostLog/...` and
+		 * failed, and every restore read from there and found nothing -- while the log itself, which
+		 * goes through resolveBaseDir, worked. That split is why backups silently never existed.
+		 */
+		fun resolveFile(path: String): File {
+			val raw = File(path)
+			return if (raw.isAbsolute) raw else File(storageDir, path)
 		}
 
 		/** Null when the directory really accepts a write; otherwise the reason it does not. */
@@ -249,6 +287,7 @@ val ghostLogNativeBeta = plugin {
 				runCatching {
 					dir.mkdirs()
 					logFile.copyTo(newLog, overwrite = false)
+					if (editsFile.exists()) editsFile.copyTo(File(dir, editsFile.name), overwrite = false)
 					if (richIndexFile.exists()) richIndexFile.copyTo(File(dir, richIndexFile.name), overwrite = false)
 					val idx = (readJsonFile(richIndexFile) ?: JSONObject())
 					for (file in 1..idx.optInt("file", 0).coerceAtLeast(0)) {
@@ -266,6 +305,7 @@ val ghostLogNativeBeta = plugin {
 			}
 			baseDir = dir
 			logFile = File(baseDir, "deleted-log.json.enc")
+			editsFile = File(baseDir, "edited-log.json.enc")
 			richIndexFile = File(baseDir, "deleted-embeds.index.v1.json")
 			mediaDir = File(baseDir, "media")
 			ensureMediaDir()
@@ -275,6 +315,7 @@ val ghostLogNativeBeta = plugin {
         fun trimLocked() {
             if (unlimitedEntries) return
             while (entries.size > maxEntries) entries.removeAt(entries.size - 1)
+            while (edits.size > maxEntries) edits.removeAt(edits.size - 1)
         }
 
 		fun extensionFor(contentType: String?, url: String): String {
@@ -356,10 +397,23 @@ val ghostLogNativeBeta = plugin {
 			false
 		}
 
-		/** Caller must hold the mutex. Writes only if there is something to write. */
+		/** The edit-history twin of [writeLogNow]; never throws, for the same reason. */
+		fun writeEditsNow(): Boolean = runCatching {
+			val arr = JSONArray()
+			edits.forEach(arr::put)
+			editsFile.parentFile?.mkdirs()
+			editsFile.writeText(encrypt(arr.toString()))
+			true
+		}.getOrElse { error ->
+			lastWriteError = "${error.javaClass.simpleName}: ${error.message ?: "edit log write failed"}"
+			Log.e(TAG, "edit log write failed to ${editsFile.absolutePath}", error)
+			false
+		}
+
+		/** Caller must hold the mutex. Writes whichever of the two logs has something to write. */
 		fun flushLocked() {
-			if (!dirty) return
-			if (writeLogNow()) dirty = false
+			if (dirty && writeLogNow()) dirty = false
+			if (editsDirty && writeEditsNow()) editsDirty = false
 		}
 
 		/** Caller must hold the mutex. Marks dirty and writes immediately. */
@@ -368,9 +422,8 @@ val ghostLogNativeBeta = plugin {
 			flushLocked()
 		}
 
-		/** Caller must hold the mutex. Marks dirty and coalesces the write into the current window. */
-		fun schedulePersistLocked() {
-			dirty = true
+		/** Caller must hold the mutex. Coalesces a write of whatever is dirty into the current window. */
+		fun scheduleFlushLocked() {
 			if (persistJob != null) return
 			persistJob = scope.launch {
 				delay(PERSIST_DEBOUNCE_MS)
@@ -378,14 +431,29 @@ val ghostLogNativeBeta = plugin {
 					persistJob = null
 					flushLocked()
 				}
+				}
 			}
-		}
+
+			/** Caller must hold the mutex. Marks the deleted log dirty and coalesces the write. */
+			fun schedulePersistLocked() {
+				dirty = true
+				scheduleFlushLocked()
+			}
+
+			/** Caller must hold the mutex. Marks the edit log dirty and coalesces the write. */
+			fun scheduleEditsPersistLocked() {
+				editsDirty = true
+				scheduleFlushLocked()
+			}
 
 		// 25 MB, matching Discord's free-tier upload limit, because the whole payload is buffered in
 		// memory here and then Base64'd into a Java String (UTF-16, so ~2.7x the byte count) and again
 		// into a JSON envelope. At the old 512 MB cap a single large video needed well over a gigabyte
 		// of transient heap and simply killed the app. Anything over the cap keeps its CDN url only.
 		val maxMediaBytes = 25L * 1024 * 1024
+
+		/** Per-file locks for downloadMedia, keyed by .enc name. Never shrinks; one tiny Object per file. */
+		val mediaLocks = java.util.concurrent.ConcurrentHashMap<String, Any>()
 
 		/**
 		 * Download a remote URL (image/video/audio/file), AES-GCM encrypt the bytes, and write a
@@ -394,18 +462,16 @@ val ghostLogNativeBeta = plugin {
 		 * at a new absolute path. Returns null (caller keeps only the CDN url) on any failure or a
 		 * payload over maxMediaBytes. Idempotent: a URL already downloaded is not fetched again.
 		 */
-		fun downloadMedia(url: String): String? {
-			val tag = "GhostLogNativeBeta"
-			if (url.isBlank() || !(url.startsWith("http://") || url.startsWith("https://"))) {
-				Log.w(tag, "downloadMedia skipped: non-http url")
-				return null
-			}
-			val dir = ensureMediaDir()
+		fun mediaNameFor(url: String): String {
 			val hash = MessageDigest.getInstance("SHA-256")
 				.digest(url.toByteArray(Charsets.UTF_8))
 				.joinToString("") { "%02x".format(it) }
 				.take(32)
-			val name = "deleted-media-$hash.enc"
+			return "deleted-media-$hash.enc"
+		}
+
+		fun downloadMediaLocked(url: String, name: String, tag: String): String? {
+			val dir = ensureMediaDir()
 			// Reuse an existing download.
 			File(dir, name).takeIf { it.exists() }?.let { Log.i(tag, "media cached: $name"); return name }
 			try {
@@ -446,7 +512,15 @@ val ghostLogNativeBeta = plugin {
 					if (bytes.isEmpty()) { Log.w(tag, "downloadMedia empty body"); return null }
 					val mime = contentType?.substringBefore(';')?.trim()?.ifBlank { null }
 						?: "application/" + extensionFor(null, url)
-					File(dir, name).writeText(encryptMediaEnvelope(bytes, mime))
+					// Written beside the target and renamed into place, so a crash or kill mid-write can
+					// never leave a truncated .enc that the "reuse an existing download" check trusts.
+					val temp = File(dir, "$name.part")
+					temp.writeText(encryptMediaEnvelope(bytes, mime))
+					if (!temp.renameTo(File(dir, name))) {
+						temp.delete()
+						Log.w(tag, "downloadMedia could not move $name into place")
+						return null
+					}
 					Log.i(tag, "media saved: $name (${bytes.size} bytes)")
 					return name
 				} finally {
@@ -456,6 +530,22 @@ val ghostLogNativeBeta = plugin {
 				Log.e(tag, "downloadMedia failed: $url", e)
 				return null
 			}
+		}
+
+		fun downloadMedia(url: String): String? {
+			val tag = "GhostLogNativeBeta"
+			if (url.isBlank() || !(url.startsWith("http://") || url.startsWith("https://"))) {
+				Log.w(tag, "downloadMedia skipped: non-http url")
+				return null
+			}
+			val name = mediaNameFor(url)
+			// One download per file at a time. A single deletion can reach captureDeleted twice (the
+			// dispatcher hook and the MESSAGE_DELETE fallback), and both used to download the same url
+			// and write the same file at once. Small images rarely overlapped; a video took long enough
+			// that the two writes interleaved into one file whose payload no longer matched its GCM tag
+			// -- saved, and never openable (seen live on 348.5 with a 3.7 MB mp4).
+			val lock = mediaLocks.computeIfAbsent(name) { Any() }
+			return synchronized(lock) { downloadMediaLocked(url, name, tag) }
 		}
 
 		/**
@@ -506,7 +596,12 @@ val ghostLogNativeBeta = plugin {
 			val index = (readJsonFile(richIndexFile) ?: JSONObject())
 			var file = index.optInt("file", 1).coerceAtLeast(1)
 			var target = richShard(file)
-			var existing = runCatching { JSONObject(target.readText()) }.getOrElse { JSONObject() }
+			// Through readJsonFile, like every other reader: shards are written encrypted, and the
+			// envelope is itself valid JSON ({version, iv, payload}), so a plain JSONObject() parse
+			// "succeeded" with no `entries` in it. Every capture with media or embeds then rewrote the
+			// shard holding only itself, wiping every earlier deletion's attachments and embeds, so
+			// restored messages came back without their images.
+			var existing = readJsonFile(target) ?: JSONObject()
 			var oldEntries = existing.optJSONArray("entries") ?: JSONArray()
 			val limit = perFile.coerceIn(50, 100)
 			if (oldEntries.length() >= limit) {
@@ -544,7 +639,19 @@ val ghostLogNativeBeta = plugin {
 			}
 		}
 
+        fun loadEditsLocked() {
+            edits.clear()
+            val raw = runCatching { editsFile.readText() }.getOrNull() ?: return
+            val plain = decrypt(raw) ?: return
+            runCatching {
+                val arr = JSONArray(plain)
+                for (i in 0 until arr.length()) edits.add(arr.getJSONObject(i))
+            }
+        }
+
+        /** Loads both logs: every caller wants them read from the same base dir at the same moment. */
         fun loadLocked() {
+            loadEditsLocked()
             entries.clear()
             val raw = runCatching { logFile.readText() }.getOrNull() ?: return
             val plain = decrypt(raw) ?: return
@@ -604,6 +711,106 @@ val ghostLogNativeBeta = plugin {
             }
         }
 
+		// Versions kept per message. An edit war should not grow one record without bound.
+		val maxVersions = 20
+
+		/**
+		 * Folds edit records from a backup into the edit log. Caller holds the mutex. A message only
+		 * in the backup is added; one in both gets the union of its versions (no duplicates, oldest
+		 * first, capped) and the newer of the two current texts. Returns how many records changed.
+		 */
+		fun mergeEditsLocked(incoming: JSONArray): Int {
+			var changed = 0
+			for (i in 0 until incoming.length()) {
+				val record = incoming.optJSONObject(i) ?: continue
+				val id = record.optString("id").ifBlank { null } ?: continue
+				val index = edits.indexOfFirst { it.optString("id") == id }
+				if (index < 0) {
+					edits.add(record)
+					changed++
+					continue
+				}
+				val mine = edits[index]
+				val seen = HashSet<String>()
+				val merged = ArrayList<JSONObject>()
+				for (list in listOf(mine.optJSONArray("versions"), record.optJSONArray("versions"))) {
+					list ?: continue
+					for (j in 0 until list.length()) {
+						val version = list.optJSONObject(j) ?: continue
+						val key = version.optString("content") + "\u0000" + version.optLong("editedAt")
+						if (seen.add(key)) merged.add(version)
+					}
+				}
+				merged.sortBy { it.optLong("editedAt") }
+				val before = mine.optJSONArray("versions")?.length() ?: 0
+				mine.put("versions", JSONArray(merged.takeLast(maxVersions)))
+				if (record.optLong("editedAt") > mine.optLong("editedAt")) {
+					mine.put("current", record.optString("current"))
+					mine.put("editedAt", record.optLong("editedAt"))
+				}
+				if ((mine.optJSONArray("versions")?.length() ?: 0) != before) changed++
+			}
+			edits.sortByDescending { it.optLong("editedAt") }
+			return changed
+		}
+
+		/**
+		 * One edit, merged into that message's record. JS sends the text as it was before this edit
+		 * (`previous`) and after it (`current`); native owns the record, so the merge happens here and
+		 * the merged record is returned for the JS cache to mirror. The first edit also records the
+		 * message's metadata (author, channel, guild), which later edits leave alone.
+		 */
+		registerNativeAsyncMethod("${manifest.id}.captureEdit") { args ->
+			val map = args.getOrNull(0) as? Map<*, *> ?: return@registerNativeAsyncMethod null
+			val incoming = JSONObject(map)
+			val id = incoming.optString("id").ifBlank { return@registerNativeAsyncMethod null }
+			val previous = incoming.optString("previous")
+			val current = incoming.optString("current")
+			val editedAt = (incoming.opt("editedAt") as? Number)?.toLong() ?: System.currentTimeMillis()
+			mutex.withLock {
+				val index = edits.indexOfFirst { it.optString("id") == id }
+				val record = if (index >= 0) edits.removeAt(index) else JSONObject().apply {
+					for (key in listOf("id", "channelId", "guildId", "authorId", "authorName", "channelName", "guildName", "authorAvatar", "guildIcon")) {
+						incoming.opt(key)?.takeIf { it != JSONObject.NULL }?.let { put(key, it) }
+					}
+					(incoming.opt("sentAt") as? Number)?.let { put("sentAt", it.toLong()) }
+					put("versions", JSONArray())
+				}
+				val versions = record.optJSONArray("versions") ?: JSONArray().also { record.put("versions", it) }
+				val last = if (versions.length() > 0) versions.optJSONObject(versions.length() - 1)?.optString("content") else null
+				// The same text arriving twice (a replayed update) adds nothing.
+				if (previous != last && previous != current) {
+					versions.put(JSONObject().put("content", previous).put("editedAt", editedAt))
+				}
+				while (versions.length() > maxVersions) versions.remove(0)
+				record.put("current", current)
+				record.put("editedAt", editedAt)
+				edits.add(0, record)
+				trimLocked()
+				scheduleEditsPersistLocked()
+				record.toString()
+			}
+		}
+
+		registerNativeAsyncMethod("${manifest.id}.getEdits") { _ ->
+			mutex.withLock {
+				flushLocked()
+				val arr = JSONArray()
+				edits.forEach(arr::put)
+				arr.toString()
+			}
+		}
+
+		registerNativeAsyncMethod("${manifest.id}.clearEdits") { _ ->
+			mutex.withLock {
+				edits.clear()
+				editsDirty = true
+				flushLocked()
+			}
+			log.i("edit log cleared")
+			true
+		}
+
 		registerNativeAsyncMethod("${manifest.id}.getRichContent") { args ->
 			val ids = (args.getOrNull(0) as? List<*>)?.mapNotNull { it as? String }?.toHashSet() ?: emptySet()
 			mutex.withLock {
@@ -635,6 +842,52 @@ val ghostLogNativeBeta = plugin {
 			decryptMediaToCacheFile(file, name)
 		}
 
+		// repairMedia(name, url) -> true when the blob now opens. For a saved copy that exists but
+		// fails to decrypt (damaged by the concurrent-write bug fixed in beta19): if Discord's CDN
+		// still serves the original, download it again. The name must be the one this url hashes
+		// to, so a caller can't point one file's name at someone else's url.
+		registerNativeAsyncMethod("${manifest.id}.repairMedia") { args ->
+			val name = args.getOrNull(0) as? String ?: return@registerNativeAsyncMethod false
+			val url = args.getOrNull(1) as? String ?: return@registerNativeAsyncMethod false
+			if (name != mediaNameFor(url)) return@registerNativeAsyncMethod false
+			val file = File(mediaDir, name)
+			if (file.exists() && decryptMediaToCacheFile(file, name) != null) return@registerNativeAsyncMethod true
+			synchronized(mediaLocks.computeIfAbsent(name) { Any() }) { file.delete() }
+			val saved = downloadMedia(url) ?: return@registerNativeAsyncMethod false
+			decryptMediaToCacheFile(File(mediaDir, saved), saved) != null
+		}
+
+		// Diagnostics for one saved media blob: getMedia answers only "a URI or null", which hides why
+		// a blob won't open. Reports each step, and never returns any of the content.
+		registerNativeAsyncMethod("${manifest.id}.mediaCheck") { args ->
+			val name = args.getOrNull(0) as? String ?: return@registerNativeAsyncMethod null
+			if (name.contains('/') || name.contains('\\') || !name.endsWith(".enc")) {
+				return@registerNativeAsyncMethod null
+			}
+			val file = File(mediaDir, name)
+			val out = JSONObject().put("path", file.absolutePath).put("exists", file.exists()).put("bytes", file.length())
+			runCatching {
+				val raw = file.readText()
+				out.put("readChars", raw.length)
+				val obj = JSONObject(raw)
+				out.put("mime", obj.optString("mime")).put("hasIv", obj.has("iv")).put("hasPayload", obj.has("payload"))
+				val iv = Base64.decode(obj.getString("iv"), Base64.NO_WRAP)
+				val ct = Base64.decode(obj.getString("payload"), Base64.NO_WRAP)
+				out.put("cipherBytes", ct.size)
+				val results = JSONArray()
+				for ((label, key) in listOf("primary" to primaryKey, "legacy" to legacyKey)) {
+					val error = runCatching {
+						val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+						cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
+						cipher.doFinal(ct).size
+					}.fold({ "ok ($it bytes)" }, { "${it.javaClass.simpleName}: ${it.message}" })
+					results.put("$label: $error")
+				}
+				out.put("decrypt", results)
+			}.onFailure { out.put("error", "${it.javaClass.simpleName}: ${it.message}") }
+			out.toString()
+		}
+
 		// Point the whole base dir at the portable backup location so pages can pre-set it without
 		// waiting for a catch. Re-loads the log if the directory actually moved (e.g. first run after
 		// migrating out of internal storage).
@@ -659,6 +912,7 @@ val ghostLogNativeBeta = plugin {
 					put("error", storageError ?: JSONObject.NULL)
 					put("lastWriteError", lastWriteError ?: JSONObject.NULL)
 					put("entries", entries.size)
+					put("edits", edits.size)
 				}.toString()
 			}
 		}
@@ -698,6 +952,8 @@ val ghostLogNativeBeta = plugin {
                 maxEntries = max.coerceAtLeast(1)
                 unlimitedEntries = unlimited
                 trimLocked()
+                // trimLocked trims the edit log too, so it has to be written as well.
+                editsDirty = true
                 persistNowLocked()
             }
             log.i("setLimits max=$maxEntries unlimited=$unlimitedEntries")
@@ -708,12 +964,20 @@ val ghostLogNativeBeta = plugin {
             val path = args.getOrNull(0) as? String ?: return@registerNativeAsyncMethod null
             mutex.withLock {
                 runCatching {
-                    val target = File(path)
+                    val target = resolveFile(path)
                     target.parentFile?.mkdirs()
-                    val arr = JSONArray()
-                    entries.forEach(arr::put)
-                    target.writeText(encrypt(arr.toString()))
-                    mapOf("path" to target.absolutePath, "count" to entries.size)
+                    val deleted = JSONArray()
+                    entries.forEach(deleted::put)
+                    val edited = JSONArray()
+                    edits.forEach(edited::put)
+                    // Version 2 carries the edit history too. Version 1 was a bare array of
+                    // deleted entries; importBackup still reads both.
+                    val body = JSONObject().put("version", 2).put("deleted", deleted).put("edits", edited)
+                    target.writeText(encrypt(body.toString()))
+                    mapOf("path" to target.absolutePath, "count" to entries.size, "edits" to edits.size)
+                }.onFailure { error ->
+                    lastWriteError = "${error.javaClass.simpleName}: ${error.message ?: "backup write failed"}"
+                    Log.e(TAG, "backup export failed to ${resolveFile(path).absolutePath}", error)
                 }.getOrNull()
             }
         }
@@ -745,9 +1009,16 @@ val ghostLogNativeBeta = plugin {
         registerNativeAsyncMethod("${manifest.id}.importBackup") { args ->
             val path = args.getOrNull(0) as? String ?: return@registerNativeAsyncMethod -1
             mutex.withLock {
-                val raw = runCatching { File(path).readText() }.getOrNull() ?: return@withLock -1
+                val source = resolveFile(path)
+                val raw = runCatching { source.readText() }
+                    .onFailure { error -> Log.e(TAG, "backup import could not read ${source.absolutePath}", error) }
+                    .getOrNull() ?: return@withLock -1
                 val plain = decrypt(raw) ?: return@withLock -1
-                val arr = runCatching { JSONArray(plain) }.getOrNull() ?: return@withLock -1
+                // Version 1: a bare array of deleted entries. Version 2: {deleted, edits}.
+                val trimmed = plain.trimStart()
+                val body = if (trimmed.startsWith("{")) runCatching { JSONObject(plain) }.getOrNull() else null
+                val arr = if (body != null) body.optJSONArray("deleted") ?: JSONArray()
+                else runCatching { JSONArray(plain) }.getOrNull() ?: return@withLock -1
                 val existing = entries.map { it.optString("id") }.toHashSet()
                 var added = 0
                 for (i in 0 until arr.length()) {
@@ -759,9 +1030,11 @@ val ghostLogNativeBeta = plugin {
                     }
                 }
                 entries.sortByDescending { it.optLong("deletedAt", 0L) }
+                val editsAdded = body?.optJSONArray("edits")?.let { mergeEditsLocked(it) } ?: 0
                 trimLocked()
+                editsDirty = editsDirty || editsAdded > 0
                 persistNowLocked()
-                added
+                mapOf("added" to added, "edits" to editsAdded)
             }
         }
 
@@ -773,6 +1046,7 @@ val ghostLogNativeBeta = plugin {
 		fun bundleEntries(): List<Pair<String, File>> {
 			val out = mutableListOf<Pair<String, File>>()
 			if (logFile.isFile) out.add(logFile.name to logFile)
+			if (editsFile.isFile) out.add(editsFile.name to editsFile)
 			if (richIndexFile.isFile) out.add(richIndexFile.name to richIndexFile)
 			val index = (readJsonFile(richIndexFile) ?: JSONObject())
 			for (file in 1..index.optInt("file", 0).coerceAtLeast(0)) {
@@ -794,7 +1068,7 @@ val ghostLogNativeBeta = plugin {
 			mutex.withLock {
 				flushLocked()
 				runCatching {
-					val target = File(path)
+					val target = resolveFile(path)
 					target.parentFile?.mkdirs()
 					var files = 0
 					ZipOutputStream(target.outputStream().buffered()).use { zip ->
@@ -823,7 +1097,7 @@ val ghostLogNativeBeta = plugin {
 			val path = args.getOrNull(0) as? String ?: return@registerNativeAsyncMethod -1
 			mutex.withLock {
 				runCatching {
-					ZipInputStream(File(path).inputStream().buffered()).use { zip ->
+					ZipInputStream(resolveFile(path).inputStream().buffered()).use { zip ->
 						while (true) {
 							val entry = zip.nextEntry ?: break
 							val name = entry.name.replace('\\', '/')
@@ -845,6 +1119,7 @@ val ghostLogNativeBeta = plugin {
 					// The archive's log is now on disk, so re-read it and drop stale decrypted copies.
 					loadLocked()
 					dirty = false
+					editsDirty = false
 					wipeMediaCache()
 					log.i("imported bundle from $path (${entries.size} entries)")
 					entries.size
@@ -877,6 +1152,8 @@ val ghostLogNativeBeta = plugin {
     stop {
         flushOnStop?.invoke()
         flushOnStop = null
+        unhookLocalVideo?.invoke()
+        unhookLocalVideo = null
         log.i("Unloaded ${manifest.id}")
     }
 }
