@@ -17,6 +17,7 @@
  * are short messages.
  */
 
+import { importRules } from './importRules'
 import type { RuleKind } from './ruleStore'
 import { getAi } from './state'
 import { applyRules, compileRule, newRule, type Rule } from './textReplace'
@@ -75,30 +76,14 @@ const asString = (value: unknown) => (typeof value === 'string' ? value : '')
  * Otherwise we fall back to AI Core.
  */
 export async function draftRule(kind: RuleKind, description: string): Promise<Draft> {
-	// Fast‑path: user supplied a ready‑made JSON rule
-	try {
-		const trimmed = description.trim()
-		if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-			const parsed = JSON.parse(trimmed) as any
-			if (parsed && typeof parsed === 'object' && 'find' in parsed && 'replace' in parsed) {
-				const rule = newRule({
-					name: typeof parsed.name === 'string' ? parsed.name.trim() : undefined,
-					find: String(parsed.find),
-					replace: typeof parsed.replace === 'string' ? parsed.replace : String(parsed.replace),
-					regex: !!parsed.regex,
-					caseSensitive: !!parsed.caseSensitive,
-					wholeWord: !parsed.regex && kind !== 'links' && parsed.wholeWord !== false,
-					enabled: true,
-				})
-				const compiled = compileRule(rule)
-				if (compiled.error) {
-					return { ok: false, error: `The rule you supplied can't be used: ${compiled.error}` }
-				}
-				return { ok: true, rule, examples: [] }
-			}
-		}
-	} catch (_) {
-		// Not valid JSON – continue to AI path
+	// Fast-path: user supplied or embedded a ready-made JSON rule in description
+	const imported = importRules(description)
+	if (imported.rules.length > 0) {
+		const rule = imported.rules[0]
+		return { ok: true, rule, examples: [] }
+	}
+	if (imported.skipped.length > 0 && (description.includes('{') || description.includes('```'))) {
+		return { ok: false, error: `Invalid rule: ${imported.skipped[0]}` }
 	}
 
 	const ai = getAi()
@@ -107,19 +92,27 @@ export async function draftRule(kind: RuleKind, description: string): Promise<Dr
 		return { ok: false, error: "AI Core can't make calls right now: set a key in its settings, or today's limit is used up." }
 	}
 
+	// Sanitize description: limit size to 2048 characters to prevent provider rejections,
+	// and escape raw control characters
+	const sanitized = description
+		.trim()
+		.slice(0, 2048)
+		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+
 	let answer: ModelAnswer | undefined
 	try {
 		answer = await ai.json<ModelAnswer>({
 			messages: [
 				{ role: 'system', content: kind === 'links' ? LINKS : TEXT },
-				{ role: 'user', content: description.trim() },
+				{ role: 'user', content: sanitized },
 			],
 			temperature: 0,
 			maxTokens: 700,
 			timeoutMs: 30_000,
 		})
-	} catch (error) {
+	} catch (error: any) {
 		console.error('[SendTweaks] AI rule request failed:', error)
+		return { ok: false, error: error?.message ? `AI request error: ${error.message}` : 'AI request failed. Check your API key or description.' }
 	}
 	if (!answer || typeof answer !== 'object') {
 		return { ok: false, error: 'No usable answer came back. Try again, or describe it differently.' }

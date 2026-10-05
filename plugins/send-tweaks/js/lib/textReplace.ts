@@ -12,7 +12,7 @@
  * belongs to instead of the send path discovering it.
  */
 
-import { expandPlaceholders } from './greetings'
+import { expandDynamicPlaceholders, expandPlaceholders } from './greetings'
 
 export interface Rule {
 	/** Stable id, so the settings list can key and edit rules without relying on position. */
@@ -172,8 +172,22 @@ function safeReplace(
  * replacement as a backslash and a letter. Turn them into the real characters so the two sides
  * agree; `\\` stays a way to write a literal backslash.
  */
+export function formatAnsiBlock(content: string): string {
+	return content
+		.replace(/\\u001b|\\x1b/gi, '\u001b')
+		.replace(/\u001b\[0;0m/g, '\u001b[0m')
+		.replace(/\[0;0m/g, '\u001b[0m')
+		.replace(/\u001b\[2;([0-9;]+m)/g, '\u001b[0;$1')
+		.replace(/(^|[^\u001b])\[2;([0-9;]+m)/g, '$1\u001b[0;$2')
+		.replace(/(^|[^\u001b])\[([014];[34][0-7]m)/g, '$1\u001b[$2')
+		.replace(/(^|[^\u001b])\[([34][0-7]m)/g, '$1\u001b[0;$2')
+		.replace(/(^|[^\u001b])\[0m/g, '$1\u001b[0m')
+}
+
 export function unescapeReplacement(text: string): string {
-	return text.replace(/\\([nt\\])/g, (_, char: string) => (char === 'n' ? '\n' : char === 't' ? '\t' : '\\'))
+	return formatAnsiBlock(
+		text.replace(/\\([nt\\])/g, (_, char: string) => (char === 'n' ? '\n' : char === 't' ? '\t' : '\\')),
+	)
 }
 
 export function applyRules(
@@ -188,16 +202,22 @@ export function applyRules(
 		const compiled = compileRule(rule)
 		if (!compiled.pattern) continue
 
+		let rawReplace = rule.replace
+		if (rawReplace === '{rainbow}' || rawReplace === '{gradient}') {
+			rawReplace = /\([^?][^)]*\)/.test(rule.find) ? '{rainbow:$1}' : '{rainbow:$&}'
+		}
+
 		// A plain-text rule's replacement is plain text too: without escaping, `$&`, `$1` or `$$`
 		// in it would be read as substitution codes, and a replacement of "$$" would send "$".
 		// Greeting placeholders go in last, with their values' `$` already doubled (greetings.ts).
 		const replacement = expandPlaceholders(
-			rule.regex ? unescapeReplacement(rule.replace) : rule.replace.replace(/\$/g, '$$$$'),
+			rule.regex ? unescapeReplacement(rawReplace) : rawReplace.replace(/\$/g, '$$$$'),
 		)
 		const next = safeReplace(out, compiled.pattern, replacement)
-		if (next !== out) {
+		const final = expandDynamicPlaceholders(next)
+		if (final !== out) {
 			applied++
-			out = next
+			out = final
 		}
 	}
 

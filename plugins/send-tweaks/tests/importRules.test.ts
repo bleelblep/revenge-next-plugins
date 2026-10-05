@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { importRules } from '../js/lib/importRules'
-import { applyRules } from '../js/lib/textReplace'
+import { applyRules, newRule } from '../js/lib/textReplace'
 import { DEFAULTS } from '../js/defaults'
 import { setStorage } from '../js/lib/state'
 import { transform } from '../js/lib/transform'
@@ -108,3 +108,90 @@ test('imports many rules from an array or separate JSON blocks', () => {
 		})
 	}
 })
+
+test('expands {timestamp} placeholder into Discord timestamp tag <t:unix:F> and supports format styles', () => {
+	setStorage({ cache: { ...DEFAULTS } } as any)
+	const rules = [
+		newRule({ find: '!now', replace: 'Current time: {timestamp}' }),
+		newRule({ find: '!rel', replace: 'Ago: {timestamp:R}' }),
+		newRule({ find: '!time', replace: 'Short: {timestamp:t}' }),
+	]
+	const res1 = applyRules('!now', rules)
+	assert.match(res1.text, /^Current time: <t:\d+:F>$/)
+	assert.equal(res1.applied, 1)
+
+	const res2 = applyRules('!rel', rules)
+	assert.match(res2.text, /^Ago: <t:\d+:R>$/)
+	assert.equal(res2.applied, 1)
+
+	const res3 = applyRules('!time', rules)
+	assert.match(res3.text, /^Short: <t:\d+:t>$/)
+	assert.equal(res3.applied, 1)
+})
+
+test('applies rainbow ANSI formatting to infinite characters via {rainbow:$1} and {rainbow}', () => {
+	const rainbowRule = newRule({
+		name: '/rainbow',
+		find: '^/rainbow\\s+([\\s\\S]+)$',
+		replace: '{rainbow:$1}',
+		regex: true,
+	})
+	const longText = 'A'.repeat(500)
+	const res = applyRules(`/rainbow ${longText}`, [rainbowRule])
+	assert.equal(res.applied, 1)
+	assert.ok(res.text.startsWith('```ansi\n'))
+	assert.ok(res.text.endsWith('\u001b[0m\n```'))
+	// Verify it contains valid Discord ANSI color escapes (0;31m normal, not invalid 2;31m dim)
+	assert.ok(res.text.includes('\u001b[0;31mA'))
+	assert.ok(res.text.includes('\u001b[0;33mA'))
+	assert.ok(res.text.includes('\u001b[0;32mA'))
+
+	// Also test shorthand {rainbow}
+	const shorthandRule = newRule({
+		name: '/rainbow-short',
+		find: '^/rainbow\\s+([\\s\\S]+)$',
+		replace: '{rainbow}',
+		regex: true,
+	})
+	const shortRes = applyRules('/rainbow Hello world', [shorthandRule])
+	assert.equal(shortRes.applied, 1)
+	assert.ok(shortRes.text.startsWith('```ansi\n'))
+	assert.ok(shortRes.text.includes('\u001b[0;31mH'))
+})
+
+test('auto-converts legacy or invalid format 2; ANSI codes to Discord-compliant 0; format codes', () => {
+	const legacyRule = newRule({
+		name: 'legacy',
+		find: '^hi$',
+		replace: '```ansi\n\\u001b[2;31mh\\u001b[2;33mi\\u001b[0m\n```',
+		regex: true,
+	})
+	const res = applyRules('hi', [legacyRule])
+	assert.equal(res.applied, 1)
+	assert.ok(res.text.includes('\u001b[0;31mh\u001b[0;33mi\u001b[0m'))
+	assert.ok(!res.text.includes('[2;31m'))
+})
+
+test('imports JSON with unescaped literal newlines in strings without failing', () => {
+	const raw = '{\n  "name": "multiline",\n  "match": "hello\\nworld",\n  "replace": "multiline\nreplacement",\n  "regex": false\n}'
+	const res = importRules(raw)
+	assert.equal(res.rules.length, 1)
+	assert.equal(res.rules[0].name, 'multiline')
+	assert.equal(res.rules[0].replace, 'multiline\nreplacement')
+})
+
+test('formats ```ansi codeblocks in outgoing messages to valid Discord ANSI', () => {
+	setStorage({ cache: { ...DEFAULTS } } as any)
+	const raw = '```ansi\n\\u001b[0;30mBlack\\u001b[0;0m\n\\u001b[0;31mRed\\u001b[0;0m\n```'
+	const res = transform(raw)
+	assert.ok(res.text.includes('\u001b[0;30mBlack\u001b[0m'))
+	assert.ok(res.text.includes('\u001b[0;31mRed\u001b[0m'))
+	assert.ok(!res.text.includes('\\u001b'))
+	assert.ok(!res.text.includes('[0;0m'))
+
+	// Test missing ESC byte
+	const missingEsc = '```ansi\n[36mHello Discord\n```'
+	const res2 = transform(missingEsc)
+	assert.ok(res2.text.includes('\u001b[0;36mHello Discord'))
+})
+

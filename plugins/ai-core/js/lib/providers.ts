@@ -44,6 +44,13 @@ export const PROVIDERS: Provider[] = [
 		model: 'openrouter/auto',
 		keysAt: 'openrouter.ai',
 	},
+	{
+		id: 'groq',
+		label: 'Groq',
+		baseUrl: 'https://api.groq.com/openai/v1',
+		model: 'llama-3.3-70b-versatile',
+		keysAt: 'console.groq.com',
+	},
 ]
 
 export const CUSTOM = 'custom'

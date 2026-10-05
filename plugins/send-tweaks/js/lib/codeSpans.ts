@@ -11,6 +11,8 @@
  * does too. Matching in that order keeps a backtick inside a longer span from opening a shorter one.
  */
 
+import { splitUrl } from './urlBounds'
+
 const CODE = /```[\s\S]*?```|``[\s\S]+?``|`[^`]+`/g
 
 /**
@@ -20,7 +22,7 @@ const CODE = /```[\s\S]*?```|``[\s\S]+?``|`[^`]+`/g
  * this list is only for rules.
  */
 const DISCORD_TOKEN =
-	/<a?:\w+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|<t:-?\d+(?::[tTdDfFR])?>|<id:\w+>|https?:\/\/[^\s<>]+/g
+	/<a?:\w+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|<t:-?\d+(?::[tTdDfFR])?>|<id:\w+>|https?:\/\/[^\s<>"'`]+/gi
 
 function mapOutside(
 	pattern: RegExp,
@@ -32,9 +34,13 @@ function mapOutside(
 
 	pattern.lastIndex = 0
 	for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+		const span = /^https?:\/\//i.test(match[0])
+			? splitUrl(match[0], text.slice(0, match.index)).url
+			: match[0]
 		out += transform(text.slice(last, match.index))
-		out += match[0]
-		last = match.index + match[0].length
+		out += span
+		last = match.index + span.length
+		pattern.lastIndex = last
 	}
 
 	return out + transform(text.slice(last))
@@ -52,7 +58,7 @@ export function mapOutsideCode(
 }
 
 /** Code spans, then Discord tokens and links: everything a rule must leave exactly as written. */
-const PROTECTED = new RegExp(`${CODE.source}|${DISCORD_TOKEN.source}`, 'g')
+const PROTECTED = new RegExp(`${CODE.source}|${DISCORD_TOKEN.source}`, 'gi')
 
 /** Applies `transform` only between code spans, Discord tokens and links. */
 export function mapOutsideProtected(
@@ -88,10 +94,18 @@ export function transformAroundProtected(
 
 	const spans: string[] = []
 	PROTECTED.lastIndex = 0
-	const masked = text.replace(PROTECTED, span => {
+	let masked = ''
+	let last = 0
+	for (let match = PROTECTED.exec(text); match; match = PROTECTED.exec(text)) {
+		const span = /^https?:\/\//i.test(match[0])
+			? splitUrl(match[0], text.slice(0, match.index)).url
+			: match[0]
 		spans.push(span)
-		return `${OPEN}${String.fromCharCode(FIRST_INDEX + spans.length - 1)}${CLOSE}`
-	})
+		masked += text.slice(last, match.index) + `${OPEN}${String.fromCharCode(FIRST_INDEX + spans.length - 1)}${CLOSE}`
+		last = match.index + span.length
+		PROTECTED.lastIndex = last
+	}
+	masked += text.slice(last)
 	if (spans.length > MAX_SPANS) return undefined
 
 	const result = transform(masked)

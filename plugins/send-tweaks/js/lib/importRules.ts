@@ -49,6 +49,8 @@ function jsonChunks(text: string): string[] {
 			}
 		}
 	}
+	// Keep incomplete JSON so parsing reports a broken/truncated block rather than "No rule found".
+	if (start >= 0 && depth > 0) chunks.push(text.slice(start))
 	return chunks
 }
 
@@ -73,19 +75,30 @@ function toRule(raw: any, label: string): Rule | string {
 	return rule
 }
 
+function sanitizeJson(raw: string): string {
+	return raw.replace(/"(?:[^"\\]|\\.)*"/gs, match => {
+		return match.replace(/\r?\n/g, '\\n').replace(/\t/g, '\\t')
+	})
+}
+
 export function importRules(text: string): ImportResult {
 	const rules: Rule[] = []
 	const skipped: string[] = []
 	const chunks = jsonChunks(text)
-	if (!chunks.length) return { rules, skipped: ['No rule found. Paste the JSON, braces included.'] }
+	if (!chunks.length) return {
+		rules,
+		skipped: [!text.trim()
+			? 'The import box is empty. Paste the full rule JSON or use Import from clipboard.'
+			: 'No JSON object found. Copy the full rule, starting with { and ending with }, not just its replacement text.'],
+	}
 
 	let index = 0
 	for (const [block, chunk] of chunks.entries()) {
 		let parsed: unknown
 		try {
-			parsed = JSON.parse(chunk)
+			parsed = JSON.parse(sanitizeJson(chunk))
 		} catch {
-			skipped.push(`Block ${block + 1}: not valid JSON`)
+			skipped.push(`Block ${block + 1}: invalid or incomplete JSON. Include the closing braces, use straight double quotes, and write line breaks inside strings as \\n.`)
 			continue
 		}
 		for (const raw of Array.isArray(parsed) ? parsed : [parsed]) {
@@ -242,6 +255,19 @@ export const PRESETS: Preset[] = [
 			name: "Disable Discord's message markdown",
 			find: '([`"*_<>~|#.-])',
 			replace: String.raw`\$1`,
+			regex: true,
+			caseSensitive: false,
+			wholeWord: false,
+		},
+	},
+	{
+		kind: 'text',
+		source: 'added',
+		note: 'Turns `/rainbow <text>` into an ANSI rainbow codeblock of any length.',
+		rule: {
+			name: '/rainbow',
+			find: String.raw`^\/rainbow\s+([\s\S]+)$`,
+			replace: '{rainbow:$1}',
 			regex: true,
 			caseSensitive: false,
 			wholeWord: false,

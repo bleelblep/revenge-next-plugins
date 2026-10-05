@@ -180,24 +180,31 @@ private const val FALLBACK_BETA = "server-side-fallback-2026-07-01"
 private fun isOpenAi(endpoint: String): Boolean =
 	runCatching { URI(endpoint).host.equals("api.openai.com", ignoreCase = true) }.getOrDefault(false)
 
-/** OpenAI's reasoning models (GPT-5, o-series): no custom temperature, and reasoning spends tokens. */
-private val OPENAI_REASONING = Regex("^(gpt-5|o[0-9])")
+/** Reasoning models (GPT-5, o-series, and open reasoning models like gpt-oss): no custom temperature, and reasoning spends tokens. */
+private val REASONING_MODELS = Regex("^(gpt-5|o[0-9]|openai/gpt-oss|gpt-oss)", RegexOption.IGNORE_CASE)
 
 /**
- * OpenAI takes `max_completion_tokens` (every chat model accepts it; reasoning models reject the
+ * OpenAI and Groq take `max_completion_tokens` (every chat model accepts it; reasoning models reject the
  * old `max_tokens`). Reasoning models also reject a custom temperature, and their thinking spends
  * from the same allowance, so they get a floor and low effort, as Anthropic's models do.
  */
-private fun adaptForOpenAi(payload: JSONObject) {
+private fun adaptForOpenAiOrGroq(payload: JSONObject, endpoint: String) {
 	val model = payload.optString("model")
 	val requested = if (payload.has("max_tokens")) payload.optInt("max_tokens", 256) else 256
-	payload.remove("max_tokens")
-	if (OPENAI_REASONING.containsMatchIn(model)) {
-		payload.remove("temperature")
-		payload.put("max_completion_tokens", maxOf(requested, 2048))
-		payload.put("reasoning_effort", "low")
-	} else {
-		payload.put("max_completion_tokens", requested)
+	val host = runCatching { URI(endpoint).host }.getOrNull()?.lowercase() ?: ""
+	val isGroqOrOpenAi = host.contains("openai.com") || host.contains("groq.com")
+
+	if (isGroqOrOpenAi || REASONING_MODELS.containsMatchIn(model)) {
+		payload.remove("max_tokens")
+		if (REASONING_MODELS.containsMatchIn(model)) {
+			payload.remove("temperature")
+			payload.put("max_completion_tokens", maxOf(requested, 2048))
+			if (host.contains("openai.com")) {
+				payload.put("reasoning_effort", "low")
+			}
+		} else {
+			payload.put("max_completion_tokens", requested)
+		}
 	}
 }
 
@@ -762,7 +769,9 @@ val aiCore = plugin {
 
 					val code = connection.responseCode
 					if (code !in 200..299) {
-						return@runCatching JSONObject().put("ok", false).put("status", code).put("error", "http").toString()
+						val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+						log.e("Anthropic HTTP $code: $err")
+						return@runCatching JSONObject().put("ok", false).put("status", code).put("error", "http").put("details", err).toString()
 					}
 					val response = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
 					val usage = response.optJSONObject("usage")
@@ -836,7 +845,7 @@ val aiCore = plugin {
 			for (field in listOf("model", "temperature", "max_tokens", "response_format", "messages")) {
 				if (body.has(field)) payload.put(field, body.get(field))
 			}
-			if (isOpenAi(ep)) adaptForOpenAi(payload)
+			adaptForOpenAiOrGroq(payload, ep)
 
 			runCatching {
 				val connection = URL("$ep/chat/completions").openConnection() as HttpURLConnection
@@ -852,7 +861,9 @@ val aiCore = plugin {
 
 					val code = connection.responseCode
 					if (code !in 200..299) {
-						return@runCatching JSONObject().put("ok", false).put("status", code).put("error", "http").toString()
+						val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+						log.e("Provider HTTP $code: $err")
+						return@runCatching JSONObject().put("ok", false).put("status", code).put("error", "http").put("details", err).toString()
 					}
 					val response = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
 					val usage = response.optJSONObject("usage")

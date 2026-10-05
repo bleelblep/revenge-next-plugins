@@ -12,8 +12,9 @@
 
 import { cleanText, mapUrls } from './cleanUrls'
 import { mapOutsideCode, mapOutsideProtected, transformAroundProtected } from './codeSpans'
+import { expandDynamicPlaceholders } from './greetings'
 import { settings } from './state'
-import { applyRules } from './textReplace'
+import { applyRules, formatAnsiBlock } from './textReplace'
 
 export interface TransformResult {
 	text: string
@@ -73,6 +74,18 @@ export function transform(text: string): TransformResult {
 				return result.text
 			})
 		}
+	}
+
+	out = mapOutsideCode(out, prose => {
+		let text = prose.replace(/\{timestamp(?::([tTdDfFR]))?\}/g, (_, flag) => {
+			const unix = Math.floor(Date.now() / 1000)
+			return `<t:${unix}:${flag || 'F'}>`
+		})
+		return expandDynamicPlaceholders(text)
+	})
+
+	if (out.includes('```ansi') || out.includes('```ANSI')) {
+		out = out.replace(/```ansi([\s\S]*?)```/gi, (_, code) => `\`\`\`ansi${formatAnsiBlock(code)}\`\`\``)
 	}
 
 	return { text: out, cleaned, replaced, rewritten }
