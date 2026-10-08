@@ -24,7 +24,12 @@ and isn't minified. It then finds `XposedBridge` in the same package as the `XC_
 the built hook extends. It works on stock LSPosed too. It depends on host internals (`MethodHookBuilder`, `HookScope`), not the
 public plugin API, so check it again after a revenge-xposed update.
 
-Plugins that still import `de.robv` directly stay broken on Vector until they're moved to it.
+Every native plugin now carries its own copy. Live Markdown's has a small `hookMethod(member,
+before =, after =)` API. The rest use stand-ins named like Xposed (`XC_MethodHook`,
+`MethodHookParam`, `XposedBridge.hookMethod`/`log`, `XposedHelpers.callMethod`) declared in the
+plugin's own package, so hook code is unchanged apart from dropping the `de.robv` imports. Never
+import `de.robv.android.xposed.*` in a plugin: an import would win over the same-package stand-ins
+and bring the crash back. To check a build, `de/robv` must not appear in the jar's `classes.dex`.
 
 ## JSX runtime is read eagerly
 
