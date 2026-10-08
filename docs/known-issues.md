@@ -3,6 +3,29 @@
 Environment and build-level problems that aren't fixable by changing plugin logic. For bugs
 you can introduce in plugin code, see [Porting rules](./porting-rules.md).
 
+## Native hooks on Vector / obfuscated Xposed
+
+JingMatrix Vector, and LSPosed with API obfuscation turned on, rename `de.robv.android.xposed` to
+a random package of the same length (a stack trace shows frames like
+`daXpSj.WIiCr.DxJ.UVfQn.IXposedHookLoadPackage$Wrapper`). They rewrite the Revenge module's dex
+to match, but plugin jars are loaded later by Revenge and are never rewritten. A plugin compiled
+against `xposed.api` then fails to load:
+
+```
+[LOAD_FAILED] Failed resolution of: Lde/robv/android/xposed/XC_MethodHook;
+Caused by: java.lang.ClassNotFoundException: Didn't find class "de.robv.android.xposed.XC_MethodHook"
+  on path: DexPathList[[zip file ".../plugins/dist/<id>/plugin.jar"], ...]
+```
+
+The fix is in the plugin, not revenge-xposed: don't name any `de.robv` class. `XposedCompat.kt`
+(first in Live Markdown 0.1.2) builds hooks through the host's own
+`io.github.revenge.xposed.MethodHookBuilder` by reflection. The host's copy is already rewritten
+and isn't minified. It then finds `XposedBridge` in the same package as the `XC_MethodHook` that
+the built hook extends. It works on stock LSPosed too. It depends on host internals (`MethodHookBuilder`, `HookScope`), not the
+public plugin API, so check it again after a revenge-xposed update.
+
+Plugins that still import `de.robv` directly stay broken on Vector until they're moved to it.
+
 ## JSX runtime is read eagerly
 
 The template's build (`revenge-plugin build`) passes the JSX runtime in as an argument of the

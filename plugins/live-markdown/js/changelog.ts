@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.1.2',
+		date: '2026-10-09',
+		title: 'Vector fix',
+		changes: [
+			'Works on JingMatrix Vector and LSPosed with API obfuscation, where it failed to load.',
+		],
+	},
+	{
 		version: '0.1.1',
 		date: '2026-10-03',
 		title: 'Changelog',

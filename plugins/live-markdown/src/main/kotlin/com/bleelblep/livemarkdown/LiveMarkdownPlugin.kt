@@ -8,9 +8,8 @@ import android.os.Looper
 import android.text.Editable
 import android.text.Spanned
 import android.text.TextWatcher
+import android.util.Log
 import android.widget.TextView
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
 import io.github.revenge.plugins.plugin
 import io.github.revenge.xposed.api.registerNativeMethod
 import org.json.JSONObject
@@ -39,7 +38,7 @@ private const val CHAT_INPUT = "com.discord.chat.input.views.DCDChatInput"
 /** Discord's link blue. */
 private const val LINK_COLOR = 0xFF00A8FC.toInt()
 
-private val unhooks = mutableListOf<XC_MethodHook.Unhook>()
+private val unhooks = mutableListOf<Unhook>()
 private val mainHandler = Handler(Looper.getMainLooper())
 private val watchers = WeakHashMap<TextView, TextWatcher>()
 @Volatile private var chatInputClass: Class<*>? = null
@@ -94,7 +93,7 @@ private fun restyle(view: TextView, text: Editable) {
 			if (id in have || w.end > text.length) continue
 			text.setSpan(w.span, w.start, w.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 		}
-	}.onFailure { XposedBridge.log("[LiveMarkdown] restyle failed: $it") }
+	}.onFailure { Log.w("LiveMarkdown", "restyle failed: $it") }
 }
 
 private fun clear(view: TextView) {
@@ -102,19 +101,17 @@ private fun clear(view: TextView) {
 	for (span in text.getSpans(0, text.length, MdSpan::class.java)) text.removeSpan(span)
 }
 
-private val textChangedHook = object : XC_MethodHook() {
-	override fun afterHookedMethod(param: MethodHookParam) {
-		val view = param.thisObject as? TextView ?: return
-		if (view.javaClass !== chatInputClass || watchers.containsKey(view)) return
-		val watcher = object : TextWatcher {
-			override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-			override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-			override fun afterTextChanged(s: Editable) = restyle(view, s)
-		}
-		view.addTextChangedListener(watcher)
-		watchers[view] = watcher
-		(view.text as? Editable)?.let { restyle(view, it) }
+private fun onTextChanged(param: HookParam) {
+	val view = param.thisObject as? TextView ?: return
+	if (view.javaClass !== chatInputClass || watchers.containsKey(view)) return
+	val watcher = object : TextWatcher {
+		override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+		override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+		override fun afterTextChanged(s: Editable) = restyle(view, s)
 	}
+	view.addTextChangedListener(watcher)
+	watchers[view] = watcher
+	(view.text as? Editable)?.let { restyle(view, it) }
 }
 
 private fun settingsMap() = mapOf(
@@ -153,7 +150,7 @@ val liveMarkdownPlugin = plugin {
 				Int::class.javaPrimitiveType,
 				Int::class.javaPrimitiveType,
 			)
-			unhooks += XposedBridge.hookMethod(method, textChangedHook)
+			unhooks += hookMethod(method, after = ::onTextChanged)
 		}.onFailure {
 			log.e("could not hook TextView.onTextChanged", it)
 			errors.tryEmit(it)
