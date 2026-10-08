@@ -25,6 +25,7 @@ import patchOutgoing from './patches/outgoing'
 import patchReplyMention from './patches/replyMention'
 import patchSendButton from './patches/sendButton'
 import Settings from './ui/pages/Settings'
+import { safePage } from './ui/safePage'
 import { AI_ROUTE, registerPages } from './ui/routes'
 import type { AiHandle, SendTweaksStorage } from './types'
 
@@ -96,5 +97,5 @@ export default plugin<{ jsonStorage: SendTweaksStorage }>({
 		api.plugin.requireReload()
 	},
 
-	SettingsComponent: Settings,
+	SettingsComponent: safePage(Settings, 'Settings'),
 })

@@ -7,6 +7,7 @@ import {
 	LINK_RULES_ROUTE,
 	OPTIONS_ROUTE,
 	RULES_ROUTE,
+	// STYLES_ROUTE, -- Restyle is commented out for now, see lib/preview.ts
 	TRY_ROUTE,
 } from '../routes'
 import { useBottomPadding } from '../safeArea'
@@ -48,6 +49,7 @@ export default function Settings({
 		s.cleanUrls && 'tracking',
 		s.linkRewrite && 'link rules',
 		s.textReplace && 'text rules',
+		s.polishWording && 'polish wording',
 		s.noReplyMention && 'no reply pings',
 	].filter(Boolean) as string[]
 	const settingsLabel = on.length
@@ -134,6 +136,19 @@ export default function Settings({
 							disabled={!s.textReplace}
 							onPress={() => navigation.navigate(RULES_ROUTE)}
 						/>
+						{/* Restyle is commented out for now, see lib/preview.ts.
+						<TableRow
+							label="Styles"
+							subLabel={
+								getAi()
+									? 'Restyle from the preview: uwu, Elmer Fudd, pirate, Pig Latin or your own'
+									: 'Restyle from the preview: Pig Latin, or install AI Core for uwu, Elmer Fudd and more'
+							}
+							icon={rowIcon('MagicWandIcon', 'ic_star')}
+							arrow
+							onPress={() => navigation.navigate(STYLES_ROUTE)}
+						/>
+						*/}
 						{/* Only with AI Core installed: the route is not registered without it. */}
 						{getAi() ? (
 							<TableRow

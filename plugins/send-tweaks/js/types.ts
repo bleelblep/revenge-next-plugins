@@ -9,6 +9,13 @@ export type { Rule }
  */
 export interface AiHandle {
 	isAvailable(): boolean
+	/** Plain text back. Present on every AI Core that has `json`; optional so an old one is caught. */
+	text?(request: {
+		messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+		temperature?: number
+		maxTokens?: number
+		timeoutMs?: number
+	}): Promise<string | undefined>
 	json<T = unknown>(request: {
 		messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
 		temperature?: number
@@ -76,6 +83,11 @@ export interface SendTweaksStorage {
 	 * With both swipe switches off, holding send does nothing.
 	 */
 	swipeSendUnchanged: boolean
+	/**
+	 * Tapping send opens the preview instead of sending; Send in the preview sends. For anyone who
+	 * can't do the hold-and-swipe. Optional: older storage has no value, which reads as off.
+	 */
+	tapToPreview?: boolean
 	/** Also apply link cleaning and text replacement when you edit a message. */
 	applyToEdits: boolean
 	debugLogging: boolean
@@ -85,4 +97,18 @@ export interface SendTweaksStorage {
 	snippets?: import('./lib/templateSyntax').Snippet[]
 	dateFormat?: string
 	timeFormat?: string
+	/** Polish wording (lib/polish.ts): tidy up the words of every message, on the phone. */
+	polishWording?: boolean
+	/** dont -> don't, im -> I'm. */
+	polishApostrophes?: boolean
+	/** Capital at the start of each sentence, and "i" on its own. */
+	polishCapitals?: boolean
+	/** A full stop at the end when the message ends in a word. */
+	polishFullStop?: boolean
+	/** Comma-separated words never capitalised at the start of a sentence, like "lol, brb". */
+	polishSkip?: string
+	/** Your own Restyle styles (lib/styles.ts). An array, so deleting one sticks. */
+	customStyles?: import('./lib/styles').CustomStyle[]
+	/** Built-in style ids switched on for the Restyle picker. All are off until chosen. */
+	enabledStyles?: string[]
 }

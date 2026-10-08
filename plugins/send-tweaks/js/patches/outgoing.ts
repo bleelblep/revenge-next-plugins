@@ -27,6 +27,12 @@
  * (`lib/silent.ts`), so your rules never see it and it is always the very first thing in the text.
  * Edits are left alone: flags cannot change after sending, and an edit would keep the literal text.
  *
+ * ## Restyled messages
+ *
+ * When Send in the Preview carries a restyled message (`lib/styles.ts`), the styled text replaces
+ * the content first, and the usual steps then run over it -- except Polish wording, which would
+ * capitalise uwu. "Send unchanged" also throws away a waiting restyle.
+ *
  * ## Edits are cleaned when the edit box opens, not only when it is saved
  *
  * Discord skips `editMessage` entirely when the edited text is identical to the original, so a
@@ -45,7 +51,8 @@
 import { whenModule } from '../lib/finder'
 import { wrapMethod } from '../lib/wrap'
 import { debug, settings, TAG } from '../lib/state'
-import { transform } from '../lib/transform'
+import { transform, type TransformOptions } from '../lib/transform'
+import { clearRestyle, takeRestyle } from '../lib/styles'
 import { type OneOff, takeNextSend } from '../lib/nextSend'
 import { makeSilent } from '../lib/silent'
 import { withSendContext } from '../lib/greetings'
@@ -58,6 +65,8 @@ const status = {
 	edits: 0,
 	/** Edit boxes opened with already-cleaned text. */
 	drafts: 0,
+	/** New messages sent restyled from the Preview. */
+	restyled: 0,
 	cleaned: 0,
 	replaced: 0,
 	/** Links changed by a link rule. */
@@ -72,11 +81,11 @@ export function outgoingStatus() {
 	return { ...status }
 }
 
-function rewrite(message: any, kind: 'send' | 'edit' | 'draft') {
+function rewrite(message: any, kind: 'send' | 'edit' | 'draft', options?: TransformOptions) {
 	if (!message || typeof message.content !== 'string' || !message.content)
 		return
 
-	const result = transform(message.content)
+	const result = transform(message.content, options)
 	if (result.text === message.content) return
 
 	message.content = result.text
@@ -135,15 +144,28 @@ export default function patchOutgoing(): () => void {
 						// this send and never carried to the next one.
 						const once = takeNextSend()
 						if (once === 'raw') {
+							clearRestyle()
 							status.untouched++
 							debug('send: sent unchanged, as asked from the send button')
 							return
+						}
+						// Before anything else, so every step below sees the styled text.
+						let options: TransformOptions | undefined
+						const message = args[1]
+						if (message && typeof message.content === 'string') {
+							const styled = takeRestyle(message.content)
+							if (styled !== undefined) {
+								message.content = styled
+								options = { polish: false }
+								status.restyled++
+								debug('send: restyled from the preview')
+							}
 						}
 						// The channel and reply target, for greeting placeholders (lib/greetings.ts).
 						const reference = args.find((arg: any) => arg?.messageReference)?.messageReference
 						withSendContext(
 							{ channelId: args[0], replyToId: reference?.message_id ?? reference?.messageId },
-							() => withSendRandom(args[1]?.content ?? '', () => rewrite(args[1], 'send')),
+							() => withSendRandom(args[1]?.content ?? '', () => rewrite(args[1], 'send', options)),
 						)
 						silence(args[1], once)
 					}),

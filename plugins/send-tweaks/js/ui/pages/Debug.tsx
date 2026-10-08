@@ -50,7 +50,7 @@ export default function Debug() {
 							label="Send button swipe"
 							subLabel={
 								button.installed
-									? `Hooked on module ${button.moduleId}, ${button.previewed} preview${button.previewed === 1 ? '' : 's'}, ${button.swiped} sent unchanged. Touches ${button.touchesSeen ? 'seen' : 'not seen yet'}.`
+									? `Hooked on module ${button.moduleId}, ${button.previewed} preview${button.previewed === 1 ? '' : 's'}, ${button.swiped} sent unchanged, ${button.tapped} tap preview${button.tapped === 1 ? '' : 's'}, ${button.fallbacks} hold${button.fallbacks === 1 ? '' : 's'} without touches. Touches ${button.touchesSeen ? 'seen' : 'not seen yet'}.`
 									: 'Not hooked yet — open a chat, then look again'
 							}
 							icon={rowIcon('SendMessageIcon', 'ic_send')}
@@ -92,6 +92,13 @@ export default function Debug() {
 							subLabel={`${out.untouched}`}
 							icon={rowIcon('SendMessageIcon', 'ic_send')}
 						/>
+						{/* Restyle is commented out for now, see lib/preview.ts.
+						<TableRow
+							label="Sent restyled from the preview"
+							subLabel={`${out.restyled}`}
+							icon={rowIcon('MagicWandIcon', 'ic_star')}
+						/>
+						*/}
 						<TableRow
 							label="Sent silently"
 							subLabel={`${out.silenced} message${out.silenced === 1 ? '' : 's'}`}

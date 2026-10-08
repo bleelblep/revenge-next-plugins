@@ -24,10 +24,22 @@ export const DEFAULTS: SendTweaksStorage = {
 	// On: holding send does nothing in stock Discord, and both need a deliberate hold and slide.
 	swipePreview: true,
 	swipeSendUnchanged: true,
+	// Off: it adds a step to every message. The way in for anyone the hold doesn't work for.
+	tapToPreview: false,
 	applyToEdits: true,
 	debugLogging: false,
 	greetingsUnlocked: false,
 	snippets: [],
 	dateFormat: '',
 	timeFormat: '',
+	// Off: it changes how every message reads, so it is a choice. The parts default to the two
+	// that are almost always wanted; the full stop annoys plenty of people in casual chat.
+	polishWording: false,
+	polishApostrophes: true,
+	polishCapitals: true,
+	polishFullStop: false,
+	polishSkip: '',
+	customStyles: [],
+	// Empty: every built-in style is off until you pick the ones you want in Styles.
+	enabledStyles: [],
 }

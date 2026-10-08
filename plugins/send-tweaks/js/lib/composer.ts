@@ -1,4 +1,5 @@
 import type { Context, ReactNode } from 'react'
+import { wrapRender } from './wrapRender'
 
 /** The live composer handle, scoped to its own send button through React context. */
 type ComposerRef = { current?: { getText?: () => unknown } | null }
@@ -30,11 +31,10 @@ export function patchComposer(): () => void {
 	const unsubscribe = revenge.discord.utils.modules.finders.getModuleWithImportedPath(
 		'modules/chat_input/native/ChatInput.tsx',
 		(exports: any) => {
-			const target = exports?.default?.type
-			const original = target?.render
-			if (!active || undo || typeof original !== 'function') return
+			if (!active || undo) return
 			const Context = composerContext()
-			const wrapper = function (this: unknown, ...args: any[]) {
+			// memo(forwardRef) up to 349, memo(function) from 350.2: wrapRender handles both.
+			undo = wrapRender(exports, original => function (this: unknown, ...args: any[]) {
 				const tree = Reflect.apply(original, this, args) as ReactNode
 				if (!active) return tree
 				return revenge.react.React.createElement(
@@ -42,11 +42,8 @@ export function patchComposer(): () => void {
 					{ value: findComposerRef(tree) },
 					tree,
 				)
-			}
-			target.render = wrapper
-			undo = () => {
-				if (target.render === wrapper) target.render = original
-			}
+			})
+			if (!undo) console.error('[SendTweaks] could not wrap the chat input: unknown component shape')
 		},
 	)
 	return () => {

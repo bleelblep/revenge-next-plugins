@@ -5,6 +5,7 @@ import { showToast } from '../../lib/toast'
 function toast(content: string) {
 	showToast(content, { key: 'SendTweaksClearUrls' })
 }
+import { FieldRow } from '../fieldGroup'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import type { SendTweaksStorage } from '../../types'
@@ -18,7 +19,7 @@ export default function Options() {
 	const { Page } = revenge.components
 	const { ScrollView } = revenge.react.ReactNative
 	const React = revenge.react.React
-	const { Stack, TableRowGroup, TableRow, TableSwitchRow } = revenge.discord.design.Design
+	const { Stack, TableRowGroup, TableRow, TableSwitchRow, TextInput } = revenge.discord.design.Design
 
 	const storage = getStorage()
 	const s = useSettings()
@@ -94,6 +95,16 @@ export default function Options() {
 						/>
 					</TableRowGroup>
 
+					<TableRowGroup title="Tap send" hasIcons>
+						<TableSwitchRow
+							label="Tap send to preview"
+							subLabel="Tapping send shows the preview first, then Send sends it. Use this if holding send doesn't work for you. Empty messages and / commands send straight away."
+							icon={rowIcon('EyeIcon', 'ic_eye')}
+							value={!!s.tapToPreview}
+							onValueChange={value => set({ tapToPreview: value })}
+						/>
+					</TableRowGroup>
+
 					<TableRowGroup title="Links" hasIcons>
 						<TableSwitchRow
 							label="Remove tracking from links"
@@ -137,6 +148,51 @@ export default function Options() {
 							value={!!s.textReplace}
 							onValueChange={value => set({ textReplace: value })}
 						/>
+					</TableRowGroup>
+
+					<TableRowGroup title="Polish wording" hasIcons>
+						<TableSwitchRow
+							label="Polish wording"
+							subLabel="Small tidy-ups to every message, done on your phone. Links, mentions, emoji and code are never touched, and your own rules run after it."
+							icon={rowIcon('MagicWandIcon', 'ic_star')}
+							value={!!s.polishWording}
+							onValueChange={value => set({ polishWording: value })}
+						/>
+						<TableSwitchRow
+							label="Add apostrophes"
+							subLabel="dont → don't, im → I'm, thats → that's. Words like its, ill and were are left alone."
+							icon={rowIcon('TextIcon', 'ic_edit_24px')}
+							disabled={!s.polishWording}
+							value={s.polishApostrophes !== false}
+							onValueChange={value => set({ polishApostrophes: value })}
+						/>
+						<TableSwitchRow
+							label="Capitalise sentences"
+							subLabel="A capital at the start of each sentence, and i on its own becomes I. Words with a capital already, like iPhone, stay as typed."
+							icon={rowIcon('TextIcon', 'ic_edit_24px')}
+							disabled={!s.polishWording}
+							value={s.polishCapitals !== false}
+							onValueChange={value => set({ polishCapitals: value })}
+						/>
+						<TableSwitchRow
+							label="End with a full stop"
+							subLabel="Adds one when a message ends in a word. Some people read that as cold in casual chat."
+							icon={rowIcon('TextIcon', 'ic_edit_24px')}
+							disabled={!s.polishWording}
+							value={!!s.polishFullStop}
+							onValueChange={value => set({ polishFullStop: value })}
+						/>
+						<FieldRow
+							label="Never capitalise"
+							description="Words to leave lower case at the start of a sentence, separated by commas."
+						>
+							<TextInput
+								placeholder="lol, brb, ngl"
+								value={s.polishSkip ?? ''}
+								editable={!!s.polishWording}
+								onChange={(value: string) => set({ polishSkip: value })}
+							/>
+						</FieldRow>
 					</TableRowGroup>
 
 					<TableRowGroup title="Replies" hasIcons>

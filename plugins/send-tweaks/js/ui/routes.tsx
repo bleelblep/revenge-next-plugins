@@ -5,7 +5,9 @@ import EditRule from './pages/EditRule'
 import Options from './pages/Options'
 import { ReadyMadeLinks, ReadyMadeText } from './pages/ReadyMade'
 import { LinkRules, TextRules } from './pages/Rules'
+// import Styles from './pages/Styles' -- Restyle is commented out for now, see lib/preview.ts
 import TryIt from './pages/TryIt'
+import { safePage } from './safePage'
 import Templates, { TemplateGuide, TemplateHelper, TemplatePlayground, TemplateSnippets, TemplateFormats } from './pages/Templates'
 
 const PREFIX = 'bleelblep.send-tweaks'
@@ -19,6 +21,7 @@ export const AI_ROUTE = `${PREFIX}.ai`
 export const READY_LINKS_ROUTE = `${PREFIX}.ready-made-links`
 export const READY_TEXT_ROUTE = `${PREFIX}.ready-made-text`
 export const TRY_ROUTE = `${PREFIX}.try`
+export const STYLES_ROUTE = `${PREFIX}.styles`
 export const DEBUG_ROUTE = `${PREFIX}.debug`
 export const TEMPLATE_ROUTE = `${PREFIX}.templates`
 export const TEMPLATE_HELPER_ROUTE = `${PREFIX}.template-helper`
@@ -50,7 +53,7 @@ export function registerPages(): () => void {
 			parent: null,
 			type: 'route',
 			useTitle: () => title,
-			screen: { route: key, getComponent: () => component },
+			screen: { route: key, getComponent: () => safePage(component, title) },
 		})
 
 	// Registered inside `onSettingsModulesLoaded`: it fires immediately when Discord's
@@ -66,6 +69,7 @@ export function registerPages(): () => void {
 			route(READY_LINKS_ROUTE, 'Ready-made link rules', ReadyMadeLinks),
 			route(READY_TEXT_ROUTE, 'Ready-made rules', ReadyMadeText),
 			route(TRY_ROUTE, 'Try a message', TryIt),
+			// route(STYLES_ROUTE, 'Styles', Styles),
 			route(DEBUG_ROUTE, 'Debug', Debug),
 			route(TEMPLATE_ROUTE, 'Template helpers', Templates),
 			route(TEMPLATE_HELPER_ROUTE, 'Insert helper', TemplateHelper),

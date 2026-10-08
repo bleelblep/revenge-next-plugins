@@ -1,12 +1,13 @@
 import { renderMarkdown } from './markdown'
 import { makeSilent } from './silent'
-import { settings, TAG } from './state'
+import { getAi, settings, TAG } from './state'
 import { transform } from './transform'
 import { captureRandom, sendWithPreviewRandom } from './random'
 import { greetingsUnlocked, hasGreetingTarget, ruleScopeMatches } from './greetings'
 import { compileRule } from './textReplace'
 import { expandSnippets } from './templateSyntax'
 import { validateTemplate } from './templateValidation'
+import { aiReady, allStyles, armRestyle, type Restyled, restyle, type Style } from './styles'
 
 /**
  * Preview: a Discord dialog showing the draft as the message it would become, with Send and Close.
@@ -28,19 +29,27 @@ import { validateTemplate } from './templateValidation'
  *
  * The idea is nexpid's Message Preview (Vendetta); this is written for Send Tweaks and shares no
  * code with it. Text only: attachments waiting to upload are not shown.
+ *
+ * ## Restyle
+ *
+ * A third button opens a list of styles (`lib/styles.ts`). Picking one rewrites the draft and
+ * reopens this preview with the result and the style's name as the title; Send then sends that.
+ * The draft in the message box is never changed, so closing leaves what you typed.
  */
 
 import { showToast } from './toast'
 
 const ALERT_KEY = 'SendTweaksPreview'
+const PICKER_KEY = 'SendTweaksRestyle'
+const LIMIT = 2000
 
 function toast(content: string) {
 	showToast(content, { key: 'SendTweaksPreviewToast' })
 }
 
 /** The text a send would carry right now, as Send Tweaks would change it. */
-export function previewText(draft: string): string {
-	let text = transform(draft).text
+export function previewText(draft: string, restyled = false): string {
+	let text = transform(draft, { polish: !restyled }).text
 	if (settings().silentMessages) text = makeSilent(text)
 	return text
 }
@@ -106,7 +115,11 @@ function previewMessage(content: string, warnings: string[] = []): any {
  * Opens the preview for the send button's live composer text. [send] is its own `onPress`;
  * without it the dialog only has Close. Returns false if there was nothing to preview.
  */
-export function showPreview(draft: string | undefined, send?: () => void): boolean {
+export function showPreview(
+	draft: string | undefined,
+	send?: () => void,
+	styled?: { result: Extract<Restyled, { ok: true }>; style: Style },
+): boolean {
 	if (draft === undefined) {
 		toast("Couldn't read the message box yet — reopen the chat and try again")
 		return false
@@ -116,7 +129,8 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 		return false
 	}
 
-	const { result: content, choices } = captureRandom(() => previewText(draft))
+	const source = styled ? styled.result.text : draft
+	const { result: content, choices } = captureRandom(() => previewText(source, !!styled))
 	const warnings: string[] = []
 	if (greetingsUnlocked()) {
 		const s = settings()
@@ -127,7 +141,9 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 			if (/\{mention\}/.test(expanded) && !hasGreetingTarget()) warnings.push('No recipient found for {mention}. Reply to someone or provide a fallback.')
 		}
 		// Account limits can vary by Discord entitlement/experiment: use a conservative advisory.
-		if (content.length > 2000) warnings.push(`Output has ${content.length} characters. Check your account's message-length limit before sending.`)
+		if (content.length > LIMIT) warnings.push(`Output has ${content.length} characters. Check your account's message-length limit before sending.`)
+	} else if (styled && content.length > LIMIT) {
+		warnings.push(`The restyled message has ${content.length} characters, over Discord's usual ${LIMIT}. Try Shorter, or a different style.`)
 	}
 	const { AlertModal, AlertActionButton } = revenge.discord.design.Design as any
 	const alerts = revenge.discord.actions.AlertActionCreators
@@ -138,7 +154,7 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 		alerts.openAlert(
 			ALERT_KEY,
 			React.createElement(AlertModal, {
-				title: 'Preview',
+				title: styled ? styled.style.name : 'Preview',
 				extraContent: previewMessage(content, [...new Set(warnings)]),
 				actions: React.createElement(
 					React.Fragment,
@@ -149,10 +165,23 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 								variant: 'primary',
 								onPress: () => {
 									close()
-									sendWithPreviewRandom(draft, choices, send)
+									if (styled) armRestyle(styled.result)
+									sendWithPreviewRandom(source, choices, send)
 								},
 							})
 						: null,
+					// Restyle is switched off for now (0.8.2) while the send button is bug-fixed. Bring it
+					// back with the Styles row in Settings.tsx and the route in routes.tsx.
+					// hasStyles()
+					// 	? React.createElement(AlertActionButton, {
+					// 			text: styled ? 'Another style' : 'Restyle',
+					// 			variant: 'secondary',
+					// 			onPress: () => {
+					// 				close()
+					// 				showStylePicker(draft, send, !!styled)
+					// 			},
+					// 		})
+					// 	: null,
 					React.createElement(AlertActionButton, { text: 'Close', variant: 'secondary', onPress: close }),
 				),
 			}),
@@ -162,5 +191,110 @@ export function showPreview(draft: string | undefined, send?: () => void): boole
 		console.error(`${TAG} preview failed:`, error)
 		toast("Couldn't show a preview here")
 		return false
+	}
+}
+
+/** Pig Latin is always there; the AI styles need AI Core installed. */
+function usableStyles(): Style[] {
+	const ai = !!getAi()
+	return allStyles(settings()).filter(style => style.local || ai)
+}
+
+// /** Always: with nothing switched on, the picker says where to turn styles on. */
+// function hasStyles(): boolean {
+// 	return true
+// }
+
+let busy = false
+
+async function applyStyle(draft: string, send: (() => void) | undefined, style: Style) {
+	if (busy) return
+	busy = true
+	if (!style.local) toast(`Restyling as ${style.name}…`)
+	try {
+		const result = await restyle(draft, style)
+		if (!result.ok) {
+			toast(result.error)
+			return
+		}
+		showPreview(draft, send, { result, style })
+	} catch (error) {
+		console.error(`${TAG} restyle failed:`, error)
+		toast("Couldn't restyle that message")
+	} finally {
+		busy = false
+	}
+}
+
+/**
+ * The list of styles, in Discord's alert dialog like the preview itself. [restyled] adds a way back
+ * to the message as typed.
+ */
+export function showStylePicker(draft: string, send: (() => void) | undefined, restyled = false) {
+	const React = revenge.react.React
+	const { ScrollView, Dimensions } = revenge.react.ReactNative
+	const { AlertModal, AlertActionButton, TableRowGroup, TableRow } = revenge.discord.design.Design as any
+	const alerts = revenge.discord.actions.AlertActionCreators
+	const close = () => alerts.dismissAlert(PICKER_KEY)
+	const styles = usableStyles()
+	const ai = aiReady()
+
+	const row = (style: Style) =>
+		React.createElement(TableRow, {
+			key: style.id,
+			label: style.name,
+			subLabel: style.local || ai ? style.description : `${style.description}. AI Core can't make calls right now.`,
+			disabled: !style.local && !ai,
+			onPress: () => {
+				close()
+				applyStyle(draft, send, style)
+			},
+		})
+
+	try {
+		alerts.openAlert(
+			PICKER_KEY,
+			React.createElement(AlertModal, {
+				title: 'Restyle',
+				content: getAi()
+					? 'AI styles send this message to the provider set up in AI Core, one call each.'
+					: undefined,
+				extraContent: React.createElement(
+					ScrollView,
+					{
+						style: { maxHeight: Math.round(Dimensions.get('window').height * 0.5) },
+						nestedScrollEnabled: true,
+					},
+					React.createElement(
+						TableRowGroup,
+						null,
+						restyled
+							? React.createElement(TableRow, {
+									key: 'original',
+									label: 'As typed',
+									subLabel: 'Back to your own words',
+									onPress: () => {
+										close()
+										showPreview(draft, send)
+									},
+								})
+							: null,
+						...(styles.length
+							? styles.map(row)
+							: [
+									React.createElement(TableRow, {
+										key: 'none',
+										label: 'No styles switched on',
+										subLabel: 'Pick the ones you want in Send Tweaks → Styles. They all start off.',
+									}),
+								]),
+					),
+				),
+				actions: React.createElement(AlertActionButton, { text: 'Cancel', variant: 'secondary', onPress: close }),
+			}),
+		)
+	} catch (error) {
+		console.error(`${TAG} style picker failed:`, error)
+		toast("Couldn't show the styles here")
 	}
 }

@@ -60,6 +60,11 @@ export function mapOutsideCode(
 /** Code spans, then Discord tokens and links: everything a rule must leave exactly as written. */
 const PROTECTED = new RegExp(`${CODE.source}|${DISCORD_TOKEN.source}`, 'gi')
 
+/** A fresh copy of the code/token/link pattern, for callers that mask spans their own way. */
+export function protectedPattern(): RegExp {
+	return new RegExp(PROTECTED.source, 'gi')
+}
+
 /** Applies `transform` only between code spans, Discord tokens and links. */
 export function mapOutsideProtected(
 	text: string,

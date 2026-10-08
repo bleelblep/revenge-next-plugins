@@ -3,6 +3,54 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.8.3',
+		date: '2026-10-09',
+		title: 'Works on Discord 350.2',
+		changes: [
+			"Fixed hold-and-swipe, Preview and Tap send to preview doing nothing on Discord 350.2 alpha, which rebuilt the chat bar's buttons. Older Discord versions still work.",
+		],
+	},
+	{
+		version: '0.8.2',
+		date: '2026-10-08',
+		title: 'Preview without holding send',
+		changes: [
+			"New in Settings: Tap send to preview. Tapping send shows the preview first, for anyone who can't hold and swipe. Empty messages and / commands still send straight away.",
+			"If your phone doesn't report the swipe, holding send now opens the preview right away instead of doing nothing.",
+			'Restyle is switched off for now while the preview is fixed up.',
+		],
+	},
+	{
+		version: '0.8.1',
+		date: '2026-10-07',
+		title: 'Better styles, all off to start',
+		changes: [
+			'Every built-in style now has a fuller prompt with rules and an example, so uwu, Elmer Fudd and the rest come out more consistent.',
+			'New built-in styles: Gen Z, Cowboy, Caveman, Overly dramatic, Corporate, Haiku, Knight and Cat.',
+			'Built-in styles start switched off. Turn on the ones you want in Styles; only those, and your own, appear in Restyle.',
+		],
+	},
+	{
+		version: '0.8.0',
+		date: '2026-10-07',
+		title: 'Polish wording and Restyle',
+		changes: [
+			"Polish wording, in Settings: adds missing apostrophes (dont → don't), capitalises sentences and i, and can end messages with a full stop. Off until you turn it on; links, mentions and code are never touched.",
+			'Restyle, in the swipe-up Preview: rewrite a message as uwu, Elmer Fudd, a pirate, Shakespeare, Yoda, very formal, shorter or with fixed grammar, through AI Core. You see the result before anything is sent.',
+			'Pig Latin works on your phone, with no AI Core needed.',
+			"A new Styles page to try every style, hide the ones you don't use, and write your own, with ideas to start from.",
+		],
+	},
+	{
+		version: '0.7.5',
+		date: '2026-10-06',
+		title: 'No more crashes from settings pages',
+		changes: [
+			'Fixed Discord closing when a Send Tweaks page couldn\'t load Discord\'s own row components. Text fields now fall back to a plainer look instead.',
+			'If a Send Tweaks page fails to draw, it now says so and shows the error instead of closing Discord.',
+		],
+	},
+	{
 		version: '0.7.4',
 		date: '2026-10-05',
 		title: 'Release notes for the PR update',
