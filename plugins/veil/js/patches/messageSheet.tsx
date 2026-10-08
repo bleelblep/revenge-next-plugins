@@ -91,9 +91,9 @@ function buildGroup(target: Target) {
 		const shown = stickersRevealed(messageId)
 		act(
 			shown ? 'Hide sticker again' : 'Show sticker',
-			shown ? 'Veil hides it again' : 'Just this message, until Discord restarts',
+			shown ? 'Veil hides it again' : 'Just this message, until you leave the channel',
 			shown ? 'EyeSlashIcon' : 'EyeIcon',
-			() => setStickersRevealed(messageId, !shown),
+			() => setStickersRevealed(messageId, !shown, channelId),
 		)
 	}
 

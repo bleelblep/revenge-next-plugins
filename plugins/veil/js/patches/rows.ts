@@ -44,11 +44,32 @@ const status = { installed: false, blurred: 0 }
  * format, size -- nothing to obscure), so a hidden sticker is taken out of the row and a line
  * says so instead; this set puts it back.
  */
-const revealedStickers = new Set<string>()
+const revealedStickers = new Map<string, string>()
 
-export function setStickersRevealed(messageId: string, revealed: boolean) {
-	if (revealed) revealedStickers.add(messageId)
+export function setStickersRevealed(messageId: string, revealed: boolean, channelId = '') {
+	if (revealed) revealedStickers.set(messageId, channelId)
 	else revealedStickers.delete(messageId)
+}
+
+/**
+ * How many times each channel has been left this session. Stickers and emoji covered by a name rule
+ * cover themselves again when you leave a channel and come back (the user's call, 2026-10-09):
+ * Show sticker is forgotten, and each emoji spoiler gets an invisible marker that changes with
+ * this count. Discord remembers a tapped spoiler by a hash of its content, so a new marker is a
+ * spoiler it has never seen opened.
+ */
+const leftCount = new Map<string, number>()
+
+/** Zero-width characters spelling [n] in binary, so every count gives different content. */
+function marker(n: number): string {
+	let out = ''
+	for (let v = n; v > 0; v >>= 1) out += v & 1 ? '\u200C' : '\u200B'
+	return out
+}
+
+function leaveChannel(channelId: string) {
+	leftCount.set(channelId, (leftCount.get(channelId) ?? 0) + 1)
+	for (const [messageId, channel] of revealedStickers) if (channel === channelId) revealedStickers.delete(messageId)
 }
 
 export const stickersRevealed = (messageId: string) => revealedStickers.has(messageId)
@@ -313,7 +334,7 @@ const CUSTOM_EMOJI = 'customEmoji'
  * undefined when none matched. Copy-on-write all the way down: the content array is Discord's parse
  * cache, shared with every other draw of this message, so it is never edited in place.
  */
-function spoilEmoji(nodes: any, cache: Map<string, boolean>, depth = 0): any[] | undefined {
+function spoilEmoji(nodes: any, cache: Map<string, boolean>, mark: string, depth = 0): any[] | undefined {
 	if (!Array.isArray(nodes) || depth > MAX_WALK_DEPTH) return undefined
 	let out: any[] | undefined
 	nodes.forEach((node: any, index: number) => {
@@ -326,11 +347,11 @@ function spoilEmoji(nodes: any, cache: Map<string, boolean>, depth = 0): any[] |
 					cache.set(node.alt, hit)
 				}
 				if (hit) {
-					next = { type: SPOILER, content: [node] }
+					next = { type: SPOILER, content: mark ? [node, { type: 'text', content: mark }] : [node] }
 					ours.add(next)
 				}
 			} else if (node.type !== SPOILER && Array.isArray(node.content)) {
-				const inner = spoilEmoji(node.content, cache, depth + 1)
+				const inner = spoilEmoji(node.content, cache, mark, depth + 1)
 				if (inner) next = { ...node, content: inner }
 			}
 		}
@@ -360,7 +381,7 @@ function apply(row: any) {
 	// Custom emoji the same rules match, each behind its own spoiler. A blurred message's are
 	// already inside its spoiler.
 	if (!reason && Array.isArray(message.content)) {
-		const spoiled = spoilEmoji(message.content, new Map())
+		const spoiled = spoilEmoji(message.content, new Map(), marker(leftCount.get(channelId) ?? 0))
 		if (spoiled) message.content = spoiled
 	}
 }
@@ -398,6 +419,27 @@ export default function patchRows(): () => void {
 		{ max: 10 },
 	)
 	patches.push(unsub)
+
+	// Leaving a channel re-covers its stickers and emoji (see leftCount).
+	let openChannel: string | undefined
+	try {
+		openChannel = (revenge.discord.flux.Stores as any).SelectedChannelStore?.getChannelId?.() ?? undefined
+	} catch {
+		/* read on the first switch instead */
+	}
+	patches.push(
+		revenge.discord.flux.onFluxEventDispatched('CHANNEL_SELECT', (payload: any) => {
+			try {
+				const next = payload?.channelId ? String(payload.channelId) : undefined
+				if (openChannel && openChannel !== next) leaveChannel(openChannel)
+				openChannel = next
+			} catch (error) {
+				console.error(`${TAG} channel switch failed:`, error)
+			}
+			// A flux patch must hand the payload on (porting rule 2).
+			return payload
+		}),
+	)
 
 	return () => {
 		status.installed = false

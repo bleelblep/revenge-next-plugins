@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.4.9',
+		date: '2026-10-09',
+		title: 'Covered again',
+		changes: [
+			'Stickers and custom emoji you revealed are covered again when you leave the channel and come back.',
+		],
+	},
+	{
 		version: '0.4.8',
 		date: '2026-10-09',
 		title: 'Custom emoji',
