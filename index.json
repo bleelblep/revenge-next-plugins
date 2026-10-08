@@ -118,6 +118,30 @@
         }
       }
     },
+    "bleelblep.ansi-colours": {
+      "name": "ANSI Colours",
+      "description": "Shows colours in ANSI code blocks the way desktop Discord does.",
+      "author": "bleelblep",
+      "icon": "PaintPaletteIcon",
+      "channels": {
+        "latest": "0.2.1"
+      },
+      "versions": {
+        "0.2.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ansi-colours@0.2.1.zip",
+          "sha256": "8e52cacf046a1523365163642c81112ab3f17725ab24574beeb76a54b8abf237",
+          "size": 8818,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.catch-up": {
       "name": "Catch Up",
       "description": "Run /catchup for a short summary of what you missed in a channel. Needs AI Core.",
@@ -641,6 +665,30 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.6.9.zip",
           "sha256": "4bccf99c5ef537721c693b48b4f96523344cd05e3a379d88057e79b14535063c",
           "size": 15314,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.live-markdown": {
+      "name": "Live Markdown",
+      "description": "Shows bold, italics, code, spoilers and more styled as you type a message.",
+      "author": "bleelblep",
+      "icon": "TextIcon",
+      "channels": {
+        "latest": "0.1.1"
+      },
+      "versions": {
+        "0.1.1": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.live-markdown@0.1.1.zip",
+          "sha256": "040937fdf26257d850e2c16988b8c4649bd1d89cdfc5a9c8b65bf1fe73c2dad9",
+          "size": 21175,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
