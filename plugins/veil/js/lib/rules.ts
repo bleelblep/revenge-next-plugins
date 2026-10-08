@@ -84,6 +84,35 @@ function patterns(words: string[], loose: boolean) {
 	return list
 }
 
+/** Whether any rule looks at sticker and emoji names, so the long-press menu knows to offer Show sticker. */
+export function hasStickerRules(): boolean {
+	const s = settings()
+	return (s.stickerWords ?? []).length > 0 || (s.topics ?? []).some(topic => topic?.enabled && topic.stickers)
+}
+
+/**
+ * Why a sticker or custom emoji should be hidden, from the rules switched to check their names: a
+ * word with "Check stickers and emoji too", or a described rule with it. Only that sticker or
+ * emoji goes; the text stays. Reads as "matches “kekw”" or "about Diets".
+ */
+export function stickerReason(names: string[]): string | undefined {
+	const s = settings()
+	const plain = names.filter(Boolean).map(normalize)
+	if (!plain.length) return undefined
+	const flagged = new Set((s.stickerWords ?? []).map(word => word.trim().toLowerCase()))
+	const words = s.words.filter(word => flagged.has(word.trim().toLowerCase()))
+	for (const { word, pattern } of patterns(words, s.looseWords)) {
+		if (plain.some(name => pattern.test(name))) return `matches “${word}”`
+	}
+	for (const topic of s.topics ?? []) {
+		if (!topic?.enabled || !topic.stickers || !Array.isArray(topic.words)) continue
+		for (const { pattern } of patterns(topic.words, s.looseWords)) {
+			if (plain.some(name => pattern.test(name))) return `about ${topic.name}`
+		}
+	}
+	return undefined
+}
+
 /** Why this message should be blurred by a local rule, or undefined. */
 export function localReason(
 	channelId: string,

@@ -27,7 +27,7 @@
  */
 
 import { readText } from '../lib/readText'
-import { localReason } from '../lib/rules'
+import { localReason, stickerReason } from '../lib/rules'
 import { currentUserId, settings, TAG } from '../lib/state'
 
 const SPOILER = 'spoiler'
@@ -37,6 +37,45 @@ const MARK = '🙈'
 const SPOILER_LABEL = 'Spoiler'
 
 const status = { installed: false, blurred: 0 }
+
+/**
+ * Messages whose stickers the user chose to see (long-press > Show sticker), for this session.
+ * Stickers have no spoiler in Discord's native row (`sticker/Sticker`: id, name, url, asset,
+ * format, size -- nothing to obscure), so a hidden sticker is taken out of the row and a line
+ * says so instead; this set puts it back.
+ */
+const revealedStickers = new Set<string>()
+
+export function setStickersRevealed(messageId: string, revealed: boolean) {
+	if (revealed) revealedStickers.add(messageId)
+	else revealedStickers.delete(messageId)
+}
+
+export const stickersRevealed = (messageId: string) => revealedStickers.has(messageId)
+
+/** A row's stickers: the `stickers` list, plus the older single `sticker` some rows still carry. */
+function rowStickers(message: any): any[] {
+	const list = Array.isArray(message?.stickers) ? message.stickers.filter(Boolean) : []
+	if (message?.sticker && typeof message.sticker === 'object' && !list.length) list.push(message.sticker)
+	return list
+}
+
+/** Takes the stickers out of a row and leaves a line in their place. Copies, never edits shared objects. */
+function hideStickers(message: any, why: string) {
+	if (revealedStickers.has(message.id)) return
+	const stickers = rowStickers(message)
+	if (!stickers.length) return
+	if (Array.isArray(message.stickers)) message.stickers = []
+	if (message.sticker) message.sticker = null
+	const many = stickers.length > 1
+	const reason = settings().showReason ? `: ${why}` : ''
+	const note = {
+		type: SUBTEXT,
+		content: [`${MARK} ${many ? 'Stickers' : 'Sticker'} hidden${reason}. Hold the message to show ${many ? 'them' : 'it'}.`],
+	}
+	const content = Array.isArray(message.content) ? message.content : []
+	message.content = content.length ? [...content, '\n', note] : [note]
+}
 
 export function rowStatus() {
 	return { ...status }
@@ -267,6 +306,40 @@ function veilReplyPreview(message: any, channelId: string) {
 	status.blurred++
 }
 
+const CUSTOM_EMOJI = 'customEmoji'
+
+/**
+ * A copy of [nodes] with every custom emoji a name rule matches wrapped in a spoiler of its own, or
+ * undefined when none matched. Copy-on-write all the way down: the content array is Discord's parse
+ * cache, shared with every other draw of this message, so it is never edited in place.
+ */
+function spoilEmoji(nodes: any, cache: Map<string, boolean>, depth = 0): any[] | undefined {
+	if (!Array.isArray(nodes) || depth > MAX_WALK_DEPTH) return undefined
+	let out: any[] | undefined
+	nodes.forEach((node: any, index: number) => {
+		let next = node
+		if (node && typeof node === 'object') {
+			if (node.type === CUSTOM_EMOJI && typeof node.alt === 'string' && node.alt) {
+				let hit = cache.get(node.alt)
+				if (hit === undefined) {
+					hit = !!stickerReason([node.alt])
+					cache.set(node.alt, hit)
+				}
+				if (hit) {
+					next = { type: SPOILER, content: [node] }
+					ours.add(next)
+				}
+			} else if (node.type !== SPOILER && Array.isArray(node.content)) {
+				const inner = spoilEmoji(node.content, cache, depth + 1)
+				if (inner) next = { ...node, content: inner }
+			}
+		}
+		if (next !== node && !out) out = nodes.slice(0, index)
+		if (out) out.push(next)
+	})
+	return out
+}
+
 function apply(row: any) {
 	if (!settings().enabled) return
 	const message = row?.message
@@ -277,6 +350,19 @@ function apply(row: any) {
 
 	const reason = judge(message, channelId)
 	if (reason) veil(row, reason)
+	// After veil(), so the note goes under the blurred text rather than inside the spoiler. A blurred
+	// message's stickers go with it; otherwise only the rules switched to check sticker names hide one.
+	const stickerWhy =
+		reason && settings().blurMedia
+			? reason
+			: stickerReason(rowStickers(message).map((sticker: any) => (typeof sticker?.name === 'string' ? sticker.name : '')))
+	if (stickerWhy) hideStickers(message, stickerWhy)
+	// Custom emoji the same rules match, each behind its own spoiler. A blurred message's are
+	// already inside its spoiler.
+	if (!reason && Array.isArray(message.content)) {
+		const spoiled = spoilEmoji(message.content, new Map())
+		if (spoiled) message.content = spoiled
+	}
 }
 
 export default function patchRows(): () => void {

@@ -3,6 +3,24 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.4.8',
+		date: '2026-10-09',
+		title: 'Custom emoji',
+		changes: [
+			'Check sticker names too is now Check stickers and emoji too: a matching custom emoji, like :kekw:, goes behind its own spoiler. Tap it to see it. The rest of the message stays as it is.',
+		],
+	},
+	{
+		version: '0.4.7',
+		date: '2026-10-09',
+		title: 'Stickers',
+		changes: [
+			"Words and described rules can check sticker names too: tap one and choose Check sticker names too. A matching sticker is hidden and the message text stays.",
+			'A blurred message hides its stickers as well (with Blur images and embeds on). Before, they stayed visible.',
+			'Hold a message and tap Show sticker to see a hidden one.',
+		],
+	},
+	{
 		version: '0.4.5',
 		date: '2026-10-05',
 		title: 'Message menu placement',

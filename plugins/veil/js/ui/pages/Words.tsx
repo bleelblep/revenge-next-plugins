@@ -1,8 +1,72 @@
 import { DEFAULTS } from '../../defaults'
-import { getStorage, patch } from '../../lib/state'
+import { repaintChannel } from '../../lib/repaint'
+import { getStorage, patch, TAG } from '../../lib/state'
 import { FieldRow } from '../fieldGroup'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
+
+const ALERT_KEY = 'VeilWord'
+const keyOf = (word: string) => word.trim().toLowerCase()
+
+/** The open channel is the one the user will look at next, so it is redrawn with the change. */
+function repaintCurrent() {
+	try {
+		const id = (revenge.discord.flux.Stores as any).SelectedChannelStore?.getChannelId?.()
+		if (id) repaintChannel(id)
+	} catch {
+		/* the next scroll picks it up */
+	}
+}
+
+/**
+ * One word in Discord's alert dialog, the way a described rule opens: whether it also checks
+ * sticker names, remove, close.
+ */
+function openWord(word: string, words: string[], stickerWords: string[]) {
+	const { AlertModal, AlertActionButton, Text } = revenge.discord.design.Design as any
+	const alerts = revenge.discord.actions.AlertActionCreators
+	const close = () => alerts.dismissAlert(ALERT_KEY)
+	const stickers = stickerWords.some(w => keyOf(w) === keyOf(word))
+	const others = stickerWords.filter(w => keyOf(w) !== keyOf(word))
+	const write = (value: Parameters<typeof patch>[0]) => {
+		patch(value)
+		repaintCurrent()
+		close()
+	}
+
+	try {
+		alerts.openAlert(
+			ALERT_KEY,
+			<AlertModal
+				title={word}
+				extraContent={
+					<Text variant="text-sm/normal" color="text-muted">
+						{stickers
+							? 'Blurs messages that mention it, hides stickers whose name matches it, and covers custom emoji with that name.'
+							: 'Blurs messages that mention it. Stickers and custom emoji are only covered when their message is blurred.'}
+					</Text>
+				}
+				actions={
+					<>
+						<AlertActionButton
+							text={stickers ? 'Stop checking stickers and emoji' : 'Check stickers and emoji too'}
+							variant="primary"
+							onPress={() => write({ stickerWords: stickers ? others : [...others, word] })}
+						/>
+						<AlertActionButton
+							text="Remove"
+							variant="destructive"
+							onPress={() => write({ words: words.filter(w => w !== word), stickerWords: others })}
+						/>
+						<AlertActionButton text="Close" variant="secondary" onPress={close} />
+					</>
+				}
+			/>,
+		)
+	} catch (error) {
+		console.error(`${TAG} could not open the word:`, error)
+	}
+}
 
 /**
  * The word list, as a list.
@@ -38,8 +102,8 @@ export default function Words() {
 		setDraft('')
 	}
 
-	const remove = (word: string) =>
-		patch({ words: words.filter(existing => existing !== word) })
+	const stickerWords: string[] = s.stickerWords ?? []
+	const checksStickers = (word: string) => stickerWords.some(w => keyOf(w) === keyOf(word))
 
 	return (
 		<Page>
@@ -71,13 +135,15 @@ export default function Words() {
 					</TableRowGroup>
 
 					{words.length ? (
-						<TableRowGroup title={`Blurring ${words.length} word${words.length === 1 ? '' : 's'} — tap one to remove it`} hasIcons>
+						<TableRowGroup title={`Blurring ${words.length} word${words.length === 1 ? '' : 's'}. Tap one to change or remove it`} hasIcons>
 							{words.map(word => (
 								<TableRow
 									key={word}
 									label={word}
+									subLabel={checksStickers(word) ? 'Stickers and emoji too' : undefined}
 									icon={rowIcon('TextIcon', 'ic_text')}
-									onPress={() => remove(word)}
+									arrow
+									onPress={() => openWord(word, words, stickerWords)}
 								/>
 							))}
 						</TableRowGroup>

@@ -71,6 +71,13 @@ function openTopic(topic: Topic, topics: Topic[]) {
 							}
 						/>
 						<AlertActionButton
+							text={topic.stickers ? 'Stop checking stickers and emoji' : 'Check stickers and emoji too'}
+							variant="secondary"
+							onPress={() =>
+								write(topics.map(t => (t.id === topic.id ? { ...t, stickers: !t.stickers } : t)))
+							}
+						/>
+						<AlertActionButton
 							text="Remove"
 							variant="destructive"
 							onPress={() => write(topics.filter(t => t.id !== topic.id))}
@@ -272,7 +279,7 @@ export default function Topics() {
 								<TableRow
 									key={topic.id}
 									label={topic.enabled ? topic.name : `${topic.name} (off)`}
-									subLabel={`${topic.words.length} words: ${preview(topic.words)}`}
+									subLabel={`${topic.words.length} words${topic.stickers ? ', stickers and emoji too' : ''}: ${preview(topic.words)}`}
 									icon={rowIcon(topic.enabled ? 'EyeSlashIcon' : 'EyeIcon', topic.enabled ? 'ic_hide' : 'ic_eye')}
 									arrow
 									onPress={() => openTopic(topic, topics)}

@@ -9,6 +9,7 @@ export const DEFAULTS: VeilStorage = {
 
 	words: [],
 	looseWords: false,
+	stickerWords: [],
 	channelIds: [],
 	userIds: [],
 

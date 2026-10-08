@@ -13,6 +13,8 @@ export interface VeilStorage {
 	 * Also match a word broken up with punctuation or spaces, like "f.i.n.a.l.e". Off by default:
 	 * it matches across gaps, so a short word catches more than you would expect.
 	 */
+	/** Words (any case) that also hide a sticker whose name matches them. */
+	stickerWords: string[]
 	looseWords: boolean
 	/** Channels where every message is blurred. */
 	channelIds: string[]
@@ -49,7 +51,7 @@ export interface VeilStorage {
 
 	// --- presentation --------------------------------------------------------
 
-	/** Also spoiler the attachments and embeds of a blurred message. */
+	/** Also spoiler the attachments and embeds of a blurred message, and hide its stickers. */
 	blurMedia: boolean
 	/** A small line under the blur saying why, e.g. "Blurred: mentions “finale”". */
 	showReason: boolean
@@ -67,6 +69,8 @@ export interface Topic {
 	description: string
 	words: string[]
 	enabled: boolean
+	/** Also hide a sticker whose name matches one of the words. */
+	stickers?: boolean
 }
 
 /**

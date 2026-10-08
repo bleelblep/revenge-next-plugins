@@ -15,6 +15,8 @@
 
 import { findMessageSheetGroupParent } from '../../../../shared/messageSheet'
 import { repaintChannel } from '../lib/repaint'
+import { hasStickerRules } from '../lib/rules'
+import { setStickersRevealed, stickersRevealed } from './rows'
 import {
 	channelName,
 	currentUserId,
@@ -54,14 +56,14 @@ function closeSheet() {
 	}
 }
 
-type Target = { channelId: string; authorId?: string }
+type Target = { channelId: string; authorId?: string; messageId?: string; hasStickers?: boolean }
 
 function buildGroup(target: Target) {
 	const ActionSheetRow = ActionSheetRowComponent()
 	if (!ActionSheetRow) return null
 	const { getAssetIdByName } = revenge.assets
 	const s = settings()
-	const { channelId, authorId } = target
+	const { channelId, authorId, messageId, hasStickers } = target
 
 	const rows: any[] = []
 	const act = (label: string, subLabel: string, icon: string, run: () => void) =>
@@ -82,6 +84,23 @@ function buildGroup(target: Target) {
 				}}
 			/>,
 		)
+
+	// Hidden stickers have no spoiler to tap, so this is how one comes back. Shown whenever Veil
+	// may have hidden it: a blurred message's, or one a rule matched by name.
+	if (hasStickers && messageId && (s.blurMedia || hasStickerRules())) {
+		const shown = stickersRevealed(messageId)
+		act(
+			shown ? 'Hide sticker again' : 'Show sticker',
+			shown ? 'Veil hides it again' : 'Just this message, until Discord restarts',
+			shown ? 'EyeSlashIcon' : 'EyeIcon',
+			() => setStickersRevealed(messageId, !shown),
+		)
+	}
+
+	if (!s.sheetActions) {
+		if (!rows.length) return null
+		return <ActionSheetRow.Group key="veil">{rows}</ActionSheetRow.Group>
+	}
 
 	if (s.sheetBlurPerson && authorId && authorId !== currentUserId()) {
 		const on = s.userIds.includes(authorId)
@@ -170,14 +189,20 @@ export default function patchMessageSheet(): () => void {
 				const channelId = message?.channel_id ?? props?.channel?.id
 				if (
 					settings().enabled &&
-					settings().sheetActions &&
+					(settings().sheetActions || hasStickerRules()) &&
 					typeof key === 'string' &&
 					isMessageSheet(key) &&
 					typeof channelId === 'string' &&
 					sheet &&
 					typeof sheet.then === 'function'
 				) {
-					current = { channelId, authorId: message?.author?.id }
+					const stickerCount = (message?.stickerItems ?? message?.sticker_items ?? message?.stickers ?? []).length
+					current = {
+						channelId,
+						authorId: message?.author?.id,
+						messageId: typeof message?.id === 'string' ? message.id : undefined,
+						hasStickers: stickerCount > 0,
+					}
 					debug(`sheet ${key} for ${channelId}`)
 					args[0] = sheet.then((mod: any) => patchSheetModule(mod, patches))
 				}
