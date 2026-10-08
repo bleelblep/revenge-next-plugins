@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "bleelblep.ansi-colours",
+	"name": "ANSI Colours",
+	"description": "Shows colours in ANSI code blocks the way desktop Discord does.",
+	"author": "bleelblep",
+	"icon": "PaintPaletteIcon",
+	"version": "0.2.1",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "com.bleelblep.ansicolours.AnsiColoursPlugin"
+		}
+	}
+}
