@@ -124,13 +124,26 @@
       "author": "bleelblep",
       "icon": "PaintPaletteIcon",
       "channels": {
-        "latest": "0.2.1"
+        "latest": "0.2.2"
       },
       "versions": {
         "0.2.1": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ansi-colours@0.2.1.zip",
           "sha256": "8e52cacf046a1523365163642c81112ab3f17725ab24574beeb76a54b8abf237",
           "size": 8818,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.2.2": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ansi-colours@0.2.2.zip",
+          "sha256": "b1b17ef6bd29fdb7409f17cf2c1d386b9a5cd1e067fcdf339449c193a14c79cf",
+          "size": 14914,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
