@@ -1,5 +1,5 @@
 /**
- * A text field (or a few related ones) in a card, so it sits on the same background as the row
+ * A text field or slider (or a few related ones) in a row, so it sits on the same background as the row
  * groups around it instead of floating on the page. Shared by every plugin; see
  * docs/plugin-design-language.md 3.6.
  *
@@ -21,12 +21,44 @@ interface FieldRowProps {
 }
 
 /**
+ * Discord's design components, or undefined when Revenge can't find them. A failed lookup is cached
+ * for every plugin, and reading the lazy proxy then throws "target is not an object" -- which took
+ * Discord down from a settings page (Send Tweaks 0.7.4, 2026-10-06). The fields still work without
+ * them, just drawn plainer.
+ */
+function design(): any {
+	try {
+		const Design = revenge.discord.design.Design as any
+		return Design?.TableRow ? Design : undefined
+	} catch {
+		return undefined
+	}
+}
+
+/**
+ * The field without Discord's row: React Native's own parts, which are always there. Grey text
+ * reads on light and dark themes alike; the theme's colours come from the same lookup that failed.
+ */
+function PlainFieldRow({ label, description, children }: FieldRowProps) {
+	const { View, Text } = revenge.react.ReactNative
+	return (
+		<View style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}>
+			<Text style={{ fontSize: 16, fontWeight: '600', color: '#9a9aa2' }}>{label}</Text>
+			{children}
+			{description ? <Text style={{ fontSize: 12, color: '#9a9aa2', opacity: 0.8 }}>{description}</Text> : null}
+		</View>
+	)
+}
+
+/**
  * One field as a real TableRow: the field (and its explanation) is the row's `subLabel`, typed
  * ReactNode, so the row paints its background. Put several in one TableRowGroup for related fields.
  */
 export function FieldRow({ label, description, children }: FieldRowProps) {
 	const { View } = revenge.react.ReactNative
-	const { TableRow, Text } = revenge.discord.design.Design as any
+	const Design = design()
+	if (!Design) return <PlainFieldRow label={label} description={description}>{children}</PlainFieldRow>
+	const { TableRow, Text } = Design
 	// A row group paints nothing itself: each TableRow draws its own background, and themes recolour
 	// rows through their own tokens (a Card drifted to a different shade under custom themes). So the
 	// field goes inside a real row and gets the row's surface.
@@ -49,7 +81,15 @@ export function FieldRow({ label, description, children }: FieldRowProps) {
 
 /** A group holding one field row, with an optional heading. */
 export function FieldGroup({ title, ...row }: FieldRowProps & { title?: string }) {
-	const { TableRowGroup } = revenge.discord.design.Design as any
+	const TableRowGroup = design()?.TableRowGroup
+	if (!TableRowGroup) {
+		const { View } = revenge.react.ReactNative
+		return (
+			<View>
+				<FieldRow {...row} />
+			</View>
+		)
+	}
 	return (
 		<TableRowGroup title={title}>
 			<FieldRow {...row} />

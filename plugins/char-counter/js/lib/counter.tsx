@@ -14,8 +14,9 @@
  * the limit, in one place. (0.1.0 drew the count in Discord's slot, a centred row under the text
  * that made the box taller.)
  *
- * A plain wrapper on the forwardRef object's `render`, not a patcher `instead`: two `instead` hooks
- * on one method recurse (upstream bug). React reads `render` on every render.
+ * A plain wrapper on the forwardRef object's `render` (up to 349) or the memo's own function (350.2,
+ * where the ref arrives as `props.ref`), not a patcher `instead`: two `instead` hooks on one method
+ * recurse (upstream bug).
  */
 
 import { setLength } from './length'
@@ -27,7 +28,10 @@ export const counterStatus = { hooked: false, moduleId: -1, lastError: '' }
 
 export function patchCounter(): () => void {
 	return wrapRender(PATH, counterStatus, original =>
-		function CharCounterFeed(props: any, ref: any) {
+		function CharCounterFeed(props: any, legacyRef: any) {
+			// Up to 349 the ref is forwardRef's second argument; from 350.2 (React 19, no forwardRef)
+			// it is `props.ref`, and Discord's useImperativeHandle reads it from there.
+			const ref = props?.ref ?? legacyRef
 			// Hooks first, always in the same order, then Discord's own render (its hooks follow ours).
 			const React = revenge.react.React
 			const passRef = React.useCallback(
@@ -46,7 +50,8 @@ export function patchCounter(): () => void {
 				[ref],
 			)
 			// Discord's hooks must still run (its ref handle is the feed); its drawing is not used.
-			original(props, passRef)
+			// Both places, so either Discord build picks it up.
+			original({ ...props, ref: passRef }, passRef)
 			React.useEffect(() => () => setLength(0), [])
 			return null
 		},

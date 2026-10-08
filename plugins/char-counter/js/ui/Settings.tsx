@@ -1,3 +1,4 @@
+import { FieldRow } from './fieldGroup'
 import { rowIcon } from '../../../../shared/ui/icon'
 import { useBottomPadding } from '../../../../shared/ui/safeArea'
 import { type CharCounterStorage, DEFAULTS, FONT_SIZE } from '../index'
@@ -45,8 +46,8 @@ export default function Settings({ api }: { api: RevengePluginStartApi<CharCount
 						<TableRadioRow label="Right" icon={rowIcon('ArrowLargeRightIcon', 'ArrowRightIcon')} value="right" />
 					</TableRadioGroup>
 
-					<TableRowGroup title="Text size">
-						<View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}>
+					<TableRowGroup>
+						<FieldRow label="Text size">
 							<View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
 								<Text color="text-muted" variant="text-sm/normal">
 									{`${fontSizeOf(s)} pt${fontSizeOf(s) === FONT_SIZE.default ? ' (default)' : ''}`}
@@ -60,7 +61,7 @@ export default function Settings({ api }: { api: RevengePluginStartApi<CharCount
 								maximumValue={FONT_SIZE.max}
 								onValueChange={(value: number) => api.jsonStorage.set({ fontSize: Math.round(value) })}
 							/>
-						</View>
+						</FieldRow>
 					</TableRowGroup>
 
 					<TableRowGroup hasIcons>

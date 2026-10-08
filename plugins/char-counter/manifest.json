@@ -5,7 +5,7 @@
 	"description": "Shows how many characters your message has, in a small square above the message box.",
 	"author": "bleelblep",
 	"icon": "TextIcon",
-	"version": "0.1.5",
+	"version": "0.1.8",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
