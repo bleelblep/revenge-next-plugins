@@ -3,7 +3,8 @@ import { greetingsUnlocked } from '../../lib/greetings'
 import { copyText } from '../../lib/clipboard'
 import { TemplateTools } from '../components/TemplateTools'
 import { templateSession } from '../templateSession'
-import { TEMPLATE_HELPER_ROUTE, EDIT_RULE_ROUTE, TEMPLATE_PLAY_ROUTE, TEMPLATE_SNIPPETS_ROUTE, TEMPLATE_FORMATS_ROUTE } from '../routes'
+import { TEMPLATE_HELPER_ROUTE, EDIT_RULE_ROUTE, TEMPLATE_PLAY_ROUTE, TEMPLATE_SNIPPETS_ROUTE, TEMPLATE_FORMATS_ROUTE, WAGON_SERVERS_ROUTE } from '../routes'
+import { useSettings } from '../../lib/state'
 import { FieldRow } from '../fieldGroup'
 import { expandPlaceholders, withSendContext } from '../../lib/greetings'
 import { expandRandom } from '../../lib/random'
@@ -52,9 +53,16 @@ let selectedHelper: Helper = HELPERS[0].items[0]
 export default function Templates() {
 	const { TableRowGroup, TableRow, Text } = revenge.discord.design.Design
 	const navigation = revenge.externals.ReactNavigation.ReactNavigationNative.useNavigation() as any
+	const s = useSettings()
+	const servers = s.wagonServers ?? []
+	const own: Helper[] = (s.wagonPlaceholders ?? []).map(entry => ({ key: entry.key, label: `{${entry.key}}`, description: 'Your placeholder: its value depends on the server', example: entry.value || '(blank)' }))
+	const groups = own.length ? [...HELPERS, { title: 'Yours', items: own }] : HELPERS
 	return <TemplatePage>
 		<Text variant="text-sm/normal" color="text-muted">Choose something to insert into Replace with.</Text>
-		{HELPERS.map(group => <TableRowGroup key={group.title} title={group.title}>{group.items.map(helper => <TableRow key={helper.key} label={helper.label} subLabel={`${helper.description}. Example: ${helper.example}`} arrow onPress={() => { selectedHelper = helper; navigation.navigate(TEMPLATE_HELPER_ROUTE) }} />)}</TableRowGroup>)}
+		{groups.map(group => <TableRowGroup key={group.title} title={group.title}>{group.items.map(helper => <TableRow key={helper.key} label={helper.label} subLabel={`${helper.description}. Example: ${helper.example}`} arrow onPress={() => { selectedHelper = helper; navigation.navigate(TEMPLATE_HELPER_ROUTE) }} />)}</TableRowGroup>)}
+		<TableRowGroup title="Per server" hasIcons>
+			<TableRow label="Servers" subLabel={servers.length ? `${servers.length} set up · ${servers.filter(server => server.off).length} off` : 'Your own placeholders, with a value per server, and on/off per server'} icon={rowIcon('ServerIcon', 'SettingsIcon')} arrow onPress={() => navigation.navigate(WAGON_SERVERS_ROUTE)} />
+		</TableRowGroup>
 		<TableRowGroup title="Reusable text" hasIcons>
 			<TableRow label="Saved snippets" subLabel="Insert or manage reusable text" icon={rowIcon('CopyIcon')} arrow onPress={() => navigation.navigate(TEMPLATE_SNIPPETS_ROUTE)} />
 		</TableRowGroup>

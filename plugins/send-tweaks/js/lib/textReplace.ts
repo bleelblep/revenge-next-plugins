@@ -12,7 +12,7 @@
  * belongs to instead of the send path discovering it.
  */
 
-import { expandDynamicPlaceholders, expandPlaceholders, greetingsUnlocked, ruleScopeMatches } from './greetings'
+import { expandDynamicPlaceholders, expandPlaceholders, greetingsUnlocked, replacementFor, ruleScopeMatches, wagonAllowsRule } from './greetings'
 import { expandRandom } from './random'
 import { expandSnippets, type RuleScope } from './templateSyntax'
 import { settings } from './state'
@@ -36,6 +36,18 @@ export interface Rule {
 	 * and `i` follows `caseSensitive`, so neither is stored here.
 	 */
 	extraFlags?: string
+	/**
+	 * Welcome Wagon: a different replacement in particular servers, same Find. Used only while
+	 * Welcome Wagon is unlocked; elsewhere `replace` is used. Stored with the rule (rules are written whole).
+	 */
+	serverReplace?: ServerReplacement[]
+}
+
+export interface ServerReplacement {
+	guildId: string
+	/** Name when it was added, for servers you have since left. */
+	name?: string
+	replace: string
 }
 
 export function newRule(overrides: Partial<Rule> = {}): Rule {
@@ -204,12 +216,15 @@ export function applyRules(
 	for (const rule of rules) {
 		if (!rule.enabled) continue
 		if (!ruleScopeMatches(rule.scope)) continue
+		// This server's own replacement, if the rule has one (Welcome Wagon).
+		const replace = replacementFor(rule)
+		if (!wagonAllowsRule(replace)) continue
 		const compiled = compileRule(rule)
 		if (!compiled.pattern) continue
 		if (!compiled.pattern.test(out)) continue
 		compiled.pattern.lastIndex = 0
 
-		let rawReplace = rule.replace
+		let rawReplace = replace
 		if (rawReplace === '{rainbow}' || rawReplace === '{gradient}') {
 			rawReplace = /\([^?][^)]*\)/.test(rule.find) ? '{rainbow:$1}' : '{rainbow:$&}'
 		}

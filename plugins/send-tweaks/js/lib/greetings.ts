@@ -14,6 +14,7 @@
 
 import { getStorage, settings, TAG } from './state'
 import { discordTimestamp, formatLocal, scopeMatches, type RuleScope } from './templateSyntax'
+import { customValue, isCustomPlaceholder, usesWagon, wagonOffIn } from './wagon'
 
 /** SHA-256 of the unlock phrase, after `normalize`. */
 const UNLOCK_HASH = 'bcbfa284fdf9f1f16c505b7b04c319a3545fba81af5824d2f8a79c2e89945779'
@@ -25,6 +26,30 @@ export const PLACEHOLDERS = ['greeting', 'mention', 'name', 'server', 'channel',
 
 export function greetingsUnlocked(): boolean {
 	return settings().greetingsUnlocked === true
+}
+
+/** A built-in placeholder or one of your own (lib/wagon.ts). */
+export function isKnownPlaceholder(key: string): boolean {
+	return (PLACEHOLDERS as readonly string[]).includes(key) || isCustomPlaceholder(key)
+}
+
+/**
+ * The rule's replacement for the server being sent in: its per-server text when it has one for this
+ * server (and Welcome Wagon is unlocked), else its normal Replace with.
+ */
+export function replacementFor(rule: { replace: string; serverReplace?: Array<{ guildId: string; replace: string }> }): string {
+	if (!rule.serverReplace?.length || !greetingsUnlocked() || context?.sample) return rule.replace
+	const guildId = channel()?.guild_id
+	return (guildId && rule.serverReplace.find(entry => entry.guildId === guildId)?.replace) ?? rule.replace
+}
+
+/**
+ * False where Welcome Wagon is turned off for this server and the rule's replacement uses it, so the
+ * rule is skipped there instead of sending half-filled text (lib/wagon.ts).
+ */
+export function wagonAllowsRule(replacement: string): boolean {
+	if (!greetingsUnlocked() || context?.sample) return true
+	return !(wagonOffIn(channel()?.guild_id) && usesWagon(replacement))
 }
 
 const normalize = (text: string) => text.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -108,6 +133,11 @@ export function expandPlaceholders(replacement: string): string {
 	const cache = new Map<string, string>()
 	const now = context?.now ?? new Date()
 	return replacement.replace(/\{(\w+)(?::([^{}|]+))?(?:\|([^{}]*))?\}/g, (token, key: string, argument: string | undefined, fallback: string | undefined) => {
+		const custom = unlocked && !argument && !(PLACEHOLDERS as readonly string[]).includes(key) ? customValue(key, context?.sample ? undefined : channel()?.guild_id) : undefined
+		if (custom !== undefined) {
+			const value = custom || fallback || ''
+			return value.replace(/\$/g, '$$$$')
+		}
 		if (!(PLACEHOLDERS as readonly string[]).includes(key)) return token
 		const cacheKey = `${key}:${argument ?? ''}:${fallback ?? ''}`
 		if (!cache.has(cacheKey)) {

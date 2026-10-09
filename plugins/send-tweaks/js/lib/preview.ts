@@ -3,7 +3,7 @@ import { makeSilent } from './silent'
 import { getAi, settings, TAG } from './state'
 import { transform } from './transform'
 import { captureRandom, sendWithPreviewRandom } from './random'
-import { greetingsUnlocked, hasGreetingTarget, ruleScopeMatches } from './greetings'
+import { greetingsUnlocked, hasGreetingTarget, replacementFor, ruleScopeMatches, wagonAllowsRule } from './greetings'
 import { compileRule } from './textReplace'
 import { expandSnippets } from './templateSyntax'
 import { validateTemplate } from './templateValidation'
@@ -135,8 +135,8 @@ export function showPreview(
 	if (greetingsUnlocked()) {
 		const s = settings()
 		for (const rule of s.textReplace ? s.rules : []) {
-			if (!rule.enabled || !ruleScopeMatches(rule.scope) || !compileRule(rule).pattern?.test(draft)) continue
-			const expanded = expandSnippets(rule.replace, s.snippets ?? [])
+			if (!rule.enabled || !ruleScopeMatches(rule.scope) || !wagonAllowsRule(replacementFor(rule)) || !compileRule(rule).pattern?.test(draft)) continue
+			const expanded = expandSnippets(replacementFor(rule), s.snippets ?? [])
 			warnings.push(...validateTemplate(expanded, content, s.snippets ?? [], Infinity))
 			if (/\{mention\}/.test(expanded) && !hasGreetingTarget()) warnings.push('No recipient found for {mention}. Reply to someone or provide a fallback.')
 		}

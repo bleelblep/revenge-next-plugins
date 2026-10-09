@@ -9,6 +9,7 @@ import { LinkRules, TextRules } from './pages/Rules'
 import TryIt from './pages/TryIt'
 import { safePage } from './safePage'
 import Templates, { TemplateGuide, TemplateHelper, TemplatePlayground, TemplateSnippets, TemplateFormats } from './pages/Templates'
+import WagonServers, { WagonAddServer, WagonPlaceholderPage, WagonServerPage } from './pages/WagonServers'
 
 const PREFIX = 'bleelblep.send-tweaks'
 
@@ -29,6 +30,11 @@ export const TEMPLATE_GUIDE_ROUTE = `${PREFIX}.template-guide`
 export const TEMPLATE_PLAY_ROUTE = `${PREFIX}.template-playground`
 export const TEMPLATE_SNIPPETS_ROUTE = `${PREFIX}.template-snippets`
 export const TEMPLATE_FORMATS_ROUTE = `${PREFIX}.template-formats`
+/** Welcome Wagon per-server settings (pages/WagonServers.tsx). */
+export const WAGON_SERVERS_ROUTE = `${PREFIX}.wagon-servers`
+export const WAGON_SERVER_ROUTE = `${PREFIX}.wagon-server`
+export const WAGON_ADD_SERVER_ROUTE = `${PREFIX}.wagon-add-server`
+export const WAGON_PLACEHOLDER_ROUTE = `${PREFIX}.wagon-placeholder`
 
 /**
  * Upstream commit 10371ff merged `refreshSettingsNavigator` + `refreshSettingsOverviewScreen`
@@ -77,6 +83,10 @@ export function registerPages(): () => void {
 			route(TEMPLATE_PLAY_ROUTE, 'Try a template', TemplatePlayground),
 			route(TEMPLATE_SNIPPETS_ROUTE, 'Snippets', TemplateSnippets),
 			route(TEMPLATE_FORMATS_ROUTE, 'Date & time', TemplateFormats),
+			route(WAGON_SERVERS_ROUTE, 'Servers', WagonServers),
+			route(WAGON_SERVER_ROUTE, 'Server', WagonServerPage),
+			route(WAGON_ADD_SERVER_ROUTE, 'Add a server', WagonAddServer),
+			route(WAGON_PLACEHOLDER_ROUTE, 'Placeholder', WagonPlaceholderPage),
 		]
 		// Only with AI Core installed: without it there is nothing to show and nothing links here.
 		if (getAi()) unregister.push(route(AI_ROUTE, 'Write a rule with AI', AiRules))

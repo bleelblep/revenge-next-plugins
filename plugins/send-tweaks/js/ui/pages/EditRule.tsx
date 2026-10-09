@@ -7,7 +7,8 @@ import {
 	updateRule,
 	useRules,
 } from '../../lib/ruleStore'
-import { compileRule, type Rule } from '../../lib/textReplace'
+import { compileRule, type Rule, type ServerReplacement } from '../../lib/textReplace'
+import { openServerPicker } from './WagonServers'
 import { FieldRow } from '../fieldGroup'
 import { dangerIcon, rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
@@ -98,6 +99,36 @@ export default function EditRule() {
 
 	const links = kind === 'links'
 	const set = (patch: Partial<Rule>) => updateRule(kind, rule.id, patch)
+	// Welcome Wagon: same Find, different Replace with per server.
+	const perServer = unlocked && !links
+	const serverTexts: ServerReplacement[] = rule.serverReplace ?? []
+	const guildName = (entry: ServerReplacement) =>
+		(revenge.discord.flux.Stores as any).GuildStore?.getGuild?.(entry.guildId)?.name ?? entry.name ?? entry.guildId
+	const setServerText = (guildId: string, replace: string) =>
+		set({ serverReplace: serverTexts.map(entry => (entry.guildId === guildId ? { ...entry, replace } : entry)) })
+	const removeServerText = (entry: ServerReplacement) => {
+		const key = 'SendTweaksRemoveServerText'
+		Alerts.openAlert(
+			key,
+			<AlertModal
+				title={`Remove ${guildName(entry)}?`}
+				content="This rule will send its normal Replace with text in that server again."
+				actions={
+					<>
+						<AlertActionButton
+							text="Remove"
+							variant="destructive"
+							onPress={() => {
+								Alerts.dismissAlert(key)
+								set({ serverReplace: serverTexts.filter(item => item.guildId !== entry.guildId) })
+							}}
+						/>
+						<AlertActionButton text="Cancel" variant="secondary" onPress={() => Alerts.dismissAlert(key)} />
+					</>
+				}
+			/>,
+		)
+	}
 	const error = rule.find ? compileRule(rule).error : undefined
 
 	const confirmDelete = () => {
@@ -170,7 +201,7 @@ export default function EditRule() {
 							/>
 						</FieldRow>
 						<FieldRow
-							label="Replace with"
+							label={perServer && serverTexts.length ? 'Replace with (other servers and DMs)' : 'Replace with'}
 							description={
 								(rule.regex
 									? `Use $1, $2 … for captured groups, and \\n for a line break.${links ? '' : ' Find ^ or $ alone to add text to the start or end of every message.'}`
@@ -190,6 +221,47 @@ export default function EditRule() {
 							/>
 						</FieldRow>
 					</TableRowGroup>
+
+					{perServer ? (
+						<>
+							<Text variant="text-sm/normal" color="text-muted">
+								Same Find, different text in particular servers. In a server listed here, its own text is sent
+								instead of Replace with; everywhere else, Replace with is used.
+							</Text>
+							{serverTexts.map(entry => (
+								<TableRowGroup key={entry.guildId} title={guildName(entry)} hasIcons>
+									<FieldRow label="Replace with in this server" description="Placeholders work here too. Empty deletes what was found.">
+										<LinesField
+											placeholder="Text to send in this server"
+											value={entry.replace}
+											onChange={(value: string) => setServerText(entry.guildId, value)}
+										/>
+									</FieldRow>
+									<TableRow
+										variant="danger"
+										label="Remove this server"
+										icon={dangerIcon('TrashIcon', 'ic_trash_24px')}
+										onPress={() => removeServerText(entry)}
+									/>
+								</TableRowGroup>
+							))}
+							<TableRowGroup hasIcons>
+								<TableRow
+									label="Add different text for a server"
+									subLabel={serverTexts.length ? undefined : 'Pick a server, then write what this rule sends there'}
+									icon={rowIcon('PlusSmallIcon', 'PlusMediumIcon')}
+									arrow
+									onPress={() =>
+										openServerPicker(navigation, {
+											exclude: serverTexts.map(entry => entry.guildId),
+											onPick: guild =>
+												set({ serverReplace: [...serverTexts, { guildId: guild.id, name: guild.name, replace: rule.replace }] }),
+										})
+									}
+								/>
+							</TableRowGroup>
+						</>
+					) : null}
 
 					{unlocked ? validateTemplate(rule.replace, rule.replace, settings().snippets ?? []).map(warning => <Text key={warning} variant="text-sm/normal" color="text-feedback-warning">{warning}</Text>) : null}
 

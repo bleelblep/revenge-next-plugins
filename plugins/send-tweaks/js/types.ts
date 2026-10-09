@@ -93,6 +93,10 @@ export interface SendTweaksStorage {
 	debugLogging: boolean
 	/** Greeting placeholders in text rules, unlocked with a phrase. See lib/greetings.ts. */
 	greetingsUnlocked?: boolean
+	/** Welcome Wagon: your own placeholders with a default value. See lib/wagon.ts. Stored whole. */
+	wagonPlaceholders?: import('./lib/wagon').WagonPlaceholder[]
+	/** Welcome Wagon per-server settings: on/off and placeholder values. Stored whole. */
+	wagonServers?: import('./lib/wagon').WagonServer[]
 	/** Arrays replace atomically so deleting a snippet persists. */
 	snippets?: import('./lib/templateSyntax').Snippet[]
 	dateFormat?: string

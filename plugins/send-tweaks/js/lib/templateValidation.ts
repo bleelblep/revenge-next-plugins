@@ -1,4 +1,4 @@
-import { PLACEHOLDERS } from './greetings'
+import { isKnownPlaceholder } from './greetings'
 import { discordTimestamp, expandSnippets, formatLocal, type Snippet } from './templateSyntax'
 
 /** Advisory only: never block sending or silently repair a template. */
@@ -13,7 +13,7 @@ export function validateTemplate(template: string, output: string, snippets: Sni
 	for (const match of expanded.matchAll(/\{(\w+)(?::([^{}|]+))?(?:\|[^{}]*)?\}/g)) {
 		const [, key, argument] = match
 		if (key === 'snippet') continue
-		if (!(PLACEHOLDERS as readonly string[]).includes(key)) {
+		if (!isKnownPlaceholder(key)) {
 			warnings.push(`Unknown placeholder: ${match[0]}`)
 		} else if (key === 'timestamp' && !discordTimestamp(new Date(), argument)) warnings.push(`Invalid timestamp format: ${match[0]}`)
 		else if ((key === 'date' || key === 'time') && argument && formatLocal(new Date(), argument, key) === undefined) warnings.push(`Invalid ${key} format: ${match[0]}`)
