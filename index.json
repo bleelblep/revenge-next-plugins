@@ -1318,7 +1318,7 @@
       "author": "bleelblep, Rosie",
       "icon": "SendMessageIcon",
       "channels": {
-        "latest": "0.8.3"
+        "latest": "0.8.5"
       },
       "versions": {
         "0.1.0": {
@@ -1534,6 +1534,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.8.3.zip",
           "sha256": "20a1ab356057818e8a4e4e7af811195f9b99e0686cafbedb2e1c5add23bf17e3",
           "size": 42548,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "0.8.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@0.8.5.zip",
+          "sha256": "33095a5b4586fe5620eaf7a0e1139e3f89a7b2dbe995ba4ce2110a01cb902f6c",
+          "size": 46034,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
