@@ -442,7 +442,7 @@
       "author": "bleelblep",
       "icon": "TrashIcon",
       "channels": {
-        "latest": "0.6.0"
+        "latest": "0.8.5"
       },
       "versions": {
         "0.5.0-beta3": {
@@ -501,6 +501,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log-native-beta@0.6.0.zip",
           "sha256": "4eb744e53027639aa1ead306c49c1af781e06b7800828e9bb1256e4316d17ec6",
           "size": 78399,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.8.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ghost-log-native-beta@0.8.5.zip",
+          "sha256": "9d0aa81358b640315a96080ba21669ff4939cc6fa26866104453ae0803e61efa",
+          "size": 106570,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
