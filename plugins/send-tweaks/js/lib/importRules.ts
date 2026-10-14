@@ -69,7 +69,9 @@ function toRule(raw: any, label: string): Rule | string {
 		replace: raw.replace,
 		regex: raw.regex === true,
 		caseSensitive: !flags.includes('i'),
-		wholeWord: false,
+		wholeWord: typeof raw.wholeWord === 'boolean' ? raw.wholeWord : false,
+		live: raw.live === true,
+		serverReplace: Array.isArray(raw.serverReplace) ? raw.serverReplace : undefined,
 		extraFlags: sanitizeFlags(flags) || undefined,
 	})
 	const compiled = compileRule(rule)
@@ -113,20 +115,28 @@ export function importRules(text: string): ImportResult {
 	return { rules, skipped }
 }
 
+export function ruleToJson(rule: Rule): Record<string, unknown> {
+	return {
+		name: rule.name ?? rule.find,
+		match: rule.find,
+		flags: `g${rule.caseSensitive ? '' : 'i'}${sanitizeFlags(rule.extraFlags)}`,
+		replace: rule.replace,
+		regex: rule.regex,
+		...(rule.wholeWord !== undefined ? { wholeWord: rule.wholeWord } : {}),
+		...(rule.live ? { live: true } : {}),
+		...(rule.scope ? { scope: rule.scope } : {}),
+		...(rule.serverReplace?.length ? { serverReplace: rule.serverReplace } : {}),
+	}
+}
+
 /** The same format back out, so a rule made here can be shared with Text Replace users. */
 export function exportRule(rule: Rule): string {
-	return JSON.stringify(
-		{
-			name: rule.name ?? rule.find,
-			match: rule.find,
-			flags: `g${rule.caseSensitive ? '' : 'i'}${sanitizeFlags(rule.extraFlags)}`,
-			replace: rule.replace,
-			regex: rule.regex,
-			scope: rule.scope,
-		},
-		null,
-		4,
-	)
+	return JSON.stringify(ruleToJson(rule), null, 4)
+}
+
+/** Export all rules as a formatted JSON array. */
+export function exportRules(rules: Rule[]): string {
+	return JSON.stringify(rules.map(ruleToJson), null, 4)
 }
 
 /** The Vendetta server thread where Text Replace users share rules. The ready-made rules come from it. */

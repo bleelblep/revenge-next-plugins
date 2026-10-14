@@ -1,5 +1,5 @@
 import { makeSilent } from '../../lib/silent'
-import { getStorage, useSettings } from '../../lib/state'
+import { useSettings } from '../../lib/state'
 import { transform } from '../../lib/transform'
 import { FieldGroup } from '../fieldGroup'
 import { useBottomPadding } from '../safeArea'
@@ -19,9 +19,8 @@ const EXAMPLES = [
 
 /**
  * A message in, exactly what would be sent out.
- *
- * Runs the same `transform` the send hook runs, with the same settings, so this can never
- * disagree with a real send. Nothing typed here is sent anywhere.
+ * Runs the same `transform` the send hook runs, showing clearly what would be sent
+ * and what caused the changes (replace as you type, replace as you send, or both).
  */
 export default function TryIt() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
@@ -29,30 +28,36 @@ export default function TryIt() {
 	const { ScrollView, View } = ReactNative
 	const { Stack, Text, Card, TableRowGroup, TableRow, TextInput } = Design
 
-	// Subscribing re-renders the preview when a setting or rule changes elsewhere.
-	const storage = getStorage()
 	const s = useSettings()
-
 	const [draft, setDraft] = React.useState('')
+
 	const result = draft ? transform(draft) : undefined
-	// The send hook adds @silent after every other change; Discord strips it, so show it as a note.
 	const silent = !!result && s.silentMessages && makeSilent(result.text) !== result.text
+
+	const changes = !result
+		? []
+		: [
+			result.cleaned &&
+			`${result.cleaned} tracking parameter${result.cleaned === 1 ? '' : 's'} removed`,
+			result.rewritten &&
+			`${result.rewritten} link${result.rewritten === 1 ? '' : 's'} rewritten`,
+			result.liveReplaced &&
+			`${result.liveReplaced} rule${result.liveReplaced === 1 ? '' : 's'} applied (replace as you type)`,
+			result.sendReplaced &&
+			`${result.sendReplaced} rule${result.sendReplaced === 1 ? '' : 's'} applied (replace as you send)`,
+			!result.liveReplaced &&
+			!result.sendReplaced &&
+			result.replaced &&
+			`${result.replaced} rule${result.replaced === 1 ? '' : 's'} applied`,
+			result.polished && 'wording polished',
+			silent && 'sent silently',
+		].filter(Boolean) as string[]
 
 	const summary = !result
 		? undefined
 		: result.text === draft
 			? `Nothing would change — this would be sent exactly as typed${silent ? ', but silently' : ''}.`
-			: [
-					result.cleaned &&
-						`${result.cleaned} tracking parameter${result.cleaned === 1 ? '' : 's'} removed`,
-					result.rewritten &&
-						`${result.rewritten} link${result.rewritten === 1 ? '' : 's'} rewritten`,
-					result.replaced &&
-						`${result.replaced} rule${result.replaced === 1 ? '' : 's'} applied`,
-					silent && 'sent silently',
-				]
-					.filter(Boolean)
-					.join(', ')
+			: changes.join('\n')
 
 	return (
 		<Page>

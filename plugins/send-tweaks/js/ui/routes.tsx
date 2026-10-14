@@ -3,6 +3,7 @@ import AiRules from './pages/AiRules'
 import Debug from './pages/Debug'
 import EditRule from './pages/EditRule'
 import Options from './pages/Options'
+import { ImportExportLinks, ImportExportText } from './pages/ImportExport'
 import { ReadyMadeLinks, ReadyMadeText } from './pages/ReadyMade'
 import { LinkRules, TextRules } from './pages/Rules'
 // import Styles from './pages/Styles' -- Restyle is commented out for now, see lib/preview.ts
@@ -24,6 +25,8 @@ export const EDIT_RULE_ROUTE = `${PREFIX}.edit-rule`
 export const AI_ROUTE = `${PREFIX}.ai`
 export const READY_LINKS_ROUTE = `${PREFIX}.ready-made-links`
 export const READY_TEXT_ROUTE = `${PREFIX}.ready-made-text`
+export const IMPORT_EXPORT_LINKS_ROUTE = `${PREFIX}.import-export-links`
+export const IMPORT_EXPORT_TEXT_ROUTE = `${PREFIX}.import-export-text`
 export const TRY_ROUTE = `${PREFIX}.try`
 export const STYLES_ROUTE = `${PREFIX}.styles`
 export const DEBUG_ROUTE = `${PREFIX}.debug`
@@ -76,6 +79,8 @@ export function registerPages(): () => void {
 			route(EDIT_RULE_ROUTE, 'Edit rule', EditRule),
 			route(READY_LINKS_ROUTE, 'Ready-made link rules', ReadyMadeLinks),
 			route(READY_TEXT_ROUTE, 'Ready-made rules', ReadyMadeText),
+			route(IMPORT_EXPORT_LINKS_ROUTE, 'Import & export link rules', ImportExportLinks),
+			route(IMPORT_EXPORT_TEXT_ROUTE, 'Import & export rules', ImportExportText),
 			route(TRY_ROUTE, 'Try a message', TryIt),
 			// route(STYLES_ROUTE, 'Styles', Styles),
 			...(DEBUG ? [route(DEBUG_ROUTE, 'Debug', Debug)] : []),

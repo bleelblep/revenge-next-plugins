@@ -67,7 +67,7 @@ interface LiveRule {
 function liveRules(rules: Rule[]): LiveRule[] {
 	const out: LiveRule[] = []
 	for (const rule of rules) {
-		if (!rule.enabled || !ruleScopeMatches(rule.scope)) continue
+		if (!rule.enabled || !rule.live || !ruleScopeMatches(rule.scope)) continue
 		const replace = replacementFor(rule)
 		if (!wagonAllowsRule(replace)) continue
 		if (TEMPLATE.test(replace)) continue
@@ -139,11 +139,21 @@ export function liveEdit(
 	cursor: number,
 	options: { textRules?: Rule[]; linkRules?: Rule[] },
 ): LiveEdit | undefined {
-	if (cursor < 2 || cursor > text.length) return undefined
-	// Only straight after typing a space or new line, and only once per word.
-	if (!/\s/.test(text[cursor - 1]) || /\s/.test(text[cursor - 2])) return undefined
+	if (cursor < 1 || cursor > text.length) return undefined
+	const isWhitespace = /\s/.test(text[cursor - 1])
+	if (isWhitespace) {
+		// Only straight after typing a space or new line, and only once per word.
+		if (cursor < 2 || /\s/.test(text[cursor - 2])) return undefined
+	}
 
-	const end = cursor - 1
+	const allTextRules = liveRules(options.textRules ?? [])
+	const allLinkRules = liveRules(options.linkRules ?? [])
+	// Plain text rules wait for whitespace; regex rules can trigger immediately as typed.
+	const textRules = isWhitespace ? allTextRules : allTextRules.filter(r => r.regex)
+	const linkRules = isWhitespace ? allLinkRules : allLinkRules.filter(r => r.regex)
+	if (!textRules.length && !linkRules.length) return undefined
+
+	const end = isWhitespace ? cursor - 1 : cursor
 	const before = text.slice(0, end)
 	const tokenStart = Math.max(before.search(/\S+$/), 0)
 	const token = before.slice(tokenStart)
@@ -164,25 +174,23 @@ export function liveEdit(
 	let replaced: string
 	const linkAt = token.search(/https?:\/\//i)
 	if (linkAt >= 0) {
-		const rules = liveRules(options.linkRules ?? [])
-		if (!rules.length) return undefined
+		if (!linkRules.length) return undefined
 		const urlStart = tokenStart + linkAt
 		const { url } = splitUrl(text.slice(urlStart, end), text.slice(0, urlStart))
-		const once = applyAtTail(url, url.length, rules).text
+		const once = applyAtTail(url, url.length, linkRules).text
 		if (once === url) return undefined
 		// Run twice: send runs the rules again, so only a result that stays put is written now.
-		if (applyAtTail(once, once.length, rules).text !== once) return undefined
+		if (applyAtTail(once, once.length, linkRules).text !== once) return undefined
 		windowStart = urlStart
 		replaced = once + text.slice(urlStart + url.length, cursor)
 	} else {
 		if (overlapsToken) return undefined
-		const rules = liveRules(options.textRules ?? [])
-		if (!rules.length) return undefined
+		if (!textRules.length) return undefined
 		windowStart = Math.max(end - WINDOW, lastProtectedEnd)
 		const window = text.slice(windowStart, cursor)
-		const first = applyAtTail(window, cursor - tokenStart, rules)
+		const first = applyAtTail(window, cursor - tokenStart, textRules)
 		if (first.text === window) return undefined
-		if (applyAtTail(first.text, first.tail, rules).text !== first.text) return undefined
+		if (applyAtTail(first.text, first.tail, textRules).text !== first.text) return undefined
 		replaced = first.text
 	}
 
@@ -240,7 +248,7 @@ function run(handle: Handle, stateRef: Ref | undefined, text: string) {
 	}
 
 	const edit = liveEdit(text, cursor, {
-		textRules: s.textReplace ? s.rules : undefined,
+		textRules: s.rules,
 		linkRules: s.linkRewrite ? s.linkRules : undefined,
 	})
 	if (!edit) return

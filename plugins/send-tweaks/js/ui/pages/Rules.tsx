@@ -1,7 +1,13 @@
 import { addRule, type RuleKind, setEditing, useRules } from '../../lib/ruleStore'
 import { compileRule, type Rule } from '../../lib/textReplace'
 import { rowIcon } from '../icon'
-import { EDIT_RULE_ROUTE, READY_LINKS_ROUTE, READY_TEXT_ROUTE } from '../routes'
+import {
+	EDIT_RULE_ROUTE,
+	IMPORT_EXPORT_LINKS_ROUTE,
+	IMPORT_EXPORT_TEXT_ROUTE,
+	READY_LINKS_ROUTE,
+	READY_TEXT_ROUTE,
+} from '../routes'
 import { useBottomPadding } from '../safeArea'
 import { ReactNavigationNative } from '@revenge-mod/externals/react-navigation'
 import * as components from '@revenge-mod/components'
@@ -44,6 +50,7 @@ function Rules({ kind }: { kind: RuleKind }) {
 	const rules = useRules(kind)
 
 	const openReadyMade = () => navigation.navigate(links ? READY_LINKS_ROUTE : READY_TEXT_ROUTE)
+	const openImportExport = () => navigation.navigate(links ? IMPORT_EXPORT_LINKS_ROUTE : IMPORT_EXPORT_TEXT_ROUTE)
 
 	const open = (rule: Rule) => {
 		setEditing(kind, rule.id)
@@ -99,11 +106,18 @@ function Rules({ kind }: { kind: RuleKind }) {
 							onPress={() => open(addRule(kind))}
 						/>
 						<TableRow
-							label={links ? 'Ready-made link rules and import' : 'Ready-made rules and import'}
-							subLabel="Shared in the Vendetta server's Text Replace thread, or paste your own"
+							label={links ? 'Ready-made link rules' : 'Ready-made rules'}
+							subLabel="Community presets and AI rule drafting"
 							icon={rowIcon('DownloadIcon', 'ic_download_24px')}
 							arrow
 							onPress={openReadyMade}
+						/>
+						<TableRow
+							label={links ? 'Import and export link rules' : 'Import and export rules'}
+							subLabel="Backup, share, or import rules from JSON"
+							icon={rowIcon('CopyIcon', 'ic_copy')}
+							arrow
+							onPress={openImportExport}
 						/>
 					</TableRowGroup>
 				</Stack>

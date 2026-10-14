@@ -14,6 +14,29 @@ import { Design } from '@revenge-mod/discord/design'
 import * as React from 'react'
 import * as ReactNative from 'react-native'
 
+function SingleLineField({
+	value,
+	onChange,
+	...props
+}: {
+	value: string
+	onChange: (value: string) => void
+	[key: string]: any
+}) {
+	const { TextInput } = Design
+	const [draft, setDraft] = React.useState(value ?? '')
+	return (
+		<TextInput
+			{...props}
+			value={draft}
+			onChange={(next: string) => {
+				setDraft(next)
+				onChange(next)
+			}}
+		/>
+	)
+}
+
 /**
  * Every switch, grouped by what it changes -- Ghost Log Native Beta's `Options.tsx` layout. The rule
  * lists and tools stay on the root index; this page is behaviour toggles only.
@@ -155,7 +178,6 @@ export default function Options() {
 							label="Replace as you type"
 							subLabel="Your text and link rules run as you finish each word, so you see the result in the message box. Rules with placeholders still wait for send."
 							icon={rowIcon('KeyboardIcon', 'TextIcon', 'ic_edit_24px')}
-							disabled={!s.textReplace && !s.linkRewrite}
 							value={!!s.liveReplace}
 							onValueChange={value => set({ liveReplace: value })}
 						/>
@@ -197,7 +219,7 @@ export default function Options() {
 							label="Never capitalise"
 							description="Words to leave lower case at the start of a sentence, separated by commas."
 						>
-							<TextInput
+							<SingleLineField
 								placeholder="lol, brb, ngl"
 								value={s.polishSkip ?? ''}
 								editable={!!s.polishWording}

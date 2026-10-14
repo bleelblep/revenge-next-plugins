@@ -1,8 +1,7 @@
-import { copyText, readClipboardText } from '../../lib/clipboard'
-import { importRules, PRESETS, type Preset, THREAD } from '../../lib/importRules'
-import { addRule, readRules, type RuleKind, useRules, writeRules } from '../../lib/ruleStore'
+import { copyText } from '../../lib/clipboard'
+import { PRESETS, type Preset, THREAD } from '../../lib/importRules'
+import { addRule, type RuleKind, useRules } from '../../lib/ruleStore'
 import AiDraft from '../components/AiDraft'
-import { FieldRow } from '../fieldGroup'
 import { rowIcon } from '../icon'
 import { useBottomPadding } from '../safeArea'
 import { showToast as triggerToast } from '../../lib/toast'
@@ -10,7 +9,6 @@ import * as components from '@revenge-mod/components'
 import { Design } from '@revenge-mod/discord/design'
 import * as finders from '@revenge-mod/modules/finders'
 import * as filters from '@revenge-mod/modules/finders/filters'
-import * as react from '@revenge-mod/react'
 import * as ReactNative from 'react-native'
 import { reportError } from '../../../../../shared/report'
 
@@ -53,58 +51,21 @@ export function ReadyMadeText() {
 }
 
 /**
- * Ready-made rules and importing for one list. There is one of these per list, each opened only
+ * Ready-made rules for one list. There is one of these per list, each opened only
  * from its own list's screen, so link rules are only offered next to link rules and text rules next
- * to text rules, and the Import box always fills the list you came from.
+ * to text rules.
  *
  * The rules come from the Text Replace thread in the Vendetta server -- see the note on `PRESETS`
  * for what was checked, changed and left out.
  */
 function ReadyMade({ kind }: { kind: RuleKind }) {
-	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
-	const { React } = react
 	const { Page } = components
 	const { ScrollView, View } = ReactNative
-	const { Stack, Text, Card, TableRowGroup, TableRow, TextInput, TextArea } = Design
-	const ImportInput = (TextArea ?? TextInput) as any
+	const { Stack, Text, Card, TableRowGroup, TableRow } = Design
 
 	const links = kind === 'links'
 	const rules = useRules(kind)
 	const presets = PRESETS.filter(preset => preset.kind === kind)
-	const [pasted, setPasted] = React.useState('')
-	const [skipped, setSkipped] = React.useState<string[]>([])
-	const [readingClipboard, setReadingClipboard] = React.useState(false)
-
-	const runImport = (text: string) => {
-		const result = importRules(text)
-		setSkipped(result.skipped)
-		if (result.rules.length) {
-			writeRules(kind, [...readRules(kind), ...result.rules])
-			setPasted('')
-		}
-		showToast(
-			result.rules.length
-				? `Imported ${result.rules.length} rule${result.rules.length === 1 ? '' : 's'}${result.skipped.length ? `, skipped ${result.skipped.length}` : ''}.`
-				: 'Nothing imported — see below.',
-		)
-	}
-	const importClipboard = async () => {
-		setReadingClipboard(true)
-		try {
-			const text = await readClipboardText()
-			if (!text?.trim()) {
-				showToast('Clipboard is empty or inaccessible.')
-				return
-			}
-			setPasted(text)
-			runImport(text)
-		} catch {
-			setSkipped(['Could not read the clipboard. Paste the full rule JSON into the import box instead.'])
-			showToast('Could not read the clipboard.')
-		} finally {
-			setReadingClipboard(false)
-		}
-	}
 
 	return (
 		<Page>
@@ -174,41 +135,6 @@ function ReadyMade({ kind }: { kind: RuleKind }) {
 							)
 						})}
 					</TableRowGroup>
-
-					<View style={{ gap: 8 }}>
-						<TableRowGroup hasIcons>
-							<FieldRow
-								label={links ? 'Import link rules' : 'Import rules'}
-								description={`Text Replace's format: one rule, a list, or a whole message with \`\`\`json blocks in it. Goes into your ${links ? 'link rules' : 'replacement rules'}.`}
-							>
-								<ImportInput
-									placeholder='Paste a rule, e.g. { "name": …, "match": …, "replace": … }'
-									value={pasted}
-									multiline
-									isClearable
-									onChange={(value: string) => setPasted(value)}
-								/>
-							</FieldRow>
-							<TableRow
-								label="Import"
-								icon={rowIcon('DownloadIcon', 'ic_download_24px')}
-								disabled={!pasted.trim()}
-								onPress={() => runImport(pasted)}
-							/>
-							<TableRow
-								label="Import from clipboard"
-								subLabel="Copy the full JSON first. Imports all rules in the copied text."
-								icon={rowIcon('ClipboardIcon', 'CopyIcon')}
-								disabled={readingClipboard}
-								onPress={importClipboard}
-							/>
-						</TableRowGroup>
-						{skipped.length ? (
-							<Text color="text-feedback-warning" variant="text-sm/normal">
-								{`Not imported:\n${skipped.join('\n')}`}
-							</Text>
-						) : null}
-					</View>
 				</Stack>
 			</ScrollView>
 		</Page>

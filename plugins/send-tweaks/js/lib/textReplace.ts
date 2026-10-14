@@ -31,6 +31,8 @@ export interface Rule {
 	/** Only match whole words: "cat" matches "cat" but not "concatenate". Literal rules only. */
 	wholeWord: boolean
 	enabled: boolean
+	/** Replace directly in chat input while typing (disabled by default, waits for send). */
+	live?: boolean
 	/**
 	 * Regex flags beyond `g` and `i`, kept from an imported rule: `m`, `s` or `u`. `g` is always on
 	 * and `i` follows `caseSensitive`, so neither is stored here.
@@ -59,6 +61,7 @@ export function newRule(overrides: Partial<Rule> = {}): Rule {
 		caseSensitive: false,
 		wholeWord: true,
 		enabled: true,
+		live: false,
 		...overrides,
 	}
 }

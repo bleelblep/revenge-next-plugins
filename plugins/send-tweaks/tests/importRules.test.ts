@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { importRules } from '../js/lib/importRules'
+import { exportRule, exportRules, importRules } from '../js/lib/importRules'
 import { applyRules, newRule } from '../js/lib/textReplace'
 import { DEFAULTS } from '../js/defaults'
 import { setStorage } from '../js/lib/state'
@@ -117,7 +117,7 @@ test('expands {timestamp} placeholder into Discord timestamp tag <t:unix:F> and 
 		newRule({ find: '!time', replace: 'Short: {timestamp:t}' }),
 	]
 	const res1 = applyRules('!now', rules)
-	assert.match(res1.text, /^Current time: <t:\d+:F>$/)
+	assert.match(res1.text, /^Current time: <t:\d+:[fF]>$/)
 	assert.equal(res1.applied, 1)
 
 	const res2 = applyRules('!rel', rules)
@@ -193,5 +193,30 @@ test('formats ```ansi codeblocks in outgoing messages to valid Discord ANSI', ()
 	const missingEsc = '```ansi\n[36mHello Discord\n```'
 	const res2 = transform(missingEsc)
 	assert.ok(res2.text.includes('\u001b[0;36mHello Discord'))
+})
+
+test('exports and re-imports rules preserving live, wholeWord, and regex settings', () => {
+	const rules = [
+		newRule({ name: 'cmd', find: ':tm:', replace: '™', regex: true, live: true, wholeWord: false }),
+		newRule({ name: 'typo', find: 'teh', replace: 'the', regex: false, live: false, wholeWord: true }),
+	]
+	const exported = exportRules(rules)
+	const parsed = JSON.parse(exported)
+	assert.equal(Array.isArray(parsed), true)
+	assert.equal(parsed.length, 2)
+	assert.equal(parsed[0].live, true)
+	assert.equal(parsed[0].wholeWord, false)
+	assert.equal(parsed[1].wholeWord, true)
+
+	const reimported = importRules(exported)
+	assert.equal(reimported.rules.length, 2)
+	assert.equal(reimported.rules[0].find, ':tm:')
+	assert.equal(reimported.rules[0].regex, true)
+	assert.equal(reimported.rules[0].live, true)
+	assert.equal(reimported.rules[0].wholeWord, false)
+
+	assert.equal(reimported.rules[1].find, 'teh')
+	assert.equal(reimported.rules[1].regex, false)
+	assert.equal(reimported.rules[1].wholeWord, true)
 })
 

@@ -5,7 +5,7 @@
 	"description": "Cleans links, polishes wording and applies your own find-and-replace rules.",
 	"author": "bleelblep, Rosie",
 	"icon": "SendMessageIcon",
-	"version": "0.9.2",
+	"version": "1.0.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

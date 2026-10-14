@@ -31,6 +31,10 @@ export interface TransformResult {
 	rewritten: number
 	/** Polish wording changed something. */
 	polished: boolean
+	/** Rules applied via live replace (Replace as you type). */
+	liveReplaced?: number
+	/** Rules applied via send replace (Replace as you send). */
+	sendReplaced?: number
 }
 
 export interface TransformOptions {
@@ -43,6 +47,8 @@ export function transform(text: string, options: TransformOptions = {}): Transfo
 	let cleaned = 0
 	let replaced = 0
 	let rewritten = 0
+	let liveReplaced = 0
+	let sendReplaced = 0
 	let polished = false
 	let out = text
 
@@ -81,9 +87,28 @@ export function transform(text: string, options: TransformOptions = {}): Transfo
 		polished = out !== before
 	}
 
-	if (s.textReplace && s.rules.length) {
-		// Over the whole message with code, mentions, emoji, timestamps and links held aside, so
-		// `^` and `$` mean the start and end of the message (see codeSpans.ts).
+	// Live replace rules: if Replace as you type is on, rules with live: true apply
+	const liveRules = s.liveReplace ? (s.rules ?? []).filter(r => r.enabled && r.live) : []
+	if (liveRules.length) {
+		const whole = transformAroundProtected(out, masked => {
+			const result = applyRules(masked, liveRules)
+			liveReplaced = result.applied
+			return result.text
+		})
+		if (whole !== undefined) {
+			out = whole
+		} else {
+			out = mapOutsideProtected(out, words => {
+				const result = applyRules(words, liveRules)
+				liveReplaced += result.applied
+				return result.text
+			})
+		}
+	}
+
+	// Send replace rules: if Replace text as you send is on, remaining enabled rules apply
+	if (s.textReplace && s.rules?.length) {
+		const beforeSend = out
 		let applied = 0
 		const whole = transformAroundProtected(out, masked => {
 			const result = applyRules(masked, s.rules)
@@ -92,20 +117,20 @@ export function transform(text: string, options: TransformOptions = {}): Transfo
 		})
 		if (whole !== undefined) {
 			out = whole
-			replaced += applied
+			if (out !== beforeSend) sendReplaced = applied
 		} else {
-			// A rule reached into a placeholder. Run the rules between the protected spans
-			// instead: anchors then see each stretch alone, but nothing protected can break.
 			out = mapOutsideProtected(out, words => {
 				const result = applyRules(words, s.rules)
-				replaced += result.applied
+				if (out !== beforeSend) sendReplaced += result.applied
 				return result.text
 			})
 		}
 	}
 
+	replaced = liveReplaced + sendReplaced
+
 	out = mapOutsideCode(out, prose => {
-		let text = prose.replace(/\{timestamp(?::([tTdDfFR]))?\}/g, (_, flag) => {
+		const text = prose.replace(/\{timestamp(?::([tTdDfFR]))?\}/g, (_, flag) => {
 			const unix = Math.floor(Date.now() / 1000)
 			return `<t:${unix}:${flag || 'F'}>`
 		})
@@ -116,5 +141,5 @@ export function transform(text: string, options: TransformOptions = {}): Transfo
 		out = out.replace(/```ansi([\s\S]*?)```/gi, (_, code) => `\`\`\`ansi${formatAnsiBlock(code)}\`\`\``)
 	}
 
-	return { text: out, cleaned, replaced, rewritten, polished }
+	return { text: out, cleaned, replaced, rewritten, polished, liveReplaced, sendReplaced }
 }

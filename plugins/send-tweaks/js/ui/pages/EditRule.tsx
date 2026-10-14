@@ -4,8 +4,8 @@ import { exportRule } from '../../lib/importRules'
 import {
 	deleteRule,
 	getEditing,
+	readRules,
 	updateRule,
-	useRules,
 } from '../../lib/ruleStore'
 import { compileRule, type Rule, type ServerReplacement } from '../../lib/textReplace'
 import { openServerPicker } from './WagonServers'
@@ -55,6 +55,64 @@ function LinesField({ value, onChange, ...rest }: { value: string; onChange: (va
 	)
 }
 
+function SingleLineField({
+	value,
+	onChange,
+	...props
+}: {
+	value: string
+	onChange: (value: string) => void
+	[key: string]: any
+}) {
+	const { React } = react
+	const { TextInput } = Design
+	const [draft, setDraft] = React.useState(value ?? '')
+	return (
+		<TextInput
+			{...props}
+			value={draft}
+			onChange={(next: string) => {
+				setDraft(next)
+				onChange(next)
+			}}
+		/>
+	)
+}
+
+function RuleSwitch({
+	label,
+	value,
+	onValueChange,
+	...props
+}: {
+	label: string
+	value: boolean
+	onValueChange: (value: boolean) => void
+	[key: string]: any
+}) {
+	const { React } = react
+	const { TableSwitchRow } = Design
+	const [checked, setChecked] = React.useState(value)
+	const [prevValue, setPrevValue] = React.useState(value)
+
+	if (value !== prevValue) {
+		setPrevValue(value)
+		setChecked(value)
+	}
+
+	return (
+		<TableSwitchRow
+			label={label}
+			{...props}
+			value={checked}
+			onValueChange={(next: boolean) => {
+				setChecked(next)
+				onValueChange(next)
+			}}
+		/>
+	)
+}
+
 /** One rule, on its own screen. Opened from a rule list (`Rules.tsx`). */
 export default function EditRule() {
 	// Read per-render, never at module scope -- see docs/porting-rules.md rule 1.
@@ -78,16 +136,18 @@ export default function EditRule() {
 	// Pinned on mount, so opening another rule later cannot swap this screen's rule underneath it.
 	const [target] = React.useState(getEditing())
 	const kind = target?.kind ?? 'text'
-	const rules = useRules(kind)
-	const rule = rules.find(r => r.id === target?.id)
+	const [rule, setRule] = React.useState<Rule | undefined>(() => readRules(kind).find(r => r.id === target?.id))
 	const unlocked = greetingsUnlocked()
+	const masterLive = !!settings().liveReplace
 	React.useEffect(() => clearTemplateSession, [])
 	const [replacementRevision, bumpReplacement] = React.useReducer((n: number) => n + 1, 0)
 	React.useLayoutEffect(() => {
-		navigation.setOptions?.({ headerRight: unlocked && rule && target ? () => <TemplateHelpButton initial={rule.replace} apply={text => {
-			updateRule(kind, target.id, { replace: text })
-			bumpReplacement()
-		}} /> : () => null })
+		navigation.setOptions?.({
+			headerRight: unlocked && rule && target ? () => <TemplateHelpButton initial={rule.replace} apply={text => {
+				set({ replace: text })
+				bumpReplacement()
+			}} /> : () => null
+		})
 		return () => navigation.setOptions?.({ headerRight: () => null })
 	}, [navigation, unlocked, rule?.replace, target, kind])
 
@@ -104,7 +164,41 @@ export default function EditRule() {
 	}
 
 	const links = kind === 'links'
-	const set = (patch: Partial<Rule>) => updateRule(kind, rule.id, patch)
+	const saveTimer = React.useRef<any>(null)
+	const pendingRule = React.useRef<Rule | undefined>(rule)
+	pendingRule.current = rule
+
+	const flushSave = React.useCallback(() => {
+		if (saveTimer.current) {
+			clearTimeout(saveTimer.current)
+			saveTimer.current = null
+		}
+		if (pendingRule.current) {
+			updateRule(kind, target.id, pendingRule.current)
+		}
+	}, [kind, target?.id])
+
+	const set = (patch: Partial<Rule>) => {
+		setRule(prev => {
+			if (!prev) return prev
+			const next = { ...prev, ...patch }
+			pendingRule.current = next
+			return next
+		})
+		if (saveTimer.current) clearTimeout(saveTimer.current)
+		// Defer storage write off the critical render frame so disabled states render in 0ms
+		saveTimer.current = setTimeout(() => {
+			if (pendingRule.current) {
+				updateRule(kind, target.id, pendingRule.current)
+			}
+		}, 80)
+	}
+
+	React.useEffect(() => {
+		return () => {
+			flushSave()
+		}
+	}, [flushSave])
 	// Welcome Wagon: same Find, different Replace with per server.
 	const perServer = unlocked && !links
 	const serverTexts: ServerReplacement[] = rule.serverReplace ?? []
@@ -155,6 +249,11 @@ export default function EditRule() {
 							variant="destructive"
 							onPress={() => {
 								Alerts.dismissAlert(key)
+								pendingRule.current = undefined
+								if (saveTimer.current) {
+									clearTimeout(saveTimer.current)
+									saveTimer.current = null
+								}
 								deleteRule(kind, rule.id)
 								navigation?.goBack?.()
 							}}
@@ -179,7 +278,7 @@ export default function EditRule() {
 				<Stack spacing={24}>
 					<TableRowGroup title="Rule">
 						<FieldRow label="Name">
-							<TextInput
+							<SingleLineField
 								placeholder={
 									links ? 'Optional, e.g. Twitter to fxtwitter' : 'Optional'
 								}
@@ -272,31 +371,46 @@ export default function EditRule() {
 					{unlocked ? validateTemplate(rule.replace, rule.replace, settings().snippets ?? []).map(warning => <Text key={warning} variant="text-sm/normal" color="text-feedback-warning">{warning}</Text>) : null}
 
 					<TableRowGroup title="Options">
-						<TableSwitchRow
+						<RuleSwitch
 							label="On"
 							value={!!rule.enabled}
 							onValueChange={(value: boolean) => set({ enabled: value })}
 						/>
-						<TableSwitchRow
+						{!links && (
+							<RuleSwitch
+								label="Apply directly while typing"
+								subLabel={
+									!masterLive
+										? 'Turn on "Replace as you type" in Settings to use this.'
+										: 'Replaces text directly in the chat box while typing instead of waiting till send.'
+								}
+								disabled={!rule.enabled || !masterLive}
+								value={!!rule.live}
+								onValueChange={(value: boolean) => set({ live: value })}
+							/>
+						)}
+						<RuleSwitch
 							label="Regular expression"
 							subLabel="For advanced patterns. A pattern that is not valid is skipped, never sent."
+							disabled={!rule.enabled}
 							value={!!rule.regex}
 							onValueChange={(value: boolean) => set({ regex: value })}
 						/>
-						<TableSwitchRow
+						<RuleSwitch
 							label="Match case"
 							subLabel='Off means "Cat" and "cat" both match.'
+							disabled={!rule.enabled}
 							value={!!rule.caseSensitive}
 							onValueChange={(value: boolean) => set({ caseSensitive: value })}
 						/>
-						<TableSwitchRow
+						<RuleSwitch
 							label="Whole words only"
 							subLabel={
 								rule.regex
 									? 'Not used for regular expressions — write \\b yourself.'
 									: '"cat" matches "cat" but not "concatenate".'
 							}
-							disabled={rule.regex}
+							disabled={!rule.enabled || rule.regex}
 							value={!!rule.wholeWord}
 							onValueChange={(value: boolean) => set({ wholeWord: value })}
 						/>

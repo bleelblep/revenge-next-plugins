@@ -3,6 +3,16 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '1.0.1',
+		date: '2026-10-14',
+		title: 'Per-rule live replace, import and export',
+		changes: [
+			'Choose which rules replace while typing: each rule now has its own switch so you decide if it expands in the chat box right away or waits until you send.',
+			'Added export option and moved import & export to its own dedicated page.',
+			'Patched a few things which can make things feel choppy while typing and interacting in plugin settings.',
+		],
+	},
+	{
 		version: '0.9.2',
 		date: '2026-10-13',
 		title: 'Tidy-up',

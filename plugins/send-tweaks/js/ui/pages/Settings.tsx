@@ -48,11 +48,14 @@ export default function Settings({
 	const s = useSettings()
 	const set = (patch: Partial<SendTweaksStorage>) => (getStorage() ?? api.jsonStorage).set(patch)
 
+	const textRulesActive = s.textReplace || s.liveReplace
+
 	const on = [
 		s.silentMessages && 'silent',
 		s.cleanUrls && 'tracking',
 		s.linkRewrite && 'link rules',
 		s.textReplace && 'text rules',
+		s.liveReplace && 'live replace',
 		s.polishWording && 'polish wording',
 		s.noReplyMention && 'no reply pings',
 	].filter(Boolean) as string[]
@@ -131,13 +134,13 @@ export default function Settings({
 						<TableRow
 							label="Replacement rules"
 							subLabel={
-								s.textReplace
+								textRulesActive
 									? countLabel(s.rules)
-									: 'Turn on Replace text as you send in Settings to use these'
+									: 'Turn on Replace text as you send or Replace as you type in Settings to use these'
 							}
 							icon={rowIcon('TextIcon', 'ic_edit_24px')}
 							arrow
-							disabled={!s.textReplace}
+							disabled={!textRulesActive}
 							onPress={() => navigation.navigate(RULES_ROUTE)}
 						/>
 						{/* Restyle is commented out for now, see lib/preview.ts.
