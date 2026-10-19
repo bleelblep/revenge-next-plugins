@@ -139,7 +139,44 @@ export function setInstant(value: boolean) {
 
 export function hiddenIds(): string[] {
 	load()
-	return [...ids].filter(id => !id.startsWith("folder:"))
+	return [...ids].filter(id => !id.startsWith("folder:") && !id.startsWith(CHANNEL_PREFIX))
+}
+
+// Channels share the blob the same way folders do, as "channel:<id>" keys, so unhiding one gets
+// the same tombstone treatment as a server (see persist()).
+const CHANNEL_PREFIX = "channel:"
+const channelKey = (channelId: string) => `${CHANNEL_PREFIX}${channelId}`
+const channelListeners = new Set<() => void>()
+
+export function isChannelHidden(channelId: string): boolean {
+	load()
+	return ids.has(channelKey(channelId))
+}
+
+export function hiddenChannelIds(): string[] {
+	load()
+	return [...ids].filter(id => id.startsWith(CHANNEL_PREFIX)).map(id => id.slice(CHANNEL_PREFIX.length))
+}
+
+export function setChannelHidden(channelId: string, hidden: boolean) {
+	load()
+	const key = channelKey(channelId)
+	if (hidden) {
+		ids.add(key)
+		persist()
+	} else {
+		ids.delete(key)
+		persist([key])
+	}
+	for (const listener of channelListeners) listener()
+}
+
+/** Called after any channel is hidden or shown again (patches/channelList.ts refreshes the list). */
+export function onChannelsChange(listener: () => void): () => void {
+	channelListeners.add(listener)
+	return () => {
+		channelListeners.delete(listener)
+	}
 }
 
 export function setHidden(guildId: string, hidden: boolean) {
@@ -153,15 +190,17 @@ export function setHidden(guildId: string, hidden: boolean) {
 	}
 }
 
+/** Shows every hidden server and folder again. Hidden channels stay hidden (they have their own list). */
 export function clearHidden() {
 	load()
-	const removed = [...ids]
-	ids.clear()
+	const removed = [...ids].filter(id => !id.startsWith(CHANNEL_PREFIX))
+	for (const id of removed) ids.delete(id)
 	persist(removed)
 }
 
-/** True when nothing is hidden, so the patches can skip work entirely. */
+/** True when no server or folder is hidden, so the server bar patches can skip work entirely. */
 export function isEmpty(): boolean {
 	load()
-	return ids.size === 0
+	for (const id of ids) if (!id.startsWith(CHANNEL_PREFIX)) return false
+	return true
 }

@@ -3,6 +3,28 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '1.7.2',
+		date: '2026-10-18',
+		title: 'Hidden channels really hide',
+		changes: ['Hiding a channel now takes it out of the channel list. Before, the toast showed but the channel stayed.'],
+	},
+	{
+		version: '1.7.1',
+		date: '2026-10-18',
+		title: 'Hide channels on Discord 351',
+		changes: ['"Hide channel" now shows up in the long-press menu, and hiding works, on Discord 351.'],
+	},
+	{
+		version: '1.7.0',
+		date: '2026-10-17',
+		title: 'Hide channels',
+		changes: [
+			'New: hide channels in a server. Long-press a channel and pick "Hide channel"; hiding a category hides its channels too.',
+			'Hidden channels are listed in settings under Channels, where you can show them again.',
+			"Like servers, hiding is only on this device. Hiding a channel doesn't mute it.",
+		],
+	},
+	{
 		version: '1.6.11',
 		date: '2026-10-13',
 		title: 'Tidy-up',

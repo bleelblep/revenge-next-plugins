@@ -1,7 +1,7 @@
-import { hiddenFolderIds, hiddenIds } from "../../lib/hidden"
+import { hiddenChannelIds, hiddenFolderIds, hiddenIds } from "../../lib/hidden"
 import { rowIcon } from "../icon"
 import { useBottomPadding } from "../safeArea"
-import { DEBUG_ROUTE, SERVERS_ROUTE } from "../routes"
+import { CHANNELS_ROUTE, DEBUG_ROUTE, SERVERS_ROUTE } from "../routes"
 import type { HideServersDrawerStorage } from "../../index"
 import { useChangelog } from "../../../../../shared/changelog"
 import { showToast as sharedToast } from "../../../../../shared/toast"
@@ -51,6 +51,7 @@ export default function Settings({
 	const servers = hiddenIds().length
 	const folders = hiddenFolderIds().length
 	const hiddenCount = servers + folders
+	const channels = hiddenChannelIds().length
 
 	return (
 		<Page>
@@ -80,6 +81,17 @@ export default function Settings({
 							icon={rowIcon("FolderIcon", "ServerIcon", "ic_folder")}
 							arrow
 							onPress={() => navigation.navigate(SERVERS_ROUTE)}
+						/>
+						<TableRow
+							label="Channels"
+							subLabel={
+								channels
+									? `${channels} channel${channels === 1 ? "" : "s"} or categor${channels === 1 ? "y" : "ies"} hidden`
+									: 'Long-press a channel and pick "Hide channel" — nothing hidden'
+							}
+							icon={rowIcon("EyeSlashIcon", "ic_hide")}
+							arrow
+							onPress={() => navigation.navigate(CHANNELS_ROUTE)}
 						/>
 					</TableRowGroup>
 

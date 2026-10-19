@@ -1,3 +1,4 @@
+import Channels from "./pages/Channels"
 import Debug from "./pages/Debug"
 import Servers from "./pages/Servers"
 import * as modulesSettings from "@revenge-mod/discord/modules/settings"
@@ -7,6 +8,7 @@ const DEBUG: boolean = false
 const PREFIX = "bleelblep.hide-servers-drawer"
 
 export const SERVERS_ROUTE = `${PREFIX}.servers`
+export const CHANNELS_ROUTE = `${PREFIX}.channels`
 export const DEBUG_ROUTE = `${PREFIX}.debug`
 
 /**
@@ -43,6 +45,12 @@ export function registerPages(): () => void {
 				type: "route",
 				useTitle: () => "Servers",
 				screen: { route: SERVERS_ROUTE, getComponent: () => Servers },
+			}),
+			registerSettingsItem(CHANNELS_ROUTE, {
+				parent: null,
+				type: "route",
+				useTitle: () => "Hidden channels",
+				screen: { route: CHANNELS_ROUTE, getComponent: () => Channels },
 			}),
 			...(DEBUG ? [registerSettingsItem(DEBUG_ROUTE, {
 				parent: null,

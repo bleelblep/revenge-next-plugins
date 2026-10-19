@@ -1,6 +1,8 @@
 import { init as initHidden } from "./lib/hidden"
 import { initPrefs } from "./lib/prefs"
 import { armDump, onDumpDone, probeDmNavigation, probeSortedGuildStore } from "./lib/probe"
+import patchChannelList from "./patches/channelList"
+import patchChannelSheet from "./patches/channelSheet"
 import { patchCreateElement } from "./patches/createElementIntercept"
 import patchGuildsBar from "./patches/guildsBar"
 import patchSaveGuildFolders from "./patches/saveGuildFolders"
@@ -102,6 +104,8 @@ export default plugin<{ jsonStorage: HideServersDrawerStorage }>({
 			apply("sortedGuilds", patchSortedGuilds)
 			apply("saveGuildFolders", patchSaveGuildFolders)
 			apply("guildsBar", patchGuildsBar)
+			apply("channelList", patchChannelList)
+			apply("channelSheet", patchChannelSheet)
 			refresh()
 		}, 0)
 		cleanup(() => clearTimeout(installTimer))
