@@ -9,7 +9,7 @@
       "author": "bleelblep, Rosie",
       "icon": "MagicWandIcon",
       "channels": {
-        "latest": "2.3.8"
+        "latest": "2.4.0"
       },
       "versions": {
         "1.2.0": {
@@ -120,6 +120,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.3.8.zip",
           "sha256": "46c450b0891f46324d8d213b03492fc2c0e96819609c78cf6fd9cc002c3b6338",
           "size": 57095,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "2.4.0": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.4.0.zip",
+          "sha256": "22224dbca18b4839b3ca760e57799c89f8252af0fa4dce24fc7aaa2ca60c5969",
+          "size": 66015,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -722,11 +735,11 @@
     },
     "bleelblep.hide-servers-drawer": {
       "name": "Hide Servers",
-      "description": "Hide servers or whole folders from your server list, only on your device.",
+      "description": "Hide servers, folders or channels from your lists, only on your device.",
       "author": "bleelblep, blerp",
       "icon": "EyeSlashIcon",
       "channels": {
-        "latest": "1.6.11"
+        "latest": "1.7.2"
       },
       "versions": {
         "1.6.1": {
@@ -824,6 +837,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.6.9.zip",
           "sha256": "4bccf99c5ef537721c693b48b4f96523344cd05e3a379d88057e79b14535063c",
           "size": 15314,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.7.2": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.hide-servers-drawer@1.7.2.zip",
+          "sha256": "80d11b57289074e489aa1e7950f062aa6e8a1c583667e278651ba02dc996ac31",
+          "size": 16679,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -1112,7 +1138,7 @@
       "author": "bleelblep",
       "icon": "UserCircleIcon",
       "channels": {
-        "latest": "0.2.4"
+        "latest": "0.4.5"
       },
       "versions": {
         "0.2.1": {
@@ -1132,6 +1158,19 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.pronouns@0.2.4.zip",
           "sha256": "82e91f3cf38f48687ede4b5d1500803314099bf7d99f09782b4a3d39ae0a7c16",
           "size": 8930,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.4.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.pronouns@0.4.5.zip",
+          "sha256": "172a179633fe4bc151105b1a074b5fb3c54975dba29774cd5c1b1b165c650fce",
+          "size": 21080,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -1600,7 +1639,7 @@
       "author": "bleelblep, Rosie, WarFade",
       "icon": "SendMessageIcon",
       "channels": {
-        "latest": "1.0.2"
+        "latest": "1.0.6"
       },
       "versions": {
         "0.1.0": {
@@ -1867,6 +1906,23 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@1.0.2.zip",
           "sha256": "e90f152bbc6457470cde39fc473ec693183ab9132ebd5c9d1257ab7f5675d52f",
           "size": 48372,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "1.0.6": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@1.0.6.zip",
+          "sha256": "6c4990db50e4c820f2069ef6f7b40ea2e0c9126e9eb09f32711975b705893a65",
+          "size": 49461,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
