@@ -37,6 +37,18 @@ export default function Options() {
 							onValueChange={v => set({ logDeletions: v })}
 						/>
 						<TableSwitchRow
+							label="Include my own deleted messages"
+							subLabel={
+								s.logDeletions
+									? "Log messages you delete yourself too. They stay in chat marked as deleted, like anyone else's."
+									: 'Turn on Log deletions to use this.'
+							}
+							icon={rowIcon('UserIcon', 'ic_profile_24px')}
+							disabled={!s.logDeletions}
+							value={!!s.countOwnMessages}
+							onValueChange={v => set({ countOwnMessages: v })}
+						/>
+						<TableSwitchRow
 							label="Log edits"
 							subLabel="Keep the earlier versions of edited messages in a separate encrypted log."
 							icon={rowIcon('PencilIcon', 'ic_edit')}

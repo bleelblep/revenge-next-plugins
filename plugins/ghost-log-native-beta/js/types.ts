@@ -1,6 +1,7 @@
 export type DeleteStyle = 'overlay' | 'text' | 'off'
 
 export interface GhostLogSettings {
+	/** Also log (and keep on screen) messages you delete yourself. Options > Include my own deleted messages. */
 	countOwnMessages: boolean
 	logDeletions: boolean
 	toastOnCatch: boolean
@@ -15,7 +16,7 @@ export interface GhostLogSettings {
 	ignoreBots: boolean
 	/** Keep the earlier versions of edited messages in the encrypted edit log. */
 	logEdits: boolean
-	/** Also keep the history of your own edits. Separate from countOwnMessages, which is a Debug tool. */
+	/** Also keep the history of your own edits. */
 	logOwnEdits: boolean
 	/** Show those earlier versions above the message in chat. */
 	showEditHistory: boolean

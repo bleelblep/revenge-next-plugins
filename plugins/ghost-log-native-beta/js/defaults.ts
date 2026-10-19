@@ -21,7 +21,7 @@ export const SHARED_BACKUP_PATH = '/storage/emulated/0/Download/GhostLog/deleted
 export const DEFAULT_BUNDLE_PATH = 'GhostLog/ghost-log-bundle.zip'
 export const SHARED_BUNDLE_PATH = '/storage/emulated/0/Download/GhostLog/ghost-log-bundle.zip'
 
-// Parity with stable Ghost Log: own messages are NOT caught unless the user opts in for testing,
+// Parity with stable Ghost Log: own messages are NOT caught unless the user opts in (Options),
 // deleted messages stay visible with a red overlay, log capped at 100, encrypted backup on.
 export const DEFAULTS: GhostLogSettings = {
 	countOwnMessages: false,
@@ -38,8 +38,7 @@ export const DEFAULTS: GhostLogSettings = {
 	// On, like logging deletions: this is a message logger, and an edit is the other way a message
 	// changes under you.
 	logEdits: true,
-	// Off, like own deletions: the point is what other people change. But seeing your own history is
-	// an everyday want rather than a test, so it is a real setting and not the Debug page's switch.
+	// Off, like own deletions: the point is what other people change. Both are switches in Options.
 	logOwnEdits: false,
 	showEditHistory: true,
 }

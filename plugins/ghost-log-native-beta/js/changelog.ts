@@ -3,6 +3,15 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.8.8',
+		date: '2026-10-18',
+		title: 'Log your own messages',
+		changes: [
+			'New in Options: Include my own deleted messages. It used to be a switch on the Debug page, which normal builds no longer have.',
+			'Include my own edits is still in Options, under Log edits.',
+		],
+	},
+	{
 		version: '0.8.7',
 		date: '2026-10-13',
 		title: 'Tidy-up',
