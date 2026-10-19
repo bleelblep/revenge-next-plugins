@@ -62,6 +62,19 @@ export function request(userId: string) {
 	timer = setTimeout(flush, DEBOUNCE_MS)
 }
 
+/**
+ * Forces a fresh lookup for [userId], ignoring the cached answer (including a cached negative) and
+ * any pending retry backoff. For the settings page's "Look up again" row.
+ */
+export function refetch(userId: string) {
+	cache.delete(userId)
+	retryAt.delete(userId)
+	pending.add(userId)
+	if (flushing) return
+	if (timer !== undefined) clearTimeout(timer)
+	timer = setTimeout(flush, DEBOUNCE_MS)
+}
+
 /** Every id a batch resolves, for redrawing the rows waiting on it. */
 export function onResolved(listener: (ids: string[]) => void): () => void {
 	listeners.add(listener)

@@ -12,11 +12,10 @@
 import { findMessageSheetGroupParent } from '../../../../shared/messageSheet'
 import { showToast } from '../../../../shared/toast'
 import { isOnActiveList, setOnActiveList } from '../lib/filter'
-import { resolve } from '../lib/resolve'
-import { settings, update } from '../lib/state'
+import { promptOverride } from '../lib/promptOverride'
+import { settings } from '../lib/state'
 import * as assets from '@revenge-mod/assets'
 import * as actions from '@revenge-mod/discord/actions'
-import { AlertActionCreators } from '@revenge-mod/discord/actions'
 import { Design } from '@revenge-mod/discord/design'
 import * as finders from '@revenge-mod/modules/finders'
 import * as filters from '@revenge-mod/modules/finders/filters'
@@ -63,61 +62,11 @@ function findMessage(rendered: any, fromProps?: any): any {
 	return found
 }
 
-function promptOverride(message: any) {
-	const { AlertModal, AlertActionButton, TextInput } = Design as any
-	const alerts = AlertActionCreators
-	const key = 'PronounsOverride'
+function promptOverrideFor(message: any) {
 	const authorId = String(message.author?.id ?? '')
 	if (!authorId) return
 	const authorName = message.author?.globalName ?? message.author?.username ?? 'this person'
-	const existing = settings().overrides?.[authorId]
-	const current = typeof existing === 'string' ? existing : (resolve(authorId)?.text ?? '')
-	let value = current
-	const save = () => {
-		alerts.dismissAlert(key)
-		try {
-			const text = value.trim()
-			// update() redraws the recent rows (patches/chat.ts listens).
-			update({ overrides: { ...settings().overrides, [authorId]: text || null } })
-			showToast(text ? `Pronouns for ${authorName} set.` : `Pronouns for ${authorName} cleared.`, 'PronounsOverrideToast')
-		} catch (error) {
-			reportError(`${TAG} saving the override failed:`, error)
-		}
-	}
-	alerts.openAlert(
-		key,
-		<AlertModal
-			title={`Pronouns for ${authorName}`}
-			content="What the badge next to their name shows. Leave empty to clear yours."
-			extraContent={
-				<TextInput
-					defaultValue={current}
-					placeholder="e.g. they/them"
-					autoFocus
-					autoCapitalize="none"
-					autoCorrect={false}
-					onChange={(text: string) => (value = text)}
-					onSubmitEditing={save}
-				/>
-			}
-			actions={
-				<>
-					<AlertActionButton text="Save" variant="primary" onPress={save} />
-					{typeof existing === 'string' && (
-						<AlertActionButton
-							text="Clear"
-							variant="destructive"
-							onPress={() => {
-								value = ''
-								save()
-							}}
-						/>
-					)}
-					<AlertActionButton text="Cancel" variant="secondary" onPress={() => alerts.dismissAlert(key)} />
-				</>
-			}
-		/>,
-	)
+	promptOverride(authorId, authorName)
 }
 
 function buildRow(message: any) {
@@ -136,7 +85,7 @@ function buildRow(message: any) {
 		} catch {
 			/* most rows close the sheet themselves; not worth failing the dialog over */
 		}
-		promptOverride(message)
+		promptOverrideFor(message)
 	}
 
 	return (

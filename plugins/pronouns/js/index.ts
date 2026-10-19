@@ -6,7 +6,8 @@ import { watchChannelMessages } from './lib/redraw'
 import { DEFAULTS, setStorage, type PronounsStorage } from './lib/state'
 import patchChat from './patches/chat'
 import patchMessageSheet from './patches/messageSheet'
-import Settings from './ui/Settings'
+import Settings from './ui/pages/Settings'
+import { registerPages } from './ui/routes'
 import { reportError, setReporter } from '../../../shared/report'
 
 const TAG = '[Pronouns]'
@@ -40,6 +41,7 @@ export default plugin<{ jsonStorage: PronounsStorage }>({
 		setStorage(jsonStorage)
 		cleanup(() => setStorage(undefined))
 
+		attempt(cleanup, 'settings pages', registerPages)
 		attempt(cleanup, 'changelog', () => setupChangelog(api, CHANGELOG))
 		attempt(cleanup, 'profiles', watchDiscord)
 		attempt(cleanup, 'message cache', watchChannelMessages)

@@ -24,6 +24,8 @@ const ACTIONS = 'actions/UserActionCreators.tsx'
 const TAG = '[Pronouns]'
 
 let store: any
+/** Tries the store candidates again; set while watching. */
+let retryBind: (() => boolean) | undefined
 let fetchProfile: ((userId: string, options?: { guildId?: string }) => unknown) | undefined
 
 export function watchDiscord(): () => void {
@@ -66,13 +68,39 @@ export function watchDiscord(): () => void {
 		reportError(`${TAG} profile store lookup failed:`, error)
 	}
 
+	// A tester on 351.2 got "found but unusable" at startup with neither candidate bindable yet
+	// (2026-10-14, their log, not reproducible here). Rather than give up for the session, retry
+	// whenever a badge asks, and only report if it's still unusable a while after launch.
+	let profileModule: any
+	let lastTry = 0
+	retryBind = () => {
+		if (store) return true
+		const now = Date.now()
+		if (now - lastTry < 1_000) return false
+		lastTry = now
+		try {
+			const bound = bind((Stores as any)?.UserProfileStore) || bind(profileModule) || bind(profileModule?.default)
+			// Rows drawn before the store bound are waiting on it; redraw them.
+			if (bound) Promise.resolve().then(() => active && listeners.forEach(listener => listener()))
+			return bound
+		} catch {
+			return false
+		}
+	}
 	undo.push(
 		getModuleByPath(PROFILE_STORE, null, (mod: any) => {
+			profileModule = mod
 			// Usually the Stores proxy above already bound it; then this is the same store, not a failure.
-			if (store) return
-			if (!bind(mod) && !bind(mod?.default)) {
-				reportError(`${TAG} profile store found but unusable`)
-			}
+			if (store || bind(mod) || bind(mod?.default)) return
+			const timer = setTimeout(() => {
+				lastTry = 0
+				if (!active || retryBind?.()) return
+				// Name what it does have, so a renamed getter on a new build shows up in the log.
+				reportError(
+					`${TAG} profile store found but unusable; Stores proxy: ${describe((Stores as any)?.UserProfileStore)}; module: ${describe(mod)}; default: ${describe(mod?.default)}`,
+				)
+			}, 10_000)
+			undo.push(() => clearTimeout(timer))
 		}, TAG),
 	)
 	const { withProps } = filters
@@ -96,8 +124,25 @@ export function watchDiscord(): () => void {
 			}
 		}
 		store = undefined
+		retryBind = undefined
 		fetchProfile = undefined
 		resetQueue()
+	}
+}
+
+/** The getter-ish names on a store candidate and its prototype chain, for the unusable-store error. */
+function describe(candidate: any): string {
+	try {
+		if (candidate == null) return String(candidate)
+		if (typeof candidate !== 'object' && typeof candidate !== 'function') return typeof candidate
+		const names = new Set<string>()
+		for (let o = candidate; o && o !== Object.prototype && names.size < 200; o = Object.getPrototypeOf(o)) {
+			for (const key of Object.getOwnPropertyNames(o)) if (/^(get|is|has)|profile/i.test(key)) names.add(key)
+		}
+		const name = candidate.getName?.() ?? candidate.displayName ?? candidate.constructor?.name
+		return `${name ?? typeof candidate} [${[...names].slice(0, 40).join(', ') || 'no getters'}]`
+	} catch (error) {
+		return `unreadable (${error})`
 	}
 }
 
@@ -112,7 +157,7 @@ export function onProfileChange(listener: () => void): () => void {
 /** The first non-empty pronouns value: guild profile first, then the user's own. */
 export function discordPronouns(userId: string, guildId?: string): string | undefined {
 	try {
-		if (!store) return undefined
+		if (!store && !retryBind?.()) return undefined
 		const guild = guildId ? store.getGuildMemberProfile?.(userId, guildId)?.pronouns : undefined
 		const own = store.getUserProfile?.(userId)?.pronouns
 		const value = typeof guild === 'string' && guild.trim() ? guild : typeof own === 'string' ? own : undefined
@@ -122,11 +167,20 @@ export function discordPronouns(userId: string, guildId?: string): string | unde
 	}
 }
 
-/** Whether the store already holds what the badge needs: the guild member profile in a guild. */
+/**
+ * Whether the store already holds what the badge needs. In a guild that's the guild member
+ * profile, plus the user profile unless the guild one has its own pronouns: an empty guild field
+ * falls back to the account's. Discord loads your own guild member profile early without your user
+ * profile, so a guild profile alone left your own pronouns ("any") unfetched for the session.
+ */
 function loaded(userId: string, guildId?: string): boolean {
 	try {
-		if (guildId) return !!store?.getGuildMemberProfile?.(userId, guildId)
-		return !!store?.getUserProfile?.(userId)
+		if (!store) retryBind?.()
+		const user = !!store?.getUserProfile?.(userId)
+		if (!guildId) return user
+		const member = store?.getGuildMemberProfile?.(userId, guildId)
+		if (!member) return false
+		return (typeof member.pronouns === 'string' && !!member.pronouns.trim()) || user
 	} catch {
 		return false
 	}
@@ -134,19 +188,28 @@ function loaded(userId: string, guildId?: string): boolean {
 
 // ---- The fetch queue ---------------------------------------------------------------------------
 
-/** Spacing between profile requests: a busy channel shouldn't trip Discord's rate limit. */
-const GAP_MS = 300
+/** Spacing between starting profile requests: a busy channel shouldn't trip Discord's rate limit. */
+const GAP_MS = 150
+/** Requests in flight at once. One at a time took 10+ seconds to reach a busy channel's last author. */
+const MAX_IN_FLIGHT = 3
+/**
+ * A request that hasn't answered by now is treated as failed and retried later. Before 0.4.5 one
+ * request that never settled kept the queue "busy" for the rest of the session, so badges only
+ * appeared for profiles the user opened (Discord fetches those itself). Seen on 351.3, 2026-10-18:
+ * visible authors stayed unfetched while a direct fetchProfile answered in under 0.5 s.
+ */
+const TIMEOUT_MS = 8_000
 const MAX_TRIES = 4
 const RETRY_MS = [5_000, 30_000, 120_000]
 
 /** `userId:guildId` → its attempt state. `done` keys are never fetched again this session. */
-const jobs = new Map<string, { userId: string; guildId?: string; tries: number; notBefore: number; done: boolean }>()
-let busy = false
+const jobs = new Map<string, { userId: string; guildId?: string; tries: number; notBefore: number; done: boolean; running: boolean }>()
+let inFlight = 0
 let timer: ReturnType<typeof setTimeout> | undefined
 
 function resetQueue() {
 	jobs.clear()
-	busy = false
+	inFlight = 0
 	if (timer !== undefined) clearTimeout(timer)
 	timer = undefined
 }
@@ -159,34 +222,43 @@ function schedule(delay: number) {
 	}, delay)
 }
 
-/** Runs the next due fetch; one in flight at a time. */
-function pump() {
-	if (busy || typeof fetchProfile !== 'function') return
-	const now = Date.now()
-	let next: ReturnType<typeof jobs.get>
+/** The newest due job: rows just drawn are the ones on screen. */
+function nextJob(now: number): { job?: ReturnType<typeof jobs.get>; soonest: number } {
 	let soonest = Number.POSITIVE_INFINITY
-	for (const job of jobs.values()) {
-		if (job.done) continue
+	const all = [...jobs.values()]
+	for (let i = all.length - 1; i >= 0; i--) {
+		const job = all[i]!
+		if (job.done || job.running) continue
 		if (loaded(job.userId, job.guildId)) {
 			// Landed some other way (someone opened the profile).
 			job.done = true
 			continue
 		}
-		if (job.notBefore <= now) {
-			next = job
-			break
-		}
+		if (job.notBefore <= now) return { job, soonest }
 		soonest = Math.min(soonest, job.notBefore)
 	}
-	if (!next) {
+	return { soonest }
+}
+
+/** Starts the next due fetch while there's room; up to MAX_IN_FLIGHT at a time. */
+function pump() {
+	if (inFlight >= MAX_IN_FLIGHT || typeof fetchProfile !== 'function') return
+	const now = Date.now()
+	const { job, soonest } = nextJob(now)
+	if (!job) {
 		if (soonest !== Number.POSITIVE_INFINITY) schedule(soonest - now)
 		return
 	}
-	const job = next
-	busy = true
+	inFlight++
+	job.running = true
 	job.tries++
+	let settled = false
 	const finish = (ok: boolean, retryAfterMs?: number) => {
-		busy = false
+		if (settled) return
+		settled = true
+		clearTimeout(timeout)
+		inFlight--
+		job.running = false
 		if (ok || loaded(job.userId, job.guildId) || job.tries >= MAX_TRIES) {
 			job.done = true
 		} else {
@@ -194,6 +266,7 @@ function pump() {
 		}
 		schedule(GAP_MS)
 	}
+	const timeout = setTimeout(() => finish(false), TIMEOUT_MS)
 	try {
 		const result: any = fetchProfile(job.userId, job.guildId ? { guildId: job.guildId } : undefined)
 		if (result && typeof result.then === 'function') {
@@ -212,6 +285,8 @@ function pump() {
 		reportError(`${TAG} profile fetch failed:`, error)
 		finish(false)
 	}
+	// Room for another: start it after the gap.
+	if (inFlight < MAX_IN_FLIGHT) schedule(GAP_MS)
 }
 
 /**
@@ -222,7 +297,16 @@ function pump() {
  */
 export function fetchOnMiss(userId: string, guildId?: string) {
 	const key = `${userId}:${guildId ?? ''}`
-	if (jobs.has(key) || loaded(userId, guildId)) return
-	jobs.set(key, { userId, guildId, tries: 0, notBefore: 0, done: false })
+	const existing = jobs.get(key)
+	if (existing) {
+		// Drawn again: move a waiting job to the front (the newest end) of the queue.
+		if (!existing.done && !existing.running && existing.tries === 0) {
+			jobs.delete(key)
+			jobs.set(key, existing)
+		}
+		return
+	}
+	if (loaded(userId, guildId)) return
+	jobs.set(key, { userId, guildId, tries: 0, notBefore: 0, done: false, running: false })
 	schedule(0)
 }

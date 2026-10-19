@@ -8,6 +8,7 @@
 import { cached, request } from './pronounDB'
 import { discordPronouns, fetchOnMiss } from './discord'
 import { settings } from './state'
+import { cleanPronounDb, cleanPronouns, parseExtra } from './validate'
 
 export interface Resolved {
 	text: string
@@ -20,15 +21,26 @@ export function overrideFor(userId: string): string | undefined {
 	return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
+/** With "Only real pronouns" on, just the pronoun part of [text]; otherwise [text] as is. */
+function filtered(text: string | undefined, source: 'discord' | 'pronoundb'): string | undefined {
+	if (!text) return undefined
+	const s = settings()
+	if (!s.validOnly) return text
+	const options = { anyAll: s.allowAnyAll, extra: parseExtra(s.extraPronouns) }
+	// PronounDB answers with codes ("it", "he/it"), not free text, so no name or prose checks.
+	return source === 'pronoundb' ? cleanPronounDb(text, options) : cleanPronouns(text, options)
+}
+
 /** The pronoun string the badge shows for this author, if any is known right now. */
 export function resolve(userId: string, guildId?: string): Resolved | undefined {
 	try {
 		const override = overrideFor(userId)
 		if (override) return { text: override, source: 'override' }
 		const s = settings()
-		const discord = discordPronouns(userId, guildId)
-		const db = cached(userId)
-		if (s.discordFirst) {
+		// Filtered before the order is applied: junk in one source falls through to the other.
+		const discord = filtered(discordPronouns(userId, guildId), 'discord')
+		const db = s.pronounDbEnabled ? filtered(cached(userId), 'pronoundb') : undefined
+		if (s.discordFirst || !s.pronounDbEnabled) {
 			if (discord) return { text: discord, source: 'discord' }
 			if (db) return { text: db, source: 'pronoundb' }
 		} else {
@@ -43,11 +55,12 @@ export function resolve(userId: string, guildId?: string): Resolved | undefined 
 
 /**
  * Kicks off whatever is missing for this author: a Discord profile fetch when the store has
- * nothing, and a PronounDB lookup when it isn't cached. Deduped by both clients.
+ * nothing, and a PronounDB lookup when it isn't cached and PronounDB is enabled. Deduped by both
+ * clients.
  */
 export function prime(userId: string, guildId?: string) {
 	if (overrideFor(userId)) return
 	// Even with the user's own pronouns known: a guild profile can carry its own, which win.
 	fetchOnMiss(userId, guildId)
-	if (!cached(userId)) request(userId)
+	if (settings().pronounDbEnabled && !cached(userId)) request(userId)
 }

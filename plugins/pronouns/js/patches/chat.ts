@@ -18,6 +18,7 @@ import { prime, resolve } from '../lib/resolve'
 import { onResolved } from '../lib/pronounDB'
 import { onProfileChange } from '../lib/discord'
 import { redrawMessage } from '../lib/redraw'
+import { badgeColor, tagColorProps } from '../lib/color'
 import { Stores } from '@revenge-mod/discord/flux'
 import * as finders from '@revenge-mod/modules/finders'
 import * as filters from '@revenge-mod/modules/finders/filters'
@@ -55,7 +56,9 @@ function track(key: string, row: Row) {
 /** The badge text a row of this author should show right now, or undefined for none. */
 function badgeFor(authorId: string, guildId?: string): string | undefined {
 	if (!settings().showInChat || !shownFor(authorId)) return undefined
-	return resolve(authorId, guildId)?.text
+	const text = resolve(authorId, guildId)?.text
+	// The colour is part of what was drawn, so changing it redraws the row too.
+	return text && `${text}\u0000${badgeColor(authorId, guildId) ?? ''}`
 }
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
@@ -138,8 +141,8 @@ export default (): () => void => {
 							}
 							prime(authorId, guildId)
 							const text = resolve(authorId, guildId)?.text
-							track(key, { authorId, guildId, shown: text })
-							return text ? { ...ret, tagText: text, tagType: undefined } : ret
+							track(key, { authorId, guildId, shown: badgeFor(authorId, guildId) })
+							return text ? { ...ret, tagText: text, tagType: undefined, ...tagColorProps(authorId, guildId) } : ret
 						} catch (error) {
 							reportError(`${TAG} chat tag failed:`, error)
 							// The after-hook's return value is assigned unconditionally, so the
