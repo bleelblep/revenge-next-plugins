@@ -75,7 +75,7 @@ export default function Settings({
 							label="Provider"
 							subLabel={
 								vault.configured
-									? `${s.model} via ${hostOf(vault.endpoint)}`
+									? `${vault.model ?? s.model} via ${hostOf(vault.endpoint)}`
 									: 'No key set — nothing can call out'
 							}
 							icon={rowIcon('LinkIcon', 'ic_link')}

@@ -3,6 +3,26 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '2.4.0',
+		date: '2026-10-18',
+		title: 'Only your plugins',
+		changes: [
+			"Only your own plugins can use AI Core: plugins installed from anyone else's repository get no access, and are named in AI Core's error list.",
+			"Plugins can no longer pick the model or ask for very long answers: every request uses the model set here, replies are capped, and huge prompts are refused.",
+			"Removing the API key asks first, and the key prompt warns when the address isn't a provider AI Core knows.",
+			'Fixed: an address like 192.168.1.1.example.com counted as your home network, so the key could have gone there unencrypted.',
+		],
+	},
+	{
+		version: '2.3.9',
+		date: '2026-10-13',
+		title: 'NVIDIA models',
+		changes: [
+			'NVIDIA (integrate.api.nvidia.com) works with every AI plugin: Nemotron models used to spend the whole answer on thinking and reply with nothing. Thinking is now switched off and short answers get enough room.',
+			'When a provider sends no answer, AI Core > Debug now says why.',
+		],
+	},
+	{
 		version: '2.3.8',
 		date: '2026-10-13',
 		title: 'Tidy-up',

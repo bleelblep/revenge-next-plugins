@@ -38,7 +38,9 @@ export interface VaultStatus {
 	promptTokens: number
 	completionTokens: number
 	byPlugin: Record<string, number>
-	/** Set only by `promptForKey`, for an endpoint the vault refused. */
+	/** The model every request uses, saved natively from the Provider page; null until first saved. */
+	model: string | null
+	/** Set by `promptForKey` for an endpoint the vault refused, or "session" for a refused call. */
 	error?: string
 }
 
@@ -57,13 +59,84 @@ const OFFLINE: VaultStatus = {
 	promptTokens: 0,
 	completionTokens: 0,
 	byPlugin: {},
+	model: null,
 }
 
 let current: VaultStatus = OFFLINE
 const listeners = new Set<() => void>()
 
+// ---- The session ---------------------------------------------------------------------------
+//
+// Native refuses the methods that spend money or open dialogs unless they carry AI Core's session
+// token (AiCore.kt). Native never returns a token to whoever asks: it pushes it to the JS method
+// registered here. So a plugin calling those methods directly is refused, and one that asks for a
+// token only replaces ours -- the next call here gets "session" back, asks again, and retries.
+//
+// The bridge function is taken once and kept here, so a plugin that wraps `callNativeMethod` later
+// never sees the token pass by. One registered before AI Core loads, or one that takes over this
+// JS method's name, still could: every plugin shares this runtime, and that can't be closed here.
+
+let bridge: ((name: string, args: unknown[]) => Promise<any>) | undefined
+let token: string | undefined
+let listening = false
+const waiting = new Set<(value: string | undefined) => void>()
+
 function call(method: string, args: unknown[] = []): Promise<any> {
-	return (native as any).callNativeMethod(`${ID}.${method}`, args)
+	bridge ??= (native as any).callNativeMethod
+	return bridge!(`${ID}.${method}`, args)
+}
+
+function listen() {
+	if (listening) return
+	listening = true
+	;(native as any).registerJSMethod(`${ID}.session`, (value: unknown) => {
+		if (typeof value !== 'string' || !value) return
+		token = value
+		for (const resolve of waiting) resolve(value)
+		waiting.clear()
+	})
+}
+
+/** A new token from native (pushed to [listen]'s method), or undefined if none came in 3 seconds. */
+function newSession(): Promise<string | undefined> {
+	listen()
+	return new Promise(resolve => {
+		const done = (value: string | undefined) => {
+			waiting.delete(done)
+			resolve(value)
+		}
+		waiting.add(done)
+		setTimeout(() => done(undefined), 3000)
+		call('session').catch(() => done(undefined))
+	})
+}
+
+/** Starts the session early, so the first real call doesn't wait for it. */
+export function startSession() {
+	if (!token) newSession()
+}
+
+/** Native said the token was missing or stale. */
+function refusedSession(result: unknown): boolean {
+	try {
+		const value = typeof result === 'string' ? JSON.parse(result) : result
+		return !!value && typeof value === 'object' && (value as any).error === 'session'
+	} catch {
+		return false
+	}
+}
+
+/** [method] with the session token first; a stale token is renewed and the call tried once more. */
+async function gated(method: string, args: unknown[] = []): Promise<any> {
+	let result: unknown
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const current = token ?? (await newSession())
+		if (!current) throw new Error('AI Core could not start its session')
+		result = await call(method, [current, ...args])
+		if (!refusedSession(result)) return result
+		token = undefined
+	}
+	return result
 }
 
 function accept(raw: unknown): VaultStatus {
@@ -77,9 +150,9 @@ function accept(raw: unknown): VaultStatus {
 	return current
 }
 
-async function statusCall(method: string, args: unknown[] = []): Promise<VaultStatus> {
+async function statusCall(method: string, args: unknown[] = [], needsSession = true): Promise<VaultStatus> {
 	try {
-		return accept(await call(method, args))
+		return accept(await (needsSession ? gated(method, args) : call(method, args)))
 	} catch (error) {
 		reportError(`${TAG} native ${method} failed:`, error)
 		current = OFFLINE
@@ -92,10 +165,13 @@ export function vaultStatus(): VaultStatus {
 	return current
 }
 
-export const refreshStatus = () => statusCall('status')
+export const refreshStatus = () => statusCall('status', [], false)
 /** Opens the native key dialog. The key is typed there and never enters JS. */
 export const promptForKey = (endpoint: string) => statusCall('promptForKey', [endpoint])
+/** Native asks first. */
 export const clearKey = () => statusCall('clearKey')
+/** The model every request uses. Only this page's code can set it (native checks the session). */
+export const setModel = (model: string) => statusCall('setModel', [model])
 /** Raising asks for confirmation natively; lowering applies at once. */
 export const setCap = (cap: number) => statusCall('setCap', [cap])
 /** Turning it on needs a word typed into a native dialog; turning it off applies at once. */
@@ -113,7 +189,7 @@ export async function importLegacy(
 	cap: number,
 ): Promise<boolean> {
 	try {
-		const moved = await call('importLegacy', [apiKey, baseUrl, cap])
+		const moved = await gated('importLegacy', [apiKey, baseUrl, cap])
 		await refreshStatus()
 		return moved === true
 	} catch (error) {
@@ -138,7 +214,7 @@ export async function nativeRequest(
 	timeoutMs: number,
 ): Promise<NativeResult | undefined> {
 	try {
-		const raw = await call('request', [pluginId, body, timeoutMs])
+		const raw = await gated('request', [pluginId, body, timeoutMs])
 		return JSON.parse(raw) as NativeResult
 	} catch (error) {
 		debug(`${pluginId}: native request failed:`, error)
@@ -188,7 +264,7 @@ export async function fetchBalance(force = false): Promise<Balance> {
 	if (!force && lastBalance && Date.now() - lastBalance.at < 60_000) return lastBalance.value
 	let value: Balance
 	try {
-		value = JSON.parse(await call('balance')) as Balance
+		value = JSON.parse(await gated('balance')) as Balance
 	} catch (error) {
 		debug('balance failed:', error)
 		value = { ok: false, supported: false, error: 'native' }

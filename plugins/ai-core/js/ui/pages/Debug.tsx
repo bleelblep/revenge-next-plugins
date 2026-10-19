@@ -93,7 +93,7 @@ export default function Debug() {
 									: 'None — set a key first'
 							}
 						/>
-						<TableRow label="Model" subLabel={s.model || '(unset)'} />
+						<TableRow label="Model" subLabel={vault.model ?? s.model ?? '(unset)'} />
 						<TableRow
 							label="Key"
 							subLabel={

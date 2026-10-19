@@ -4,13 +4,13 @@ import {
 	clearKey,
 	describeBalance,
 	promptForKey,
+	setModel,
 	useBalance,
 	useVaultStatus,
 } from '../../lib/vault'
 import { CUSTOM, PROVIDERS, providerFor } from '../../lib/providers'
 import { FieldRow } from '../fieldGroup'
 import { dangerIcon, rowIcon } from '../icon'
-import { confirmDestructive } from '../../../../../shared/ui/confirm'
 import { useBottomPadding } from '../safeArea'
 import type { AiCoreStorage } from '../../types'
 import * as components from '@revenge-mod/components'
@@ -58,6 +58,16 @@ export default function Provider() {
 		const preset = PROVIDERS.find(p => p.id === id)
 		if (preset) set({ baseUrl: preset.baseUrl, model: preset.model })
 	}
+	// The model lives natively (AiCore.kt), where only this page can set it: what's typed here is saved
+	// there a moment after typing stops. Opening the page shows native's, in case storage was changed.
+	React.useEffect(() => {
+		if (vault.model && vault.model !== s.model) set({ model: vault.model })
+	}, [vault.model])
+	React.useEffect(() => {
+		if (!s.model || s.model === vault.model) return
+		const timer = setTimeout(() => setModel(s.model), 800)
+		return () => clearTimeout(timer)
+	}, [s.model])
 	const mismatch =
 		vault.configured &&
 		!!vault.endpoint &&
@@ -127,14 +137,8 @@ export default function Provider() {
 								subLabel="Deletes it from this device. Nothing can call out until you set one again."
 								icon={dangerIcon('TrashIcon', 'ic_trash_24px')}
 								variant="danger"
-								onPress={() =>
-									confirmDestructive({
-										title: 'Remove the API key?',
-										body: 'It is deleted from this device. Plugins that use AI stop working until you set a key again.',
-										action: 'Remove',
-										onConfirm: () => clearKey(),
-									})
-								}
+								// AI Core asks natively before removing it.
+								onPress={() => clearKey()}
 							/>
 						) : null}
 					</TableRowGroup>

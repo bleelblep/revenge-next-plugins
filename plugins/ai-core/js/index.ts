@@ -33,7 +33,8 @@ import { abortAll, requestJson, requestText } from './lib/client'
 import { listDependents, rememberDependent, setDependentRoute } from './lib/dependents'
 import { debug, remainingFor, settings, setStorage, TAG } from './lib/state'
 import { CUSTOM, PROVIDERS, providerFor } from './lib/providers'
-import { describeBalance, fetchBalance, importLegacy, onStatusChange, refreshStatus, vaultStatus } from './lib/vault'
+import { describeBalance, fetchBalance, importLegacy, onStatusChange, refreshStatus, setModel, startSession, vaultStatus } from './lib/vault'
+import { trusted } from './lib/trust'
 import Settings from './ui/pages/Settings'
 import { registerPages } from './ui/routes'
 import type { AiApi, AiBudget, AiCoreStorage, AiRequest } from './types'
@@ -72,6 +73,8 @@ async function migrateLegacyKey(jsonStorage: RevengeJsonStorageApi<AiCoreStorage
 		reportError(`${TAG} native half not running; AI Core cannot call out`)
 		return
 	}
+	// First start since the model moved into the native vault: it takes the one saved here.
+	if (!status.model && stored.model) await setModel(stored.model)
 	if (!status.migrated) {
 		const moved = await importLegacy(stored.apiKey, stored.baseUrl, stored.dailyCallCap)
 		debug(`legacy import ${moved ? 'done' : 'refused'}`)
@@ -91,6 +94,13 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 	init({ decorate }) {
 		decorate(plugin => {
 			const pluginId = plugin.manifest.id
+			// Only the user's own plugins (lib/trust.ts): anything else gets no `ai`, as if AI Core
+			// weren't installed, and is named in AI Core's error list so it isn't a silent mystery.
+			const verdict = trusted(plugin)
+			if (!verdict.ok) {
+				reportError(`${TAG} ${plugin.manifest.name ?? pluginId} can't use AI Core: ${verdict.reason}`)
+				return
+			}
 			// Free of charge: decorate hands us the dependent's whole manifest, so the settings
 			// screen can list every plugin using this one without any cooperation from them.
 			rememberDependent(
@@ -129,6 +139,7 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 		cleanup(setupChangelog({ plugin, jsonStorage }, CHANGELOG))
 
 		setStorage(jsonStorage)
+		startSession()
 
 		migrateLegacyKey(jsonStorage).catch(error => {
 			reportError(`${TAG} key migration failed:`, error)
@@ -165,7 +176,7 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 					configured: v.configured,
 					provider: provider && provider !== CUSTOM ? PROVIDERS.find(p => p.id === provider)?.label : v.endpoint ? 'Custom' : undefined,
 					host: v.endpoint ? v.endpoint.replace(/^https?:\/\//i, '').replace(/[/?#].*$/, '') : undefined,
-					model: settings().model,
+					model: v.model ?? settings().model,
 					calls: v.calls,
 					cap: v.cap,
 					unlimited: v.unlimited,

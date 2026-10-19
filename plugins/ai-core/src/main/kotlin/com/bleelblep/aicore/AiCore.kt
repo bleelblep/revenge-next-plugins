@@ -25,6 +25,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.revenge.plugins.PluginScope
 import io.github.revenge.plugins.plugin
+import io.github.revenge.xposed.api.callJSMethod
 import io.github.revenge.xposed.api.registerNativeAsyncMethod
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
@@ -84,6 +85,23 @@ private const val KEY_ALIAS = "bleelblep.ai-core.vault.v1"
 private const val VAULT_FILE = "vault.v1.enc"
 private const val USAGE_FILE = "usage.v1.enc"
 private const val MAX_CAP = 1000
+
+/**
+ * Ceilings on one request, whoever asks. A caller sets the reply length and sends the prompt, so
+ * without these forty calls a day could still run up a large bill. The adapters below raise small
+ * allowances to a 2048 floor for thinking models; nothing goes past [MAX_OUTPUT_TOKENS].
+ */
+// Shift asks for 8192 for a whole theme; nothing else here asks for more than 4096.
+private const val MAX_OUTPUT_TOKENS = 8192
+/** About 50,000 tokens of prompt: a long Catch Up fits, a pasted book does not. */
+private const val MAX_PROMPT_CHARS = 200_000
+private const val MAX_MESSAGES = 200
+
+/** Providers AI Core knows. A key dialog for any other address says so, in case it isn't the user's. */
+private val KNOWN_HOSTS = setOf(
+	"api.anthropic.com", "api.openai.com", "api.deepseek.com", "openrouter.ai", "api.groq.com",
+	"integrate.api.nvidia.com", "api.mistral.ai", "generativelanguage.googleapis.com", "api.together.xyz",
+)
 
 // --- Keystore-backed AES-GCM -------------------------------------------------
 
@@ -148,8 +166,12 @@ private fun normalizeEndpoint(raw: String): String? = runCatching {
 
 private fun isPrivateHost(host: String): Boolean {
 	if (host == "localhost" || host == "127.0.0.1" || host == "::1") return true
-	val parts = host.split('.').mapNotNull { it.toIntOrNull() }
-	if (parts.size != 4) return false
+	// All four parts must be numbers: dropping the words let "192.168.1.1.example.com" pass as a
+	// home address, and the key could then go there over plain http.
+	val labels = host.split('.')
+	if (labels.size != 4) return false
+	val parts = labels.map { it.toIntOrNull() ?: return false }
+	if (parts.any { it !in 0..255 }) return false
 	return parts[0] == 10 ||
 		(parts[0] == 192 && parts[1] == 168) ||
 		(parts[0] == 172 && parts[1] in 16..31)
@@ -207,6 +229,27 @@ private fun adaptForOpenAiOrGroq(payload: JSONObject, endpoint: String) {
 		}
 	}
 }
+
+// --- NVIDIA ---------------------------------------------------------------------------
+
+private fun isNvidia(endpoint: String): Boolean =
+	runCatching { URI(endpoint).host.equals("integrate.api.nvidia.com", ignoreCase = true) }.getOrDefault(false)
+
+/**
+ * NVIDIA's Nemotron models think before answering, and the thinking spends from max_tokens: at
+ * TL;DR's 160 or a verdict's 20 they spend it all and return no content (checked on device
+ * 2026-10-13 with nemotron-3.5-lightning; "/no_think" in the prompt changed nothing). So thinking
+ * is switched off through the chat template, which NVIDIA's API passes to the model, and the
+ * allowance gets a floor in case a model thinks anyway. Models without a thinking switch ignore it.
+ */
+private fun adaptForNvidia(payload: JSONObject) {
+	val requested = if (payload.has("max_tokens")) payload.optInt("max_tokens", 256) else 256
+	payload.put("max_tokens", maxOf(requested, 2048))
+	payload.put("chat_template_kwargs", JSONObject().put("enable_thinking", false))
+}
+
+/** Reasoning that leaked into the answer as a <think> block. */
+private val THINK_BLOCK = Regex("""^\s*<think>[\s\S]*?</think>\s*""")
 
 /**
  * Translates the OpenAI-shaped body AI Core's JS sends into a Messages API request:
@@ -476,11 +519,18 @@ private suspend fun PluginScope.discordDialog(
 	return withTimeoutOrNull(timeoutMs) { result.await() }
 }
 
-/** Resolves the typed key, or null on cancel / no activity within the timeout. */
+/**
+ * Resolves the typed key, or null on cancel / no activity within the timeout. An address that isn't
+ * a known provider (or this device / home network) gets a warning: a lookalike host is the one way
+ * left to get the key typed in for somewhere else.
+ */
 private suspend fun PluginScope.askForKey(endpoint: String): String? = discordDialog(
 	title = "API key",
 	message = "Only ever sent to ${hostOf(endpoint)}. Stored encrypted by Android's keystore; " +
-		"no plugin can read it back, including this one's settings screen.",
+		"no plugin can read it back, including this one's settings screen." +
+		(if (hostOf(endpoint).lowercase() !in KNOWN_HOSTS && !isPrivateHost(hostOf(endpoint).lowercase()))
+			"\n\n${hostOf(endpoint)} isn't a provider AI Core knows. Only continue if you typed this address yourself."
+		else ""),
 	action = "Save",
 	input = DialogInput(hint = "sk-...", password = true),
 	timeoutMs = 5 * 60_000L,
@@ -519,6 +569,27 @@ val aiCore = plugin {
 		var apiKey: String? = null
 		var endpoint: String? = null
 		var vaultError: String? = null
+		// The model every request uses, set from AI Core's own settings page. Kept here rather than
+		// taken from each request, so a caller can't switch to a pricier model.
+		var model: String? = null
+
+		// ## Only AI Core's own JS may call the methods that spend money or open dialogs
+		//
+		// The caller of a native method can't be identified, so AI Core's JS holds a session token and
+		// sends it with every such call. The token is never returned to whoever asks for one: it is
+		// pushed to the JS method AI Core registers (`<id>.session`). A plugin calling these methods
+		// directly gets "session" back. Asking for a new token only replaces the old one; AI Core then
+		// asks again and retries. Which plugins may use AI Core at all is decided in its JS
+		// (`decorate`), from where Revenge says each one was installed from.
+		var session: String? = null
+		val random = java.security.SecureRandom()
+		val host = this
+		fun authorised(token: Any?): Boolean {
+			val current = session ?: return false
+			val given = token as? String ?: return false
+			return java.security.MessageDigest.isEqual(current.toByteArray(), given.toByteArray())
+		}
+		fun refused(): String = JSONObject().put("ok", false).put("error", "session").toString()
 
 		// Usage and the cap. Encrypted too -- not because they are secret, but so a plugin with
 		// `fs` cannot simply rewrite the count to zero or the cap to a thousand.
@@ -571,6 +642,7 @@ val aiCore = plugin {
 						.put("promptTokens", promptTokens)
 						.put("completionTokens", completionTokens)
 						.put("byPlugin", counts)
+						.put("model", model ?: JSONObject.NULL)
 						.toString(),
 				),
 			)
@@ -602,6 +674,7 @@ val aiCore = plugin {
 					obj.optJSONObject("byPlugin")?.let { counts ->
 						counts.keys().forEach { k -> byPlugin[k] = counts.optInt(k) }
 					}
+					model = obj.optString("model").ifEmpty { null }
 				}
 			} else if (vaultFile.exists()) {
 				// Written together, so a vault without usage means the usage file was deleted.
@@ -630,8 +703,12 @@ val aiCore = plugin {
 				.put("promptTokens", promptTokens)
 				.put("completionTokens", completionTokens)
 				.put("byPlugin", counts)
+				.put("model", model ?: JSONObject.NULL)
 				.toString()
 		}
+
+		/** A status reply carrying "session": the caller didn't send AI Core's token. */
+		fun refusedStatus(): String = JSONObject(status()).put("error", "session").toString()
 
 		runCatching { load() }.onFailure { error ->
 			vaultError = "Could not read AI Core's vault: ${error.javaClass.simpleName}"
@@ -640,9 +717,20 @@ val aiCore = plugin {
 
 		registerNativeAsyncMethod("$id.status") { _ -> mutex.withLock { status() } }
 
+		// A fresh token, pushed to AI Core's JS; never returned. The old one stops working.
+		registerNativeAsyncMethod("$id.session") { _ ->
+			val bytes = ByteArray(32).also(random::nextBytes)
+			val token = bytes.joinToString("") { "%02x".format(it) }
+			mutex.withLock { session = token }
+			runCatching { host.callJSMethod("$id.session", listOf(token)) }
+				.onFailure { log.e("could not hand AI Core its session: ${it.javaClass.simpleName}") }
+			true
+		}
+
 		// The one way a key gets in. Nothing about the key crosses back to JS.
 		registerNativeAsyncMethod("$id.promptForKey") { args ->
-			val requested = args.getOrNull(0) as? String ?: return@registerNativeAsyncMethod status()
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod mutex.withLock { refusedStatus() }
+			val requested = args.getOrNull(1) as? String ?: return@registerNativeAsyncMethod status()
 			val ep = normalizeEndpoint(requested)
 				?: return@registerNativeAsyncMethod JSONObject(mutex.withLock { status() })
 					.put("error", "The base URL must be https://, or http:// to this device or your local network.")
@@ -658,12 +746,33 @@ val aiCore = plugin {
 			}
 		}
 
-		registerNativeAsyncMethod("$id.clearKey") { _ ->
+		// Asks first, natively: a plugin could otherwise wipe the key without a word.
+		registerNativeAsyncMethod("$id.clearKey") { args ->
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod mutex.withLock { refusedStatus() }
+			val ok = confirm(
+				"Remove the API key?",
+				"Every plugin using AI Core stops working until you enter a key again.",
+				"Remove",
+				destructive = true,
+			)
 			mutex.withLock {
-				apiKey = null
-				endpoint = null
-				vaultError = null
-				persistVault()
+				if (ok) {
+					apiKey = null
+					endpoint = null
+					vaultError = null
+					persistVault()
+				}
+				status()
+			}
+		}
+
+		// The model every request uses. AI Core's settings page sets it; nothing else can.
+		registerNativeAsyncMethod("$id.setModel") { args ->
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod mutex.withLock { refusedStatus() }
+			val wanted = (args.getOrNull(1) as? String)?.trim()?.take(200)?.ifEmpty { null }
+			mutex.withLock {
+				model = wanted
+				persistUsage()
 				status()
 			}
 		}
@@ -671,9 +780,12 @@ val aiCore = plugin {
 		// One-time move of a key from the old plain-text jsonStorage. Refused once the vault or the
 		// usage file has ever existed, so it cannot be used later to swap in someone else's key.
 		registerNativeAsyncMethod("$id.importLegacy") { args ->
-			val key = (args.getOrNull(0) as? String)?.trim().orEmpty()
-			val ep = normalizeEndpoint(args.getOrNull(1) as? String ?: "")
-			val legacyCap = (args.getOrNull(2) as? Number)?.toInt()
+			// Session-gated: before any key is set, another plugin could otherwise bind the vault to
+			// its own key and server, and every plugin's prompts would go there.
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod false
+			val key = (args.getOrNull(1) as? String)?.trim().orEmpty()
+			val ep = normalizeEndpoint(args.getOrNull(2) as? String ?: "")
+			val legacyCap = (args.getOrNull(3) as? Number)?.toInt()
 			mutex.withLock {
 				if (vaultFile.exists() || usageFile.exists()) return@withLock false
 				if (legacyCap != null) cap = legacyCap.coerceIn(0, MAX_CAP)
@@ -690,7 +802,8 @@ val aiCore = plugin {
 		// Lowering is always allowed. Raising asks natively, so another plugin cannot quietly
 		// give itself a bigger budget.
 		registerNativeAsyncMethod("$id.setCap") { args ->
-			val wanted = ((args.getOrNull(0) as? Number)?.toInt() ?: return@registerNativeAsyncMethod status())
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod mutex.withLock { refusedStatus() }
+			val wanted = ((args.getOrNull(1) as? Number)?.toInt() ?: return@registerNativeAsyncMethod status())
 				.coerceIn(0, MAX_CAP)
 			val current = mutex.withLock { cap }
 			if (wanted > current &&
@@ -708,7 +821,8 @@ val aiCore = plugin {
 		// Turning the ceiling off is the one change here that can cost real money with no upper
 		// bound, so it needs the word typed, not a tap. Turning it back on applies at once.
 		registerNativeAsyncMethod("$id.setUnlimited") { args ->
-			val wanted = args.getOrNull(0) as? Boolean ?: return@registerNativeAsyncMethod mutex.withLock { status() }
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod mutex.withLock { refusedStatus() }
+			val wanted = args.getOrNull(1) as? Boolean ?: return@registerNativeAsyncMethod mutex.withLock { status() }
 			if (wanted && !mutex.withLock { unlimited } &&
 				!confirmTyped(
 					"Remove the AI Core daily cap?",
@@ -728,7 +842,8 @@ val aiCore = plugin {
 			}
 		}
 
-		registerNativeAsyncMethod("$id.resetUsage") { _ ->
+		registerNativeAsyncMethod("$id.resetUsage") { args ->
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod mutex.withLock { refusedStatus() }
 			val ok = confirm(
 				"Reset today's AI Core count?",
 				"The cap starts again from zero. This does not refund anything already spent with the provider.",
@@ -819,9 +934,20 @@ val aiCore = plugin {
 		 * provider would act on beyond an ordinary completion.
 		 */
 		registerNativeAsyncMethod("$id.request") { args ->
-			val pluginId = args.getOrNull(0) as? String ?: "unknown"
-			val body = JSONObject((args.getOrNull(1) as? Map<*, *>) ?: emptyMap<String, Any?>())
-			val timeout = ((args.getOrNull(2) as? Number)?.toInt() ?: 4000).coerceIn(500, 120_000)
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod refused()
+			val pluginId = args.getOrNull(1) as? String ?: "unknown"
+			val body = JSONObject((args.getOrNull(2) as? Map<*, *>) ?: emptyMap<String, Any?>())
+			val timeout = ((args.getOrNull(3) as? Number)?.toInt() ?: 4000).coerceIn(500, 120_000)
+
+			// The ceilings, before anything is counted or sent.
+			val messages = body.optJSONArray("messages") ?: JSONArray()
+			if (messages.length() > MAX_MESSAGES || messages.toString().length > MAX_PROMPT_CHARS) {
+				return@registerNativeAsyncMethod JSONObject().put("ok", false).put("error", "too-large").toString()
+			}
+			body.put("max_tokens", body.optInt("max_tokens", 256).coerceIn(1, MAX_OUTPUT_TOKENS))
+			// The model the user chose on AI Core's page, not the caller's. Until one has been saved
+			// (just updated from a version without this), the request's own.
+			mutex.withLock { model }?.let { body.put("model", it) }
 
 			val (key, ep) = mutex.withLock {
 				rollDay()
@@ -846,6 +972,7 @@ val aiCore = plugin {
 				if (body.has(field)) payload.put(field, body.get(field))
 			}
 			adaptForOpenAiOrGroq(payload, ep)
+			if (isNvidia(ep)) adaptForNvidia(payload)
 
 			runCatching {
 				val connection = URL("$ep/chat/completions").openConnection() as HttpURLConnection
@@ -875,10 +1002,15 @@ val aiCore = plugin {
 						completionTokens += ct
 						persistUsage()
 					}
-					val content = response.optJSONArray("choices")
+					val raw = response.optJSONArray("choices")
 						?.optJSONObject(0)
 						?.optJSONObject("message")
 						?.opt("content") as? String
+					val content = raw?.replace(THINK_BLOCK, "")?.takeIf { it.isNotBlank() }
+					if (content == null) {
+						val finish = response.optJSONArray("choices")?.optJSONObject(0)?.optString("finish_reason")
+						log.e("Provider sent no answer (finish_reason=$finish, $ct output tokens)" + if (finish == "length") ": the model used the whole allowance before answering" else "")
+					}
 					JSONObject()
 						.put("ok", content != null)
 						.put("content", content ?: JSONObject.NULL)
@@ -924,7 +1056,8 @@ val aiCore = plugin {
 		 * - OpenRouter: `GET /api/v1/credits` (account: total bought minus used) and `GET /api/v1/key`
 		 *   (this key's own limit, when one was set). Either may be refused; whichever answers is shown.
 		 */
-		registerNativeAsyncMethod("$id.balance") { _ ->
+		registerNativeAsyncMethod("$id.balance") { args ->
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod JSONObject().put("ok", false).put("supported", false).put("error", "session").toString()
 			val (key, ep) = mutex.withLock { apiKey to endpoint }
 			if (key == null || ep == null) {
 				return@registerNativeAsyncMethod JSONObject().put("ok", false).put("supported", false).put("error", "no-key").toString()
