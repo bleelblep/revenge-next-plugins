@@ -20,6 +20,7 @@ plugin's `NOTICE.md` and `THIRD_PARTY_LICENSES/` directory before copying its co
 | Plugin Hub | CC0-1.0 |
 | ReviewDB | GPL-3.0; port of ReviewDB by mantikafasi and Vendicated from Vencord |
 | Free Stickers | CC0-1.0 |
+| Ask AI | CC0-1.0 |
 | Scenes | CC0-1.0, except `RainyWindow.kt` (from BigWings' "Heartfelt") under CC BY-NC-SA 3.0; illustrations in `art/` are CC0 from rawpixel |
 | Themes | CC0-1.0; theme engine ported from classic Revenge under BSD-3-Clause; `js/lib/rawAliases.ts` from Themeify under GPL-3.0; icon packs adapted from nexpid's Themes+ (nexpid/RevengePlugins) under CC-BY-4.0, pack list downloaded from nexpid/ThemesPlus (unlicensed, nothing bundled); emoji-pack drawing (`Emoji.kt`) adapted from contrabag's System Emoji under GPL-3.0; bundled SerenityOS emoji font (`assets/emoji/serenityos.ttf`, built from SerenityOS's PNGs) under BSD-2-Clause, licence shipped beside it; old colour-name table worked out by reading nexpid/Themelings (unlicensed, read by a dev script only, nothing copied); test themes (`tests/fixtures/`, MIT, never built) |
 

@@ -43,6 +43,7 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **AI Core** | Shared API key, daily spending cap and request queue for the plugins below. Does nothing on its own. |
 | **Catch Up** | `/catchup` summarises what you missed in a channel, visible only to you. Requires AI Core. |
 | **TL;DR** | Long-press a long message for the gist in a few lines, kept so asking again is free. Requires AI Core. |
+| **Ask AI** | `/ai` answers any question with a reply only you can see. Requires AI Core. |
 | **Second Thoughts** | Works without AI Core; uses it, if installed, for judgement calls on drafts already flagged locally. |
 
 ## Ports
@@ -69,6 +70,8 @@ working but will not receive updates.
 - **TL;DR** sends the message you ask it about to the AI provider configured in AI Core. **Veil**
   sends messages to that provider only in channels you turn its own category on for; its word,
   person and channel rules are checked on your device and send nothing.
+- **Ask AI** sends only the question you type into `/ai` to the AI provider configured in AI Core.
+  The answer is shown on your device and nothing is posted to the channel.
 - **AI Core** keeps your API key encrypted by Android's keystore and makes its requests natively,
   so no plugin can read the key back. Other plugins can still ask it to spend calls, so use a key
   with a spending limit you can revoke.
