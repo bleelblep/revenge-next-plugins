@@ -34,7 +34,7 @@
 import { protectedPattern } from './codeSpans'
 import { replacementFor, ruleScopeMatches, wagonAllowsRule } from './greetings'
 import { debug, settings, TAG } from './state'
-import { compileRule, type Rule, unescapeReplacement } from './textReplace'
+import { compileRule, keepCase, type Rule, unescapeReplacement } from './textReplace'
 import { splitUrl } from './urlBounds'
 import { reportError } from '../../../../shared/report'
 
@@ -62,6 +62,8 @@ interface LiveRule {
 	pattern: RegExp
 	regex: boolean
 	replacement: string
+	/** Plain text, "Match case" off: the replacement follows the typed case. */
+	keepCase: boolean
 }
 
 function liveRules(rules: Rule[]): LiveRule[] {
@@ -78,6 +80,7 @@ function liveRules(rules: Rule[]): LiveRule[] {
 			pattern: compiled.pattern,
 			regex: rule.regex,
 			replacement: rule.regex ? unescapeReplacement(replace) : replace,
+			keepCase: !rule.regex && !rule.caseSensitive,
 		})
 	}
 	return out
@@ -122,7 +125,11 @@ function applyAtTail(text: string, tail: number, rules: LiveRule[]): { text: str
 			if (end <= tailStart) continue
 			if (firstStart < 0) firstStart = match.index
 			result += out.slice(last, match.index)
-			result += rule.regex ? expandReplacement(rule.replacement, match, out) : rule.replacement
+			result += rule.regex
+				? expandReplacement(rule.replacement, match, out)
+				: rule.keepCase
+					? keepCase(match[0], rule.replacement)
+					: rule.replacement
 			last = end
 		}
 		pattern.lastIndex = 0

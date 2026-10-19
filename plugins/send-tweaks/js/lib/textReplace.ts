@@ -152,6 +152,32 @@ export function compileRule(rule: Rule): Compiled {
 	}
 }
 
+/** Markdown, mentions, emoji, links: text that breaks if its case changes. */
+const CASE_FRAGILE = /[<>:/@#{}`*_~|\[\]()$]|https?:/i
+
+/**
+ * With "Match case" off, a plain-text rule's replacement follows how the match was typed:
+ * "Omw" gives "On my way" and "OMW" gives "ON MY WAY". Typed in lower case, the replacement is
+ * used exactly as written, so "iirc" -> "IIRC" still works. Replacements with markdown, links,
+ * mentions or emoji are never touched.
+ */
+export function keepCase(typed: string, replacement: string): string {
+	if (!replacement || CASE_FRAGILE.test(replacement)) return replacement
+	// Letters are whatever has an upper and a lower case; no `\p{L}`, which isn't proven on Hermes.
+	const isLetter = (char: string) => char.toLowerCase() !== char.toUpperCase()
+	const letters = [...typed].filter(isLetter)
+	if (!letters.length) return replacement
+	const upper = letters.filter(char => char === char.toUpperCase()).length
+	if (upper === 0) return replacement
+	if (upper === letters.length && letters.length > 1) return replacement.toUpperCase()
+	if (letters[0] !== letters[0].toUpperCase()) return replacement
+	const chars = [...replacement]
+	const at = chars.findIndex(isLetter)
+	if (at < 0) return replacement
+	chars[at] = chars[at].toUpperCase()
+	return chars.join('')
+}
+
 /**
  * Guards against a regex that matches empty text in more than one place, like `x*` or `\b`, which
  * would insert its replacement between letters all through the message. An empty match in one
@@ -160,7 +186,7 @@ export function compileRule(rule: Rule): Compiled {
 function safeReplace(
 	text: string,
 	pattern: RegExp,
-	replacement: string,
+	replacement: string | ((match: string) => string),
 ): string {
 	// A plain exec loop rather than `matchAll`, which not every Hermes build has.
 	let emptyMatches = 0
@@ -171,7 +197,7 @@ function safeReplace(
 		pattern.lastIndex++ // step past an empty match, or exec finds it forever
 	}
 	pattern.lastIndex = 0
-	return text.replace(pattern, replacement)
+	return typeof replacement === 'function' ? text.replace(pattern, match => replacement(match)) : text.replace(pattern, replacement)
 }
 
 /**
@@ -227,7 +253,10 @@ export function applyRules(
 		const replacement = expandPlaceholders(
 			rule.regex ? unescapeReplacement(template) : template.replace(/\$/g, '$$$$'),
 		)
-		const next = safeReplace(out, compiled.pattern, replacement)
+		// Plain-text rules that ignore case follow the typed case. The replacement is in `$$` form
+		// here, so it's turned back into the literal text first.
+		const literal = !rule.regex && !rule.caseSensitive ? replacement.replace(/\$\$/g, '$') : undefined
+		const next = safeReplace(out, compiled.pattern, literal !== undefined ? match => keepCase(match, literal) : replacement)
 		const final = expandDynamicPlaceholders(next)
 		if (final !== out) {
 			applied++

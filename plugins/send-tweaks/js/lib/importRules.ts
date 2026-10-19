@@ -54,8 +54,11 @@ function jsonChunks(text: string): string[] {
 	return chunks
 }
 
-function toRule(raw: any, label: string): Rule | string {
-	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return `${label}: not a rule`
+function toRule(input: any, label: string): Rule | string {
+	if (!input || typeof input !== 'object' || Array.isArray(input)) return `${label}: not a rule`
+	// Keys in any case: rules get shared as "Match", "Replace", "Regex" as often as lower case.
+	const raw: any = {}
+	for (const [key, value] of Object.entries(input)) raw[key.toLowerCase()] = value
 	const find = typeof raw.match === 'string' ? raw.match : typeof raw.find === 'string' ? raw.find : ''
 	if (!find) return `${label}: has no "match"`
 	if (typeof raw.replace !== 'string') return `${label}: has no "replace"`
@@ -69,7 +72,7 @@ function toRule(raw: any, label: string): Rule | string {
 		replace: raw.replace,
 		regex: raw.regex === true,
 		caseSensitive: !flags.includes('i'),
-		wholeWord: typeof raw.wholeWord === 'boolean' ? raw.wholeWord : false,
+		wholeWord: typeof raw.wholeword === 'boolean' ? raw.wholeword : false,
 		live: raw.live === true,
 		extraFlags: sanitizeFlags(flags) || undefined,
 	})
@@ -78,9 +81,17 @@ function toRule(raw: any, label: string): Rule | string {
 	return rule
 }
 
+/**
+ * Makes hand-written rules parse: line breaks and tabs inside strings are escaped, and a backslash
+ * JSON doesn't allow (`\.`, `\d`, `\w`, as people paste regexes) is doubled, so it reaches the rule
+ * as written. Pairs are read left to right, so an already doubled `\\.` stays as it is.
+ */
 function sanitizeJson(raw: string): string {
 	return raw.replace(/"(?:[^"\\]|\\.)*"/gs, match => {
-		return match.replace(/\r?\n/g, '\\n').replace(/\t/g, '\\t')
+		return match
+			.replace(/\r?\n/g, '\\n')
+			.replace(/\t/g, '\\t')
+			.replace(/\\([\s\S])/g, (pair, char: string) => ('"\\/bfnrtu'.includes(char) ? pair : `\\\\${char}`))
 	})
 }
 
@@ -165,6 +176,12 @@ export interface Preset {
  * Left out as not working: youtu.be to youtube.com (a link with ?t= becomes "watch?v=ID?t=42"),
  * http-ify (turns "Node.js" and "README.md" into links), Discord proxy to CDN (misses file names
  * with a dash). Left out as a personal preference: the heart replacer.
+ *
+ * Checked again on 2026-10-18, same way. Every rule above still embeds. Still dead: vxtiktok.com
+ * (serves a "Notice" page), rxddit.com (502), ddinstagram.com (no DNS). Added from the defaults of
+ * seriaati/embed-fixer, which tracks these services: tnktok.com (fxTikTok), bskx.app (VixBluesky),
+ * phixiv.net and oginstagram.com. The first three were checked on real posts; OGInstagram answered
+ * properly but wasn't tried on a real post. Left out: fixthreads and tpmblr (unclear on test links).
  */
 export const PRESETS: Preset[] = [
 	{
@@ -227,6 +244,58 @@ export const PRESETS: Preset[] = [
 			name: 'TikTok to tiktxk',
 			find: String.raw`https?:\/\/(?:(?:www\.|m\.)?tiktok\.com\/(@[\w.-]+\/video\/\d+|t\/\w+)|vm\.tiktok\.com\/(\w+))`,
 			replace: 'https://tiktxk.com/$1$2',
+			regex: true,
+			caseSensitive: false,
+			wholeWord: false,
+		},
+	},
+	{
+		kind: 'links',
+		source: 'added',
+		note: "fxTikTok, the most used TikTok fixer in 2026. Pick this or tiktxk, not both.",
+		rule: {
+			name: 'TikTok to tnktok',
+			find: String.raw`https?:\/\/(?:(?:www\.|m\.)?tiktok\.com\/(@[\w.-]+\/video\/\d+|t\/\w+)|vm\.tiktok\.com\/(\w+))`,
+			replace: 'https://tnktok.com/$1$2',
+			regex: true,
+			caseSensitive: false,
+			wholeWord: false,
+		},
+	},
+	{
+		kind: 'links',
+		source: 'added',
+		note: 'Posts and reels. Instagram previews in Discord often show nothing; this fills them in.',
+		rule: {
+			name: 'Instagram to oginstagram',
+			find: String.raw`https?:\/\/(?:www\.)?instagram\.com(?=\/(?:p|reels?|tv)\/)`,
+			replace: 'https://oginstagram.com',
+			regex: true,
+			caseSensitive: false,
+			wholeWord: false,
+		},
+	},
+	{
+		kind: 'links',
+		source: 'added',
+		note: 'Bluesky posts with their pictures and videos.',
+		rule: {
+			name: 'Bluesky to bskx',
+			find: String.raw`https?:\/\/(?:www\.)?bsky\.app(?=\/profile\/[\w.:-]+\/post\/)`,
+			replace: 'https://bskx.app',
+			regex: true,
+			caseSensitive: false,
+			wholeWord: false,
+		},
+	},
+	{
+		kind: 'links',
+		source: 'added',
+		note: 'pixiv artworks with the picture, including age-restricted ones.',
+		rule: {
+			name: 'pixiv to phixiv',
+			find: String.raw`https?:\/\/(?:www\.)?pixiv\.net(?=(?:\/\w+)?\/artworks\/\d+)`,
+			replace: 'https://phixiv.net',
 			regex: true,
 			caseSensitive: false,
 			wholeWord: false,

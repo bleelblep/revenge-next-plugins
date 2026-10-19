@@ -3,6 +3,31 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '1.0.6',
+		date: '2026-10-18',
+		title: 'Easier rule import',
+		changes: [
+			'Rules with capitalised keys import now, like "Match" and "Replace".',
+			'A regex pasted with single backslashes imports as written, like \\. in a link pattern, instead of failing as broken JSON.',
+		],
+	},
+	{
+		version: '1.0.5',
+		date: '2026-10-18',
+		title: 'Rules keep your capitals',
+		changes: [
+			'Fixed: capitals were lost. Polish wording capitalised a word, then a rule replaced it in lower case, so "Omw" became "on my way". Polish now runs after your rules.',
+			'Rules with Match case off follow how you typed: "Omw" gives "On my way" and "OMW" gives "ON MY WAY". Replacements with emoji, links or markdown are left exactly as written.',
+			'Ready-made link rules checked again; all still work. New: TikTok to tnktok, Instagram to oginstagram, Bluesky to bskx and pixiv to phixiv.',
+		],
+	},
+	{
+		version: '1.0.4',
+		date: '2026-10-18',
+		title: 'Round send button',
+		changes: ['With Fuck Squares drawing the send button as a circle, the swipe capsule is round to match.'],
+	},
+	{
 		version: '1.0.2',
 		date: '2026-10-17',
 		title: 'Rules for chosen servers',

@@ -72,21 +72,6 @@ export function transform(text: string, options: TransformOptions = {}): Transfo
 		)
 	}
 
-	if (s.polishWording && options.polish !== false) {
-		const polishOptions = {
-			apostrophes: s.polishApostrophes !== false,
-			capitals: s.polishCapitals !== false,
-			fullStop: !!s.polishFullStop,
-			skip: parseSkipList(s.polishSkip),
-		}
-		const before = out
-		// Whole message at once, so the start of the message and the end are really those.
-		out =
-			transformAroundProtected(out, masked => polish(masked, polishOptions)) ??
-			mapOutsideProtected(out, words => polish(words, { ...polishOptions, capitals: false, fullStop: false }))
-		polished = out !== before
-	}
-
 	// Live replace rules: if Replace as you type is on, rules with live: true apply
 	const liveRules = s.liveReplace ? (s.rules ?? []).filter(r => r.enabled && r.live) : []
 	if (liveRules.length) {
@@ -128,6 +113,23 @@ export function transform(text: string, options: TransformOptions = {}): Transfo
 	}
 
 	replaced = liveReplaced + sendReplaced
+
+	// Polish last, so replaced text gets its capitals and full stop too. Before the rules, a
+	// capital it added ("omw" -> "Omw") was thrown away by the replacement.
+	if (s.polishWording && options.polish !== false) {
+		const polishOptions = {
+			apostrophes: s.polishApostrophes !== false,
+			capitals: s.polishCapitals !== false,
+			fullStop: !!s.polishFullStop,
+			skip: parseSkipList(s.polishSkip),
+		}
+		const before = out
+		// Whole message at once, so the start of the message and the end are really those.
+		out =
+			transformAroundProtected(out, masked => polish(masked, polishOptions)) ??
+			mapOutsideProtected(out, words => polish(words, { ...polishOptions, capitals: false, fullStop: false }))
+		polished = out !== before
+	}
 
 	out = mapOutsideCode(out, prose => {
 		const text = prose.replace(/\{timestamp(?::([tTdDfFR]))?\}/g, (_, flag) => {

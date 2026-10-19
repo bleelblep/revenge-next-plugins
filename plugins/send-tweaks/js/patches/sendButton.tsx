@@ -199,6 +199,20 @@ function swipeProps(element: any, send: unknown, actions: SwipeActions, getDraft
  * when none carries one, and the capsule uses its own guess.
  */
 function buttonRadius(element: any): number | undefined {
+	// Fuck Squares draws the send button as a circle and says so (its lib/bridge.ts); measuring the
+	// element here could still see Discord's rounded square, since both plugins hook the same
+	// component and ours may run first. Then the capsule's corner is half the button's size.
+	try {
+		if ((globalThis as any).__bleelblepSquares?.sendRound === true) {
+			const { StyleSheet } = ReactNative
+			const raw = element?.props?.style
+			const flat = StyleSheet.flatten(typeof raw === 'function' ? raw({ pressed: false }) : raw)
+			const size = Math.min(typeof flat?.width === 'number' ? flat.width : Infinity, typeof flat?.height === 'number' ? flat.height : Infinity)
+			if (Number.isFinite(size) && size > 0) return size / 2
+		}
+	} catch {
+		/* no bridge */
+	}
 	try {
 		const { StyleSheet } = ReactNative
 		let node = element
