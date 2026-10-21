@@ -5,13 +5,13 @@
 	"description": "Cleans links, polishes wording and applies your own find-and-replace rules.",
 	"author": "bleelblep, Rosie, WarFade",
 	"icon": "SendMessageIcon",
-	"version": "1.0.7",
+	"version": "1.0.8",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "<=351.6"
+			"version": "<=352.2"
 		},
 		"bleelblep.ai-core": {
 			"version": ">=1 <3",
