@@ -2,16 +2,16 @@
 	"format": 1,
 	"id": "bleelblep.char-counter",
 	"name": "Character Counter",
-	"description": "Shows how many characters your message has, in a small square above the message box.",
+	"description": "Counts your message's characters in a square above the message box, and splits long ones into several.",
 	"author": "bleelblep",
 	"icon": "TextIcon",
-	"version": "0.1.9",
+	"version": "0.2.6",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=352.2"
 		}
 	},
 	"dist": {

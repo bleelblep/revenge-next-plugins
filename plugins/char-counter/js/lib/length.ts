@@ -38,6 +38,17 @@ export function useLength(): number {
 
 let maxLength: (() => number) | undefined
 
+/**
+ * The real `getMaxMessageLength`, captured by `lib/sender.ts` before it wraps the export: with
+ * splitting on, the export itself reports a raised limit so Discord's send validation lets long
+ * text through, and that must not move where this plugin cuts.
+ */
+let realLimit: (() => number) | undefined
+
+export function setRealLimit(fn: (() => number) | undefined) {
+	realLimit = fn
+}
+
 /** Discord's own limit for this account: 2000, or 4000 with Nitro. */
 export function limit(): number {
 	if (!maxLength) {
@@ -52,7 +63,7 @@ export function limit(): number {
 		}
 	}
 	try {
-		const value = maxLength?.()
+		const value = (realLimit ?? maxLength)?.()
 		if (typeof value === 'number' && value > 0) return value
 	} catch {
 		/* fall back below */

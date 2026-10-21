@@ -3,6 +3,46 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.2.6',
+		date: '2026-10-22',
+		title: 'Discord 352.2',
+		changes: ['Also starts on Discord 352.2 (was 351.6 or older).'],
+	},
+	{
+		version: '0.2.5',
+		date: '2026-10-21',
+		title: 'Discord version limit',
+		changes: ["Only starts on Discord 351.6 or older, so a newer Discord build can't break it."],
+	},
+	{
+		version: '0.2.2',
+		date: '2026-10-21',
+		title: 'Makes room for other buttons',
+		changes: [
+			'The square now tells other plugins where it is, so things floating above the message box (like Read All+\'s "Mark read" pill) move out of its way instead of covering it.',
+		],
+	},
+	{
+		version: '0.2.1',
+		date: '2026-10-18',
+		title: 'Splitting actually sends',
+		changes: [
+			'0.2.0 cut the message but Discord refused it before the plugin was asked: the message box checks the limit itself. While splitting is on, that check now allows up to the "At most" number of messages\' worth, and the plugin cuts at the real limit.',
+		],
+	},
+	{
+		version: '0.2.0',
+		date: '2026-10-18',
+		title: 'Split long messages',
+		changes: [
+			'Past the limit, a message now goes out as several instead of being refused: cut at a blank line, a line break or the end of a sentence, with code blocks closed and reopened so each part still renders as code.',
+			'A wait between the parts, which you set in the settings (1 second to start with). A channel\'s slowmode is respected when it is longer.',
+			'A cap on how many messages one send can become, 5 to start with. Longer than that, the message is sent as typed.',
+			'Past the limit with splitting on, the square shows "N messages" in amber instead of red.',
+			'If a later part fails to send, the rest goes back into the message box and a toast says so.',
+		],
+	},
+	{
 		version: '0.1.9',
 		date: '2026-10-13',
 		title: 'Tidy-up',

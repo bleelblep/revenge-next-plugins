@@ -11,7 +11,10 @@
 
 import { type CharCounterStorage, FONT_SIZE } from '../index'
 import { limit, useLength } from './length'
+import { maxPartsOf } from './sender'
+import { estimateParts } from './split'
 import { wrapRender } from './wrapRender'
+import { FloaterProbe } from '../../../../shared/chatFloaters'
 import { Design } from '@revenge-mod/discord/design'
 import { Stores } from '@revenge-mod/discord/flux'
 import * as React from 'react'
@@ -85,8 +88,8 @@ function characters(n: number): string {
 	return `${grouped(n)} ${n === 1 ? 'character' : 'characters'}`
 }
 
-function label(length: number, max: number, show: CharCounterStorage['show']): string {
-	if (length > max) return `${characters(length - max)} over the limit`
+function label(length: number, max: number, show: CharCounterStorage['show'], parts = 0): string {
+	if (length > max) return parts ? `${parts} messages` : `${characters(length - max)} over the limit`
 	if (show === 'left') return `${characters(max - length)} left`
 	if (show === 'limit') return `${grouped(length)} / ${characters(max)}`
 	return characters(length)
@@ -139,6 +142,8 @@ function Badge({ settings, typing }: { settings: () => CharCounterStorage; typin
 	const { View } = ReactNative
 	const over = length > max
 	const near = length >= max * 0.9
+	// Past the limit with splitting on, the square says how many messages it will go out as.
+	const parts = over && s.split && estimateParts(length, max) <= maxPartsOf(s) ? estimateParts(length, max) : 0
 	const side = s.side === 'right' ? { right: 16 } : { left: 16 }
 
 	return (
@@ -152,11 +157,13 @@ function Badge({ settings, typing }: { settings: () => CharCounterStorage; typin
 			}}
 		>
 			<CounterSquare
-				text={label(length, max, s.show)}
+				text={label(length, max, s.show, parts)}
 				// The colours Discord's own counter uses past the limit, and its warning shade before.
-				colour={over ? 'text-feedback-critical' : near ? 'text-feedback-warning' : 'text-muted'}
+				colour={over && !parts ? 'text-feedback-critical' : near ? 'text-feedback-warning' : 'text-muted'}
 				fontSize={fontSizeOf(s)}
 			/>
+			{/* Tells other floaters above the message box (Read All's pill) where the square is. */}
+			<FloaterProbe id="char-counter" />
 		</View>
 	)
 }
