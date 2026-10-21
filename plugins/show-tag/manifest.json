@@ -4,13 +4,13 @@
 	"name": "Show Tag",
 	"description": "Shows usernames next to display names in chat, including in replies.",
 	"author": "Cynosphere, bleelblep",
-	"version": "1.2.5",
+	"version": "1.2.6",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=351.6"
 		}
 	},
 	"dist": {

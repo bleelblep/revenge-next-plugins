@@ -3,7 +3,7 @@
 	"description": "Revenge Next ports of bleelblep/revengeplugins, built from this repository.",
 	"channels": {
 		"bleelblep.ghost-log-native-beta": {
-			"latest": "0.8.8"
+			"latest": "0.8.9"
 		}
 	}
 }

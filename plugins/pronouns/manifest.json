@@ -5,13 +5,13 @@
 	"description": "People's pronouns as a small tag next to their name in chat, from Discord profiles and PronounDB.",
 	"author": "bleelblep",
 	"icon": "UserCircleIcon",
-	"version": "0.4.5",
+	"version": "0.4.6",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=351.6"
 		}
 	},
 	"dist": {

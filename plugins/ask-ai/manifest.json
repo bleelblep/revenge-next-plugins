@@ -5,13 +5,13 @@
 	"description": "Ask anything with /ai and get an answer only you can see. Needs AI Core.",
 	"author": "bleelblep",
 	"icon": "MagicWandIcon",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=351.6"
 		},
 		"bleelblep.ai-core": {
 			"version": ">=1 <3"

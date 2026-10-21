@@ -5,13 +5,13 @@
 	"description": "Hide servers, folders or channels from your lists, only on your device.",
 	"author": "bleelblep, blerp",
 	"icon": "EyeSlashIcon",
-	"version": "1.7.2",
+	"version": "1.7.3",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=351.6"
 		}
 	},
 	"dist": {

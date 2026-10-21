@@ -5,13 +5,13 @@
 	"description": "Beta of Ghost Log with encrypted storage and backups. The testing track for Ghost Log.",
 	"author": "bleelblep",
 	"icon": "TrashIcon",
-	"version": "0.8.8",
+	"version": "0.8.9",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=351.6"
 		}
 	},
 	"dist": {
