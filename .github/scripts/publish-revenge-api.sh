@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-REVENGE_XPOSED_REF="${REVENGE_XPOSED_REF:-1603}"
+REVENGE_XPOSED_REF="${REVENGE_XPOSED_REF:-1902}"
 checkout="${RUNNER_TEMP:-/tmp}/revenge-xposed"
 
 rm -rf "$checkout"
