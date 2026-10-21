@@ -2516,7 +2516,7 @@
       "author": "bleelblep",
       "icon": "GlobeEarthIcon",
       "channels": {
-        "latest": "0.5.13"
+        "latest": "0.6.2"
       },
       "versions": {
         "0.5.1": {
@@ -2620,6 +2620,19 @@
             },
             "discord": {
               "version": "*"
+            }
+          }
+        },
+        "0.6.2": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.translate@0.6.2.zip",
+          "sha256": "adfb5ff6c171882f543e7ad8dce51e0cc8603a38b5fc42b08cd23385c4f59595",
+          "size": 14247,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "<=351.6"
             }
           }
         }
