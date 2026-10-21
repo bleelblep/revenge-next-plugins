@@ -350,22 +350,36 @@ private fun discordPalette(activity: Activity): Palette {
 		val manager = Class.forName("com.discord.theme.ThemeManager", true, activity.classLoader)
 		manager.getMethod("getEffectiveTheme").invoke(manager.getField("INSTANCE").get(null))
 	}.getOrNull()
-	fun color(getter: String, fallback: Long): Int =
-		runCatching { theme!!.javaClass.getMethod(getter).invoke(theme) as Int }.getOrElse { fallback.toInt() }
+	// Discord 352.2+ (R8-minified): no ThemeManager by name, so colours come from resources.
+	val minified = if (theme == null) MinifiedTheme.current() else null
+	fun color(getter: String, fallback: Long, vararg resources: String): Int =
+		runCatching { theme!!.javaClass.getMethod(getter).invoke(theme) as Int }.getOrNull()
+			?: minified?.let { MinifiedTheme.color(activity, it, *resources) }
+			?: fallback.toInt()
 	return Palette(
-		surface = color("getBackgroundSurfaceHigh", 0xFF2B2D31),
-		heading = color("getMobileTextHeadingPrimary", 0xFFF2F3F5),
-		text = color("getTextDefault", 0xFFDBDEE1),
-		muted = color("getTextMuted", 0xFF949BA4),
-		inputBackground = color("getInputBackgroundDefault", 0xFF1E1F22),
-		inputBorder = color("getInputBorderDefault", 0x33FFFFFF),
-		inputBorderActive = color("getInputBorderActive", 0xFF5865F2),
-		primaryBackground = color("getControlPrimaryBackgroundDefault", 0xFF5865F2),
-		primaryText = color("getControlPrimaryTextDefault", 0xFFFFFFFF),
-		criticalBackground = color("getControlCriticalPrimaryBackgroundDefault", 0xFFDA373C),
-		criticalText = color("getControlCriticalPrimaryTextDefault", 0xFFFFFFFF),
-		secondaryBackground = color("getControlSecondaryBackgroundDefault", 0xFF4E5058),
-		secondaryText = color("getControlSecondaryTextDefault", 0xFFFFFFFF),
+		surface = color("getBackgroundSurfaceHigh", 0xFF2B2D31, "neutral_64", "neutral_79", "neutral_1", "neutral_96"),
+		heading = color("getMobileTextHeadingPrimary", 0xFFF2F3F5, "neutral_1", "neutral_2", "neutral_76", "neutral_10"),
+		text = color("getTextDefault", 0xFFDBDEE1, "neutral_4", "neutral_5", "neutral_72", "neutral_12"),
+		muted = color("getTextMuted", 0xFF949BA4, "neutral_23", "neutral_29", "neutral_41", "neutral_35"),
+		inputBackground = color(
+			"getInputBackgroundDefault", 0xFF1E1F22, "input_background_default_ash", "input_background_default_dark",
+			"input_background_default_light", "input_background_default_onyx",
+		),
+		inputBorder = color(
+			"getInputBorderDefault", 0x33FFFFFF, "input_border_default_ash", "input_border_default_dark",
+			"input_border_default_light", "input_border_default_onyx",
+		),
+		inputBorderActive = color("getInputBorderActive", 0xFF5865F2, "blurple_50"),
+		primaryBackground = color("getControlPrimaryBackgroundDefault", 0xFF5865F2, "blurple_50"),
+		primaryText = color("getControlPrimaryTextDefault", 0xFFFFFFFF, "neutral_1"),
+		criticalBackground = color("getControlCriticalPrimaryBackgroundDefault", 0xFFDA373C, "red_new_50"),
+		criticalText = color("getControlCriticalPrimaryTextDefault", 0xFFFFFFFF, "neutral_1"),
+		secondaryBackground = color(
+			"getControlSecondaryBackgroundDefault", 0xFF4E5058, "control_secondary_background_default_ash",
+			"control_secondary_background_default_dark", "control_secondary_background_default_light",
+			"control_secondary_background_default_onyx",
+		),
+		secondaryText = color("getControlSecondaryTextDefault", 0xFFFFFFFF, "neutral_1", "neutral_2", "neutral_76", "neutral_10"),
 	)
 }
 
@@ -563,6 +577,7 @@ private suspend fun PluginScope.confirmTyped(title: String, message: String, wor
 @Suppress("UNUSED")
 val aiCore = plugin {
 	start {
+		MinifiedTheme.finder = runCatching { dexFinder }.getOrNull()
 		val id = manifest.id
 		val mutex = Mutex()
 		val vaultFile = File(storageDir, VAULT_FILE)
