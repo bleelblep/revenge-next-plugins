@@ -9,7 +9,7 @@
       "author": "bleelblep, Rosie",
       "icon": "MagicWandIcon",
       "channels": {
-        "latest": "2.5.2"
+        "latest": "2.5.3"
       },
       "versions": {
         "1.2.0": {
@@ -165,6 +165,19 @@
             },
             "discord": {
               "version": "<=352.2"
+            }
+          }
+        },
+        "2.5.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ai-core@2.5.3.zip",
+          "sha256": "d034aa907165f30277b0fe254450488b023e9edb3a3528a0692ee24a33ed8445",
+          "size": 84405,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
             }
           }
         }
