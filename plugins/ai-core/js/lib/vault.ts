@@ -225,6 +225,32 @@ export async function nativeRequest(
 	}
 }
 
+export interface TranscribeResult {
+	ok: boolean
+	text?: string
+	error?: string
+	details?: string | null
+	status?: number | null
+}
+
+/** Speech to text through the key's provider (native `transcribe`); never throws. */
+export async function nativeTranscribe(
+	pluginId: string,
+	url: string,
+	language: string | undefined,
+	timeoutMs: number,
+): Promise<TranscribeResult | undefined> {
+	try {
+		const raw = await gated('transcribe', [pluginId, url, language ?? null, timeoutMs])
+		return JSON.parse(raw) as TranscribeResult
+	} catch (error) {
+		debug(`${pluginId}: native transcribe failed:`, error)
+		return undefined
+	} finally {
+		refreshStatus()
+	}
+}
+
 /** React hook: re-renders on every status change. */
 export function useVaultStatus(): VaultStatus {
 	const [, force] = React.useReducer((n: number) => n + 1, 0)

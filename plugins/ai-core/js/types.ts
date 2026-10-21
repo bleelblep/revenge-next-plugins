@@ -55,6 +55,16 @@ export interface AiRequest {
 	timeoutMs?: number
 }
 
+/** Speech to text for an attachment (also in AI Core Local's types; keep in step). */
+export interface AiTranscribeRequest {
+	/** The attachment's URL; only Discord's attachment hosts are fetched. */
+	url: string
+	/** The language spoken, in words ("Spanish") or as an ISO code ("es"), if known. */
+	language?: string
+	/** Overrides the configured timeout for this one call. */
+	timeoutMs?: number
+}
+
 export interface AiBudget {
 	configured: boolean
 	used: number
@@ -82,6 +92,14 @@ export interface AiApi {
 	/** Asks for one JSON object and parses it. Returns undefined if it cannot be parsed. */
 	json<T = unknown>(request: AiRequest): Promise<T | undefined>
 	budget(): AiBudget
+	/**
+	 * Speech to text for a Discord voice message. Resolves undefined when it can't: the provider
+	 * takes no audio (Anthropic, DeepSeek, NVIDIA), no key, the cap is spent. AI Core Local answers
+	 * instead when its model hears audio and it's preferred, or the provider can't.
+	 */
+	transcribe(request: AiTranscribeRequest): Promise<string | undefined>
+	/** Whether `transcribe` can answer right now, through the provider or the phone. */
+	canTranscribe(): boolean
 	/**
 	 * Volunteer a navigator route so AI Core's settings screen can link back to yours. Optional:
 	 * a dependent that never calls this still appears in the list, just without a tap target.

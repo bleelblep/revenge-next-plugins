@@ -28,6 +28,8 @@ import io.github.revenge.plugins.plugin
 import io.github.revenge.xposed.api.callJSMethod
 import io.github.revenge.xposed.api.registerNativeAsyncMethod
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -1023,6 +1025,123 @@ val aiCore = plugin {
 			}.getOrElse { error ->
 				// Never the message: an exception from the HTTP stack can quote the request.
 				JSONObject().put("ok", false).put("error", error.javaClass.simpleName).toString()
+			}
+		}
+
+		/** One POST with the key; the answer as JSON, or the HTTP failure. */
+		fun postWithKey(url: String, key: String, contentType: String, timeout: Int, body: (java.io.OutputStream) -> Unit): Pair<Int, String> {
+			val connection = URL(url).openConnection() as HttpURLConnection
+			try {
+				connection.instanceFollowRedirects = false
+				connection.requestMethod = "POST"
+				connection.connectTimeout = timeout
+				connection.readTimeout = timeout
+				connection.doOutput = true
+				connection.setRequestProperty("Content-Type", contentType)
+				connection.setRequestProperty("Authorization", "Bearer $key")
+				connection.outputStream.use(body)
+				val code = connection.responseCode
+				val text = (if (code in 200..299) connection.inputStream else connection.errorStream)
+					?.bufferedReader()?.use { it.readText() } ?: ""
+				return code to text
+			} finally {
+				connection.disconnect()
+			}
+		}
+
+		/**
+		 * transcribe(pluginId, url, language?, timeoutMs) -> {ok, text?, error?, status?, details?}
+		 *
+		 * Speech to text for a Discord attachment ([url] must be one: Audio.allowed), with the key's
+		 * own provider, counted as one call:
+		 * - OpenAI, Groq and custom/self-hosted endpoints: `POST /audio/transcriptions` with the file
+		 *   as it is (gpt-4o-mini-transcribe, whisper-large-v3-turbo, or whisper-1 elsewhere).
+		 * - OpenRouter: chat with `input_audio` (16 kHz WAV, two minutes per request) on Gemini Flash.
+		 * - Anthropic, DeepSeek and NVIDIA's API take no audio: `unsupported`, nothing counted.
+		 */
+		registerNativeAsyncMethod("$id.transcribe") { args ->
+			if (!authorised(args.getOrNull(0))) return@registerNativeAsyncMethod refused()
+			val pluginId = args.getOrNull(1) as? String ?: "unknown"
+			val url = args.getOrNull(2) as? String
+			val language = (args.getOrNull(3) as? String)?.trim()?.takeIf { it.isNotEmpty() && it.length <= 40 }
+			val timeout = ((args.getOrNull(4) as? Number)?.toInt() ?: 120_000).coerceIn(5_000, 300_000)
+			fun fail(error: String, details: String? = null, status: Int? = null) = JSONObject()
+				.put("ok", false).put("error", error).put("details", details ?: JSONObject.NULL).put("status", status ?: JSONObject.NULL).toString()
+			if (url == null || !Audio.allowed(url)) return@registerNativeAsyncMethod fail("bad-url")
+
+			val (key, ep) = mutex.withLock {
+				rollDay()
+				val k = apiKey
+				val e = endpoint
+				when {
+					k == null || e == null -> return@registerNativeAsyncMethod fail("no-key")
+					usageTampered -> return@registerNativeAsyncMethod fail("usage-tampered")
+					isAnthropic(e) || isNvidia(e) || hostOf(e).equals("api.deepseek.com", ignoreCase = true) ->
+						return@registerNativeAsyncMethod fail("unsupported")
+					!unlimited && calls >= cap -> return@registerNativeAsyncMethod fail("cap")
+				}
+				calls++
+				byPlugin[pluginId] = (byPlugin[pluginId] ?: 0) + 1
+				persistUsage()
+				k to e
+			}
+
+			val work = File(storageDir, "audio/${java.util.UUID.randomUUID()}")
+			try {
+				withContext(Dispatchers.IO) {
+					val input = File(work, "voice.ogg")
+					Audio.download(url, input)
+					val host = hostOf(ep).lowercase()
+					if (host == "openrouter.ai") {
+						val pieces = Audio.toWavPieces(input, File(work, "pieces"), 120)
+						val ask = "Transcribe this audio word for word" +
+							(if (language != null) ", in $language" else ", in the language that is spoken") +
+							". Write only the spoken words, with normal punctuation. No notes, no timestamps, no translation."
+						val parts = pieces.files.map { piece ->
+							val audio = JSONObject()
+								.put("type", "input_audio")
+								.put("input_audio", JSONObject().put("data", Base64.encodeToString(piece.readBytes(), Base64.NO_WRAP)).put("format", "wav"))
+							val payload = JSONObject()
+								.put("model", "google/gemini-2.5-flash")
+								.put("temperature", 0)
+								.put("max_tokens", 2048)
+								.put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", JSONArray().put(JSONObject().put("type", "text").put("text", ask)).put(audio))))
+							val (code, text) = postWithKey("$ep/chat/completions", key, "application/json", timeout) {
+								it.write(payload.toString().toByteArray(Charsets.UTF_8))
+							}
+							if (code !in 200..299) return@withContext fail("http", text.take(500), code)
+							(JSONObject(text).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.opt("content") as? String)
+								?.replace(THINK_BLOCK, "")?.trim().orEmpty()
+						}
+						JSONObject().put("ok", true).put("text", parts.joinToString(" ").trim()).toString()
+					} else {
+						val model = when (host) {
+							"api.openai.com" -> "gpt-4o-mini-transcribe"
+							"api.groq.com" -> "whisper-large-v3-turbo"
+							else -> "whisper-1"
+						}
+						val boundary = "aicore${System.nanoTime()}"
+						val (code, text) = postWithKey("$ep/audio/transcriptions", key, "multipart/form-data; boundary=$boundary", timeout) { out ->
+							fun field(name: String, value: String) {
+								out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n$value\r\n".toByteArray(Charsets.UTF_8))
+							}
+							field("model", model)
+							field("response_format", "json")
+							// The API wants an ISO code; a word ("Spanish") is left to its own detection.
+							if (language != null && Regex("^[a-z]{2}$").matches(language)) field("language", language)
+							out.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"voice-message.ogg\"\r\nContent-Type: audio/ogg\r\n\r\n".toByteArray(Charsets.UTF_8))
+							input.inputStream().use { it.copyTo(out) }
+							out.write("\r\n--$boundary--\r\n".toByteArray(Charsets.UTF_8))
+						}
+						if (code !in 200..299) return@withContext fail("http", text.take(500), code)
+						JSONObject().put("ok", true).put("text", JSONObject(text).optString("text").trim()).toString()
+					}
+				}
+			} catch (error: Throwable) {
+				// Never the message of an HTTP failure: it can quote the request. Our own are safe.
+				fail("failed", if (error is IllegalStateException || error is IllegalArgumentException) error.message else error.javaClass.simpleName)
+			} finally {
+				work.deleteRecursively()
 			}
 		}
 

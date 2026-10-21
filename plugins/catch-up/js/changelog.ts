@@ -3,6 +3,21 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.2.20',
+		date: '2026-10-21',
+		title: 'Discord version limit',
+		changes: ["Only starts on Discord 351.6 or older, so a newer Discord build can't break it."],
+	},
+	{
+		version: '0.2.19',
+		date: '2026-10-20',
+		title: 'Better catch-ups',
+		changes: [
+			'The model reads people by name instead of by user id, then names are turned back into mentions, so it gets who said what right far more often.',
+			'Clearer instructions after the chat, so summaries stay short, put the important things first and skip the "Here is a summary" line. Most noticeable with the on-phone model in AI Core Local.',
+		],
+	},
+	{
 		version: '0.2.18',
 		date: '2026-10-13',
 		title: 'Tidy-up',

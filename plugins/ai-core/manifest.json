@@ -5,13 +5,13 @@
 	"description": "Shared AI key, spending cap and request queue for plugins that use AI. Does nothing on its own.",
 	"author": "bleelblep, Rosie",
 	"icon": "MagicWandIcon",
-	"version": "2.4.0",
+	"version": "2.5.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=351.6"
 		}
 	},
 	"dist": {

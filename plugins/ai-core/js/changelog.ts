@@ -3,6 +3,29 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '2.5.1',
+		date: '2026-10-21',
+		title: 'Discord version limit',
+		changes: ["Only starts on Discord 351.6 or older, so a newer Discord build can't break it."],
+	},
+	{
+		version: '2.5.0',
+		date: '2026-10-20',
+		title: 'Voice messages to text',
+		changes: [
+			'Plugins can now turn voice messages into text (Transcripts uses it). OpenAI, Groq, OpenRouter and Whisper-style servers can do it; Anthropic, DeepSeek and NVIDIA keys can’t take audio.',
+			"With AI Core Local's Gemma 4 on your phone, it can do it there instead.",
+		],
+	},
+	{
+		version: '2.4.1',
+		date: '2026-10-20',
+		title: 'Works with AI Core Local',
+		changes: [
+			"With AI Core Local installed too, it answers for every AI plugin whenever its setting says this phone should, and when AI Core has no key or no calls left.",
+		],
+	},
+	{
 		version: '2.4.0',
 		date: '2026-10-18',
 		title: 'Only your plugins',

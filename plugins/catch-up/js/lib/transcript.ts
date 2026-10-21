@@ -28,10 +28,12 @@ export interface Transcript {
 	characters: number
 	text: string
 	/**
-	 * Every user id that appears in `text`, as an author or a mention. The model refers to people
-	 * only by copying these; `lib/mentions.ts` drops any it did not get from here.
+	 * Every user id behind a name in `text`, as an author or a mention. `lib/mentions.ts` turns
+	 * those names back into mentions and drops any mention it did not get from here.
 	 */
 	userIds: Set<string>
+	/** Name as written in `text` -> user id, one name per person. */
+	people: Map<string, string>
 }
 
 const MENTION = /<@!?(\d+)>/g
@@ -47,19 +49,47 @@ const MENTION = /<@!?(\d+)>/g
 const CONVERSATIONAL_TYPES = new Set([0, 19, 20, 21, 23])
 
 /**
- * Who wrote a line: a mention, so the summary can name people by copying it and Discord renders
- * it as a tappable pill. The display name is only for a message with no author id.
+ * People by name, not `<@id>`. Small models (AI Core Local's) can't copy an 18-digit id reliably
+ * and summarise worse with numbers where names should be, and big ones don't need the ids either:
+ * `lib/mentions.ts` turns the names back into tappable mentions afterwards. Each person gets one
+ * name; a second person with the same display name gets their username added.
  */
-function authorLabel(message: any): string {
+class Names {
+	readonly people = new Map<string, string>()
+	private readonly byId = new Map<string, string>()
+
+	nameOf(id: string, user?: any): string {
+		const known = this.byId.get(id)
+		if (known) return known
+		const looked = user ?? lookupUser(id)
+		const display = clean(looked?.globalName ?? looked?.global_name ?? looked?.username)
+		if (!display) return 'someone'
+		let name = display
+		if (this.people.has(name) && looked?.username && looked.username !== display) name = `${display} (${looked.username})`
+		for (let n = 2; this.people.has(name); n++) name = `${display} ${n}`
+		this.people.set(name, id)
+		this.byId.set(id, name)
+		return name
+	}
+}
+
+function lookupUser(id: string): any {
+	try {
+		return (Stores as any)?.UserStore?.getUser?.(id)
+	} catch {
+		return undefined
+	}
+}
+
+/** One line, no colon (it would read as the end of the author), not blank. */
+function clean(name: unknown): string {
+	return typeof name === 'string' ? name.replace(/[\r\n:]+/g, ' ').trim() : ''
+}
+
+function authorLabel(message: any, names: Names): string {
 	const author = message?.author
-	if (typeof author?.id === 'string') return `<@${author.id}>`
-	return (
-		message?.nick ??
-		author?.globalName ??
-		author?.global_name ??
-		author?.username ??
-		'someone'
-	)
+	if (typeof author?.id === 'string') return names.nameOf(author.id, author)
+	return clean(message?.nick ?? author?.globalName ?? author?.global_name ?? author?.username) || 'someone'
 }
 
 /**
@@ -67,10 +97,10 @@ function authorLabel(message: any): string {
  * the conversation, which is occasionally load-bearing, without spending tokens on a CDN URL
  * nobody can read anyway. Mentions stay as `<@id>`, the same form author lines use.
  */
-function renderContent(message: any): string {
+function renderContent(message: any, names?: Names): string {
 	const parts: string[] = []
-	const content =
-		typeof message?.content === 'string' ? message.content.trim() : ''
+	const raw = typeof message?.content === 'string' ? message.content.trim() : ''
+	const content = names ? raw.replace(MENTION, (_whole: string, id: string) => `@${names.nameOf(id)}`) : raw
 	if (content) parts.push(content)
 
 	const attachments = Array.isArray(message?.attachments)
@@ -96,6 +126,7 @@ export function buildTranscript(
 		characters: 0,
 		text: '',
 		userIds: new Set(),
+		people: new Map(),
 	}
 
 	let messages: any[]
@@ -126,25 +157,21 @@ export function buildTranscript(
 	// The tail, because catching up means the most recent messages, not the oldest loaded.
 	const slice = usable.slice(-Math.max(1, limit))
 
+	const names = new Names()
 	const lines = slice.map(message => ({
-		author: authorLabel(message),
-		content: renderContent(message),
+		author: authorLabel(message, names),
+		content: renderContent(message, names),
 	}))
 
 	const text = lines.map(line => `${line.author}: ${line.content}`).join('\n')
-
-	const userIds = new Set<string>()
-	// An exec loop, not matchAll: not every Hermes build has matchAll.
-	const mention = new RegExp(MENTION.source, 'g')
-	for (let match = mention.exec(text); match; match = mention.exec(text))
-		userIds.add(match[1])
 
 	return {
 		lines,
 		available: usable.length,
 		characters: text.length,
 		text,
-		userIds,
+		userIds: new Set(names.people.values()),
+		people: names.people,
 	}
 }
 

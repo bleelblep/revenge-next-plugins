@@ -22,6 +22,14 @@
  * Keystore, and the request is made natively -- see `src/main/kotlin/.../AiCore.kt` for why and
  * for what that does and does not protect against. This side never holds it.
  *
+ * ## AI Core Local
+ *
+ * When AI Core Local (the on-phone model) is installed too, every call first asks it whether the
+ * phone should answer -- its own "This phone / AI Core" setting decides -- and hands the request
+ * over if so. Asked per call, through the global it publishes, so it works whichever plugin loaded
+ * first and without every dependent declaring both. Only plugins that passed the trust check here
+ * get that far.
+ *
  * ## What it deliberately does not do
  *
  * No prompts live here. No plugin-specific context building, no caching of anyone's messages,
@@ -29,7 +37,7 @@
  */
 
 import { DEFAULTS } from './defaults'
-import { abortAll, requestJson, requestText } from './lib/client'
+import { abortAll, cloudCanTranscribe, requestJson, requestText, requestTranscript } from './lib/client'
 import { listDependents, rememberDependent, setDependentRoute } from './lib/dependents'
 import { debug, remainingFor, settings, setStorage, TAG } from './lib/state'
 import { CUSTOM, PROVIDERS, providerFor } from './lib/providers'
@@ -37,7 +45,7 @@ import { describeBalance, fetchBalance, importLegacy, onStatusChange, refreshSta
 import { trusted } from './lib/trust'
 import Settings from './ui/pages/Settings'
 import { registerPages } from './ui/routes'
-import type { AiApi, AiBudget, AiCoreStorage, AiRequest } from './types'
+import type { AiApi, AiBudget, AiCoreStorage, AiRequest, AiTranscribeRequest } from './types'
 import { CHANGELOG } from './changelog'
 import { setupChangelog } from '../../../shared/changelog'
 import { reportError, setReporter } from '../../../shared/report'
@@ -45,12 +53,47 @@ import { reportError, setReporter } from '../../../shared/report'
 const DEBUG: boolean = false
 
 export { DEFAULTS }
-export type { AiApi, AiBudget, AiCoreStorage, AiRequest }
+export type { AiApi, AiBudget, AiCoreStorage, AiRequest, AiTranscribeRequest }
+
+/** What AI Core Local publishes on `globalThis.__bleelblepAiCoreLocal` for this hand-off. */
+interface LocalHandoff {
+	/** True when the phone should answer: its model is ready, and it's preferred or the cloud can't. */
+	takesOver(cloudReady: boolean): boolean
+	text(pluginId: string, request: AiRequest, meta?: { name?: string; icon?: string }): Promise<string | undefined>
+	json<T>(pluginId: string, request: AiRequest, meta?: { name?: string; icon?: string }): Promise<T | undefined>
+	/** AI Core Local 0.3+: its model hears audio, and it's preferred or the provider can't. */
+	takesOverAudio?(cloudCan: boolean): boolean
+	transcribe?(pluginId: string, request: AiTranscribeRequest, meta?: { name?: string; icon?: string }): Promise<string | undefined>
+}
+
+/** AI Core Local, when its model should transcribe this call instead of the provider. */
+function localEarsFor(pluginId: string): LocalHandoff | undefined {
+	const local = (globalThis as any).__bleelblepAiCoreLocal as Partial<LocalHandoff> | undefined
+	if (typeof local?.takesOverAudio !== 'function' || typeof local.transcribe !== 'function') return undefined
+	try {
+		return local.takesOverAudio(cloudCanTranscribe(pluginId)) ? (local as LocalHandoff) : undefined
+	} catch {
+		return undefined
+	}
+}
+
+/** AI Core Local, when it's running and should answer this call instead of the provider. */
+function localFor(pluginId: string): LocalHandoff | undefined {
+	const local = (globalThis as any).__bleelblepAiCoreLocal as Partial<LocalHandoff> | undefined
+	if (typeof local?.takesOver !== 'function' || typeof local.text !== 'function' || typeof local.json !== 'function') return undefined
+	try {
+		const cloudReady = vaultStatus().configured && remainingFor(pluginId) > 0
+		return local.takesOver(cloudReady) ? (local as LocalHandoff) : undefined
+	} catch {
+		return undefined
+	}
+}
 
 function budget(pluginId: string): AiBudget {
 	const v = vaultStatus()
 	return {
-		configured: v.configured,
+		// A plugin that checks for a key before asking would otherwise skip the phone's model.
+		configured: v.configured || !!localFor(pluginId),
 		used: v.calls,
 		cap: v.unlimited ? Number.POSITIVE_INFINITY : v.cap,
 		remaining: remainingFor(pluginId),
@@ -108,13 +151,26 @@ export default plugin<{ jsonStorage: AiCoreStorage }>({
 				plugin.manifest.name ?? pluginId,
 				plugin.manifest.icon,
 			)
+			const meta = { name: plugin.manifest.name ?? pluginId, icon: plugin.manifest.icon }
 			const api: AiApi = {
 				isAvailable: () => {
+					if (localFor(pluginId)) return true
 					const v = vaultStatus()
 					return v.configured && remainingFor(pluginId) > 0
 				},
-				text: (request: AiRequest) => requestText(pluginId, request),
-				json: <T>(request: AiRequest) => requestJson<T>(pluginId, request),
+				text: (request: AiRequest) => {
+					const local = localFor(pluginId)
+					return local ? local.text(pluginId, request, meta) : requestText(pluginId, request)
+				},
+				json: <T>(request: AiRequest) => {
+					const local = localFor(pluginId)
+					return local ? local.json<T>(pluginId, request, meta) : requestJson<T>(pluginId, request)
+				},
+				transcribe: (request: AiTranscribeRequest) => {
+					const local = localEarsFor(pluginId)
+					return local?.transcribe ? local.transcribe(pluginId, request, meta) : requestTranscript(pluginId, request)
+				},
+				canTranscribe: () => !!localEarsFor(pluginId) || cloudCanTranscribe(pluginId),
 				budget: () => budget(pluginId),
 				setSettingsRoute: (route: string) => setDependentRoute(pluginId, route),
 			}

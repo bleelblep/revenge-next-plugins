@@ -22,8 +22,8 @@
  */
 
 import { capFor, debug, remainingFor, settings, TAG } from './state'
-import { nativeRequest, vaultStatus } from './vault'
-import type { AiRequest } from '../types'
+import { nativeRequest, nativeTranscribe, vaultStatus } from './vault'
+import type { AiRequest, AiTranscribeRequest } from '../types'
 import { reportError } from '../../../../shared/report'
 
 // --- a queue with a concurrency limit ---------------------------------------
@@ -157,6 +157,38 @@ async function callOnce(
 		clearTimeout(timer)
 		controllers.delete(controller)
 	}
+}
+
+/** Hosts whose API takes no audio at all; the native side refuses them too. */
+const DEAF_HOSTS = ['api.anthropic.com', 'api.deepseek.com', 'integrate.api.nvidia.com']
+
+/** The key's provider takes audio (OpenAI, Groq, OpenRouter, a custom Whisper-style server). */
+export function providerHears(endpoint: string | undefined): boolean {
+	if (!endpoint) return false
+	const host = endpoint.replace(/^https?:\/\//i, '').replace(/[/:?#].*$/, '').toLowerCase()
+	return !DEAF_HOSTS.some(deaf => host === deaf || host.endsWith(`.${deaf}`)) && !host.endsWith('nvidia.com')
+}
+
+export function cloudCanTranscribe(pluginId: string): boolean {
+	const v = vaultStatus()
+	return v.native && v.configured && providerHears(v.endpoint ?? undefined) && remainingFor(pluginId) > 0
+}
+
+export function requestTranscript(pluginId: string, request: AiTranscribeRequest): Promise<string | undefined> {
+	return enqueue(async () => {
+		if (!cloudCanTranscribe(pluginId)) {
+			debug(`${pluginId}: this provider can't transcribe, or no key / calls left`)
+			return undefined
+		}
+		const result = await nativeTranscribe(pluginId, request.url, request.language, request.timeoutMs ?? 180_000)
+		if (!result?.ok) {
+			if (result?.error === 'http') reportError(`${TAG} ${pluginId}: transcription: provider returned HTTP ${result.status}${result.details ? `: ${result.details}` : ''}`)
+			else if (result?.error === 'failed') reportError(`${TAG} ${pluginId}: transcription failed: ${result.details ?? 'unknown'}`)
+			else debug(`${pluginId}: no transcript (${result?.error ?? 'no answer'})`)
+			return undefined
+		}
+		return typeof result.text === 'string' ? result.text : undefined
+	})
 }
 
 export function requestText(

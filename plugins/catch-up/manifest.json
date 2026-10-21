@@ -5,13 +5,13 @@
 	"description": "Run /catchup for a short summary of what you missed in a channel. Needs AI Core.",
 	"author": "bleelblep",
 	"icon": "ClockIcon",
-	"version": "0.2.18",
+	"version": "0.2.20",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "*"
+			"version": "<=351.6"
 		},
 		"bleelblep.ai-core": {
 			"version": ">=1 <3"

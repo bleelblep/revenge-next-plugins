@@ -14,7 +14,7 @@ import {
 	showClientMessage,
 } from './commands'
 import { debug, settings, toast } from './state'
-import { keepKnownMentions } from './mentions'
+import { keepKnownMentions, namesToMentions } from './mentions'
 import { summarise } from './summarise'
 import { buildTranscript, channelLabel } from './transcript'
 import type { CommandArgument, CommandContext } from './commands'
@@ -92,7 +92,7 @@ async function run(args: CommandArgument[], context: CommandContext) {
 
 	report(
 		channelId,
-		`**Catch-up · ${channelLabel(channelId)}** _(${scope})_\n\n${keepKnownMentions(result.text ?? '', transcript.userIds)}`,
+		`**Catch-up · ${channelLabel(channelId)}** _(${scope})_\n\n${keepKnownMentions(namesToMentions(result.text ?? '', transcript.people), transcript.userIds)}`,
 	)
 }
 
