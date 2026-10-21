@@ -414,11 +414,11 @@
     },
     "bleelblep.char-counter": {
       "name": "Character Counter",
-      "description": "Shows how many characters your message has, in a small square above the message box.",
+      "description": "Counts your message's characters in a square above the message box, and splits long ones into several.",
       "author": "bleelblep",
       "icon": "TextIcon",
       "channels": {
-        "latest": "0.1.9"
+        "latest": "0.2.6"
       },
       "versions": {
         "0.1.5": {
@@ -457,6 +457,19 @@
             },
             "discord": {
               "version": "*"
+            }
+          }
+        },
+        "0.2.6": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.char-counter@0.2.6.zip",
+          "sha256": "ee772acfd1f6f96432d7232b9bc6cc76eb61fc414f0f23e12dcebb301aa82a45",
+          "size": 9563,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "<=352.2"
             }
           }
         }
