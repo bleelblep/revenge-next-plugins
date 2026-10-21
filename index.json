@@ -1927,7 +1927,7 @@
       "author": "bleelblep, Rosie, WarFade",
       "icon": "SendMessageIcon",
       "channels": {
-        "latest": "1.0.8"
+        "latest": "1.0.9"
       },
       "versions": {
         "0.1.0": {
@@ -2251,6 +2251,23 @@
             },
             "discord": {
               "version": "<=352.2"
+            },
+            "bleelblep.ai-core": {
+              "version": ">=1 <3",
+              "optional": true
+            }
+          }
+        },
+        "1.0.9": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.send-tweaks@1.0.9.zip",
+          "sha256": "1e74dee028ff46d12c9f77f905cd51f6ee223ba526157fe5ded5e6fa799df251",
+          "size": 49588,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
             },
             "bleelblep.ai-core": {
               "version": ">=1 <3",
