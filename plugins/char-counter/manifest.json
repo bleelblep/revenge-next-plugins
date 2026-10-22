@@ -5,13 +5,13 @@
 	"description": "Counts your message's characters in a square above the message box, and splits long ones into several.",
 	"author": "bleelblep",
 	"icon": "TextIcon",
-	"version": "0.2.6",
+	"version": "0.2.7",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "<=352.2"
+			"version": "*"
 		}
 	},
 	"dist": {
