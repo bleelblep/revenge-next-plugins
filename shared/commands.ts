@@ -40,6 +40,7 @@
 import * as modulesFinders from '@revenge-mod/modules/finders'
 import * as filters from '@revenge-mod/modules/finders/filters'
 import * as discordFinders from '@revenge-mod/discord/utils/modules/finders'
+import * as flux from '@revenge-mod/discord/common/flux'
 import { reportError } from './report'
 
 const DEBUG: boolean = false
@@ -77,7 +78,7 @@ export interface CommandDefinition {
 	name: string
 	description: string
 	options?: CommandOption[]
-	/** Returning `{ content }` sends that text, as Discord's own /shrug does. */
+	/** Returning `{ content }` sends that text as you (the helper sends it; see sendAsUser). */
 	execute(
 		args: CommandArgument[],
 		context: CommandContext,
@@ -89,6 +90,16 @@ export interface ClientMessageOptions {
 	content: string
 	/** Shown as the author. Defaults to the plugin's name given to `createCommands`. */
 	author?: string
+	/**
+	 * The message's id, to change it later with `updateClientMessage` or take it away with
+	 * `deleteClientMessage`. Make one with `clientMessageId()`; a new one is made when left out.
+	 */
+	id?: string
+}
+
+/** An id for a clientside message that will be updated or deleted later. */
+export function clientMessageId(): string {
+	return fakeSnowflake()
 }
 
 /** Reads one option out of the argument list Discord hands `execute`. */
@@ -121,6 +132,47 @@ function fakeSnowflake(): string {
 	const timestamp = BigInt(Date.now() - 1420070400000) << 22n
 	const noise = BigInt(Math.floor(Math.random() * 4194304))
 	return (timestamp | noise).toString()
+}
+
+let messageActions: any
+
+/** Discord's MessageActions (`sendMessage`), looked up on first send. */
+function findMessageActions(): any {
+	if (messageActions) return messageActions
+	const { lookupModule } = modulesFinders
+	const { withProps } = filters
+	const [mod] = lookupModule(withProps('receiveMessage', 'sendMessage')) as [any, number | undefined]
+	const host = typeof mod?.sendMessage === 'function' ? mod : mod?.default
+	if (typeof host?.sendMessage === 'function') messageActions = host
+	return messageActions
+}
+
+/**
+ * Sends [content] as the user, the way Discord's own send path does: with the send options
+ * (`getSendMessageOptions`) and a nonce. Copied from Diagnostics (plugins/checkup/js/lib/command.ts).
+ *
+ * Why not return `{ content }` to Discord: its built-in executor ignores it for BUILT_IN commands,
+ * and for BUILT_IN_TEXT (/shrug's type) it calls `_sendMessage` without the options argument, which
+ * throws "Cannot read property 'activityAction' of undefined" (351.6; 'nonce' on 348). Seen live
+ * with Invisible Chat's /secret on 2026-10-22; it's also why /fx messages never arrived.
+ */
+function sendAsUser(channelId: string | undefined, content: string) {
+	const actions = findMessageActions()
+	if (!channelId || !actions) {
+		reportError('[commands] could not send: no channel or no MessageActions', new Error('missing'))
+		return
+	}
+	let options: Record<string, unknown> = {}
+	try {
+		const built = actions.getSendMessageOptions?.({})
+		if (built && typeof built === 'object') options = { ...built }
+	} catch {
+		/* fall back to a bare options object */
+	}
+	if (options.nonce == null) options.nonce = fakeSnowflake()
+	Promise.resolve(
+		actions.sendMessage(channelId, { content, tts: false, invalidEmojis: [], validNonShortcutEmojis: [] }, undefined, options),
+	).catch(error => reportError('[commands] sending failed:', error))
 }
 
 /** Pulls `BUILT_IN_COMMANDS` off a module namespace, checking `default` too (porting rule 3). */
@@ -161,7 +213,14 @@ function buildEntry(definition: CommandDefinition, id: string) {
 					}
 				: {}),
 		})),
-		execute: definition.execute,
+		execute(args: CommandArgument[], context: CommandContext) {
+			const result = definition.execute(args, context)
+			if (result && !(result instanceof Promise) && typeof result.content === 'string') {
+				sendAsUser(context?.channel?.id, result.content)
+				return
+			}
+			return result
+		},
 	}
 }
 
@@ -368,43 +427,43 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 		return receiver
 	}
 
+	function clientMessage({ channelId, content, author = owner, id }: ClientMessageOptions) {
+		return {
+			id: id ?? fakeSnowflake(),
+			type: 0,
+			flags: EPHEMERAL,
+			channel_id: channelId,
+			content,
+			author: {
+				id: authorId,
+				username: author,
+				global_name: author,
+				// '0' selects the id-based default avatar; any legacy discriminator gives everyone the same one.
+				discriminator: '0',
+				avatar: null,
+				bot: true,
+			},
+			timestamp: new Date().toISOString(),
+			edited_timestamp: null,
+			tts: false,
+			pinned: false,
+			mention_everyone: false,
+			mentions: [],
+			mention_roles: [],
+			attachments: [],
+			embeds: [],
+			reactions: [],
+			state: 'SENT',
+		}
+	}
+
 	/** True when the message was handed to the client. Nothing is ever sent to Discord. */
-	function showClientMessage({
-		channelId,
-		content,
-		author = owner,
-	}: ClientMessageOptions): boolean {
+	function showClientMessage(options: ClientMessageOptions): boolean {
 		const host = getReceiver()
 		if (!host) return false
 
 		try {
-			host.receiveMessage(channelId, {
-				id: fakeSnowflake(),
-				type: 0,
-				flags: EPHEMERAL,
-				channel_id: channelId,
-				content,
-				author: {
-					id: authorId,
-					username: author,
-					global_name: author,
-					// '0' selects the id-based default avatar; any legacy discriminator gives everyone the same one.
-					discriminator: '0',
-					avatar: null,
-					bot: true,
-				},
-				timestamp: new Date().toISOString(),
-				edited_timestamp: null,
-				tts: false,
-				pinned: false,
-				mention_everyone: false,
-				mentions: [],
-				mention_roles: [],
-				attachments: [],
-				embeds: [],
-				reactions: [],
-				state: 'SENT',
-			})
+			host.receiveMessage(options.channelId, clientMessage(options))
 			return true
 		} catch (error) {
 			reportError(`${tag} could not show the clientside message:`, error)
@@ -412,5 +471,27 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 		}
 	}
 
-	return { registerCommand, registryStatus, showClientMessage, avatarUrl }
+	function dispatch(action: Record<string, unknown>): boolean {
+		const dispatcher = (flux as any).Dispatcher
+		if (typeof dispatcher?.dispatch !== 'function') return false
+		try {
+			dispatcher.dispatch(action)
+			return true
+		} catch (error) {
+			reportError(`${tag} could not change the clientside message:`, error)
+			return false
+		}
+	}
+
+	/** Rewrites a message shown with `showClientMessage({ id })`, in place. Local only. */
+	function updateClientMessage(options: ClientMessageOptions & { id: string }): boolean {
+		return dispatch({ type: 'MESSAGE_UPDATE', message: clientMessage(options) })
+	}
+
+	/** Takes away a message shown with `showClientMessage({ id })`. Local only. */
+	function deleteClientMessage(channelId: string, id: string): boolean {
+		return dispatch({ type: 'MESSAGE_DELETE', id, channelId })
+	}
+
+	return { registerCommand, registryStatus, showClientMessage, updateClientMessage, deleteClientMessage, avatarUrl }
 }

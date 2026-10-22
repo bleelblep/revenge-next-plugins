@@ -13,8 +13,9 @@
  * them and would show `[31m`. So the strip is skipped only while one of the native content
  * builders runs (see `nativeBuilders`), by letting that one `replaceAll` call through unchanged.
  *
- * The RowManager hook is the fallback for records Discord parsed before this plugin started:
- * `parseMessageMarkup` memoizes its result per record, so those stay stripped until reparsed.
+ * The RowManager hook is the fallback for records parsed outside those builders: `parseMessageMarkup`
+ * memoizes its result per record, and some records (search results) are first parsed while Discord
+ * scans them for links, stripped. It restores any row whose message still has the raw codes.
  */
 
 import * as finders from '@revenge-mod/modules/finders'
@@ -142,7 +143,9 @@ function restoreRows(): () => void {
 			before(proto, 'generate', (args: any[]) => {
 				pending = undefined
 				try {
-					const raw = args[0]?.rowType === 1 ? args[0].message?.content : undefined
+					// Any row with a message, not just chat (rowType 1): search results and other
+					// lists use their own row types and were left stripped.
+					const raw = args[0]?.message?.content
 					if (typeof raw === 'string' && raw.includes('\u001b')) {
 						const bodies = rawBodies(raw)
 						if (bodies.length) pending = bodies
@@ -163,6 +166,7 @@ function restoreRows(): () => void {
 					// A new array: row.message.content is Discord's per-record parse cache.
 					const message = ret?.message
 					if (Array.isArray(message?.content)) message.content = restore(message.content, bodies)
+					else if (Array.isArray(ret?.content)) ret.content = restore(ret.content, bodies)
 				} catch (error) {
 					reportError(`${TAG} after generate failed:`, error)
 				}

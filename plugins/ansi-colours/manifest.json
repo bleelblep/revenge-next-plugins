@@ -5,13 +5,13 @@
 	"description": "Shows colours in ANSI code blocks the way desktop Discord does.",
 	"author": "bleelblep",
 	"icon": "PaintPaletteIcon",
-	"version": "0.2.4",
+	"version": "0.2.9",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "<=351.6"
+			"version": "*"
 		}
 	},
 	"dist": {
