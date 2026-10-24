@@ -147,7 +147,7 @@ val ghostLogNativeBeta = plugin {
 
 		// Saved videos play from the decrypted cache; Discord's player only speaks HTTP without this.
 		unhookLocalVideo?.invoke()
-		unhookLocalVideo = runCatching { LocalVideoHook.install(classLoader, ensureMediaCacheDir()) }
+		unhookLocalVideo = runCatching { LocalVideoHook.install(classLoader, ensureMediaCacheDir(), runCatching { dexFinder }.getOrNull()) }
 			.onFailure { Log.e("GhostLogNativeBeta", "local video hook failed", it) }
 			.getOrNull()
 

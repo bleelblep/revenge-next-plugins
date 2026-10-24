@@ -1,7 +1,7 @@
 import renderTimestamp, { DEFAULTS, type TimestampStorage } from "../lib/renderTimestamp"
 import * as finders from "@revenge-mod/modules/finders"
 import * as filters from "@revenge-mod/modules/finders/filters"
-import { before, instead } from "@revenge-mod/patcher"
+import { wrapMethod } from "../../../../shared/wrapMethod"
 import { reportError } from "../../../../shared/report"
 
 // This runs inside RowManager.generate, i.e. on the chat render path. Anything that
@@ -16,8 +16,7 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<Times
 	const { getModules } = finders
 	const { withName } = filters
 
-	let unpatchBefore: (() => void) | undefined
-	let unpatchAfter: (() => void) | undefined
+	let unpatch: (() => void) | undefined
 
 	const unsubscribe = getModules(withName("RowManager"), (RowManager: any) => {
 		if (!RowManager?.prototype?.generate) {
@@ -25,14 +24,23 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<Times
 			return
 		}
 
-		// A before-hook MUST return the args array. revenge-bundle-next's applyHooks
-		// (lib/patcher/src/_internal.ts) does `arg = hook(arg)` with no `?? arg` fallback, so
-		// returning nothing sets args to undefined for every hook after this one -- here that
-		// fed `undefined` to the instead-hook below, whose `original(...args)` then blew up as
-		// "TypeError: Cannot convert undefined value to object" at Hermes' arraySpread, taking
-		// the whole ChatView down. Same family as the `after`-signature bug noted below: this
-		// patcher's hook contracts differ from classic Revenge/Vendetta's.
-		unpatchBefore = before(RowManager.prototype, "generate", (args: any[]) => {
+		// One plain wrapper (shared/wrapMethod), not the patcher's before + instead pair it used to
+		// be. Ghost Log NG also changes generate with an `instead`, and a patcher `before` here plus
+		// two `instead`s set off the patcher's two-instead recursion: "Maximum call stack size
+		// exceeded" on the chat screen (352.2 testing; docs/debugging/api-contracts.md). The
+		// wrapper sees the args and the return value, so one function does both halves.
+		//
+		// A plain `function`, NOT an arrow, and `Reflect.apply(original, this, args)`, NOT
+		// `original(...args)`: `generate` is a prototype method, so it needs its receiver.
+		// wrapMethod calls the hook with the receiver as `this`; an arrow function discards it,
+		// and calling `original(...)` bare then runs `generate` with `this === undefined`. That
+		// surfaced as "TypeError: Cannot read property 'options' of undefined" thrown from
+		// Discord's own code, several frames below ours.
+		unpatch = wrapMethod(RowManager.prototype, "generate", function (
+			this: any,
+			args: any[],
+			original: any,
+		) {
 			const [row] = args
 			try {
 				const settings = jsonStorage.cache ?? DEFAULTS
@@ -51,35 +59,8 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<Times
 			} catch (error) {
 				reportError("[CustomTimestamps] generate hook failed:", error)
 			}
-			// Outside the try on purpose: the args must survive even if the body above threw.
-			return args
-		})
 
-		// instead, not after: after's hook only receives the return value, not the original
-		// arguments (confirmed from revenge-bundle-next's own patcher source) -- we need
-		// `row` (from the args) to know whether __customTimestamp was set by the before-hook
-		// above. instead gives us both the args and a way to call the real implementation.
-		//
-		// A plain `function`, NOT an arrow, and `Reflect.apply(original, this, args)`, NOT
-		// `original(...args)`: `generate` is a prototype method, so it needs its receiver. The
-		// patcher's apply trap invokes the instead-hook via
-		// `Reflect.apply(hook, receiver, [args, original])` (lib/patcher/src/_internal.ts), so
-		// the correct `this` is handed to the hook -- but an arrow function discards it, and
-		// calling `original(...)` bare then runs `generate` with `this === undefined`. That
-		// surfaced as "TypeError: Cannot read property 'options' of undefined" thrown from
-		// Discord's own code, several frames below ours. This is the pattern PalmDevs' own
-		// plugins use.
-		unpatchAfter = instead(RowManager.prototype, "generate", function (
-			this: any,
-			args: any[],
-			original: any,
-		) {
-			// Confirmed on-device crash elsewhere (staff-tags): "undefined is not a function"
-			// when the captured original wasn't actually a function yet at patch time. Never
-			// assume it's callable.
-			if (typeof original !== "function") return undefined
 			const ret: any = Reflect.apply(original, this, args)
-			const [row] = args
 			try {
 				if (row?.rowType !== 1) return ret
 
@@ -96,7 +77,6 @@ export default function patchRowManager(jsonStorage: RevengeJsonStorageApi<Times
 
 	return () => {
 		unsubscribe()
-		unpatchBefore?.()
-		unpatchAfter?.()
+		unpatch?.()
 	}
 }

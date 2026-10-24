@@ -21,7 +21,7 @@ export default plugin<{ jsonStorage: LiveMarkdownStorage }>({
 		// Native owns the values; bring the mirror in line.
 		callNative('getSettings')
 			.then((state: LiveMarkdownStorage) => {
-				if (state && typeof state.headings === 'boolean') jsonStorage.set({ ...state })
+				if (state && typeof state.headings === 'boolean') (jsonStorage as any).set({ ...DEFAULTS, ...state }, true)
 			})
 			.catch(error => reportError('[LiveMarkdown] getSettings failed:', error))
 	},

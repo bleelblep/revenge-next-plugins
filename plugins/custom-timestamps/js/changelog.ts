@@ -3,6 +3,24 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '1.2.11',
+		date: '2026-10-23',
+		title: 'Discord version limit removed',
+		changes: ['Installs on any Discord version again.'],
+	},
+	{
+		version: '1.2.10',
+		date: '2026-10-22',
+		title: 'Chat crash fix',
+		changes: ["Fixed a crash on the chat screen (\"Maximum call stack size exceeded\") when Ghost Log NG is on too."],
+	},
+	{
+		version: '1.2.9',
+		date: '2026-10-22',
+		title: 'Discord 352.2',
+		changes: ['Also starts on Discord 352.2 (was 351.6 or older).'],
+	},
+	{
 		version: '1.2.8',
 		date: '2026-10-21',
 		title: 'Discord version limit',

@@ -5,13 +5,13 @@
 	"description": "Translate messages in place with a long-press, using free services. No key or account needed.",
 	"author": "bleelblep",
 	"icon": "GlobeEarthIcon",
-	"version": "0.6.2",
+	"version": "0.6.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "<=351.6"
+			"version": "*"
 		}
 	},
 	"dist": {

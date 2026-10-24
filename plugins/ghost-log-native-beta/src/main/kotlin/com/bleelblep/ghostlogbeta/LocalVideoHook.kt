@@ -1,7 +1,9 @@
 package com.bleelblep.ghostlogbeta
 
+import android.app.Application
 import android.net.Uri
 import android.util.Log
+import io.github.revenge.xposed.api.DexFinder
 import java.io.File
 import java.io.RandomAccessFile
 import java.lang.reflect.InvocationHandler
@@ -33,6 +35,11 @@ import java.lang.reflect.Proxy
  * - `int (byte[], int, int)`: read. -1 is ExoPlayer's end-of-input.
  * - `Uri ()`: getUri. `Map ()`: response headers. `close()`.
  * - Anything else (the transfer listener) goes to Discord's source.
+ *
+ * From 352.2 Discord itself is R8-minified, so the factory and DataSource lose their names too.
+ * Then the factory is found with [DexFinder] and DataSource is the return type of the factory
+ * interface's only method. Only methods returning exactly DataSource are hooked: R8 narrowed
+ * `buildCacheDataSource` to the concrete CacheDataSource, which a proxy can't stand in for.
  */
 object LocalVideoHook {
 	private const val TAG = "GhostLogNativeBeta"
@@ -42,9 +49,11 @@ object LocalVideoHook {
 	/** "DataSpec[GET file:///x.mp4, 0, -1, null, 0]" -> position 0, length -1. */
 	private val SPEC = Regex(""", (-?\d+), (-?\d+), [^,]*, -?\d+]$""")
 
-	fun install(classLoader: ClassLoader, allowedDir: File): () -> Unit {
+	fun install(classLoader: ClassLoader, allowedDir: File, dexFinder: DexFinder? = null): () -> Unit {
 		val factory = runCatching { classLoader.loadClass(FACTORY) }.getOrNull()
+			?: runCatching { dexFinder?.let(::findFactory) }.getOrNull()
 		val dataSource = runCatching { classLoader.loadClass(DATA_SOURCE) }.getOrNull()
+			?: runCatching { factory?.interfaces?.single()?.declaredMethods?.single()?.returnType }.getOrNull()
 		if (factory == null || dataSource == null) {
 			Log.w(TAG, "local video: player classes not found; saved videos will not play")
 			return {}
@@ -57,13 +66,26 @@ object LocalVideoHook {
 				param.result = Proxy.newProxyInstance(classLoader, arrayOf(dataSource), Source(original, root))
 			}
 		}
-		// Both entry points: `createDataSource()` for playback and `buildCacheDataSource(boolean)`,
-		// which the first calls and downloads use directly. Wrapping twice is guarded above.
+		// Both entry points where they return DataSource: `createDataSource()` for playback and
+		// `buildCacheDataSource(boolean)`, which the first calls and downloads use directly. Wrapping
+		// twice is guarded above. On 352.2+ the second returns CacheDataSource, so only the first is hooked.
 		val unhooks = factory.declaredMethods
-			.filter { dataSource.isAssignableFrom(it.returnType) && !java.lang.reflect.Modifier.isStatic(it.modifiers) }
+			.filter { it.returnType == dataSource && !java.lang.reflect.Modifier.isStatic(it.modifiers) }
 			.map { XposedBridge.hookMethod(it, hook) }
 		Log.i(TAG, "local video: hooked ${unhooks.size} player source method(s)")
 		return { unhooks.forEach { runCatching { it.unhook() } } }
+	}
+
+	/**
+	 * `CacheDataSourceFactory` on R8-minified Discord (352.2: `md.a`): the class holding the player's
+	 * static Application, whose lateinit checks name "applicationContext" and "cache".
+	 */
+	private fun findFactory(finder: DexFinder): Class<*>? = finder.findClass {
+		matcher {
+			usingEqStrings("applicationContext", "cache")
+			addFieldForType(Application::class.java)
+			interfaceCount(1)
+		}
 	}
 
 	private class Source(private val delegate: Any, private val root: String) : InvocationHandler {

@@ -1,6 +1,7 @@
 import { rowIcon } from './icon'
 import { useBottomPadding } from './safeArea'
 import { update, useSettings } from './state'
+import { FORMATS } from '../native'
 import { useChangelog } from '../../../../shared/changelog'
 import * as components from '@revenge-mod/components'
 import { Design } from '@revenge-mod/discord/design'
@@ -51,6 +52,26 @@ export default function Settings() {
 							value={s.monoCode}
 							onValueChange={(monoCode: boolean) => update({ monoCode })}
 						/>
+					</TableRowGroup>
+
+					<TableRowGroup
+						title="Selection menu"
+						description="Select text in the message box: these appear next to Copy and Paste (most under ⋮). Tap one again to undo it."
+					>
+						{FORMATS.map(format => (
+							<TableSwitchRow
+								key={format.id}
+								label={format.label}
+								subLabel={format.example}
+								value={(s.menu ?? []).includes(format.id)}
+								onValueChange={(on: boolean) => {
+									const current = s.menu ?? []
+									// Kept in menu order, whatever order they were switched on in.
+									const menu = FORMATS.map(f => f.id).filter(id => (id === format.id ? on : current.includes(id)))
+									update({ menu })
+								}}
+							/>
+						))}
 					</TableRowGroup>
 				</Stack>
 			</ScrollView>

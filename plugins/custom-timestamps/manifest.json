@@ -4,13 +4,13 @@
 	"name": "Custom Timestamps",
 	"description": "Choose how chat timestamps look: calendar, relative, ISO 8601 or your own format.",
 	"author": "bleelblep, Fiery",
-	"version": "1.2.8",
+	"version": "1.2.11",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "<=351.6"
+			"version": "*"
 		}
 	},
 	"dist": {

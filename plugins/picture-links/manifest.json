@@ -5,13 +5,13 @@
 	"description": "Tap profile pictures and banners to view them full size, with save and share.",
 	"author": "bleelblep",
 	"icon": "ImageIcon",
-	"version": "0.1.4",
+	"version": "0.1.6",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "<=351.6"
+			"version": "*"
 		}
 	},
 	"dist": {

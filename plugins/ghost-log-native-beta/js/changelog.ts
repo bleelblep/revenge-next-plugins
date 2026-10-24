@@ -3,6 +3,20 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every public version gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.8.11',
+		date: '2026-10-22',
+		title: 'Discord version limit removed',
+		changes: ['Installs on any Discord version again.'],
+	},
+	{
+		version: '0.8.10',
+		date: '2026-10-22',
+		title: 'Discord 352.2',
+		changes: [
+			"Saved videos play again on Discord 352.2, whose code is scrambled. Needs Revenge 1.9.1 or newer on 352.2.",
+		],
+	},
+	{
 		version: '0.8.9',
 		date: '2026-10-21',
 		title: 'Discord version limit',

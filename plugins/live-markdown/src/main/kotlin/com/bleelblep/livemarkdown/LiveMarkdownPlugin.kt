@@ -9,6 +9,7 @@ import android.text.Editable
 import android.text.Spanned
 import android.text.TextWatcher
 import android.util.Log
+import android.view.ActionMode
 import android.widget.TextView
 import io.github.revenge.plugins.plugin
 import io.github.revenge.xposed.api.registerNativeMethod
@@ -31,7 +32,11 @@ internal object Settings {
 	@Volatile var headings = true
 	@Volatile var dimMarkers = true
 	@Volatile var monoCode = true
+	/** The selection-menu formats that are switched on (Format ids). */
+	@Volatile var menu: Set<String> = Format.entries.map { it.id }.toSet()
 }
+
+private fun enabledFormats() = Format.entries.filter { it.id in Settings.menu }
 
 private const val SETTINGS_FILE = "settings.json"
 private const val CHAT_INPUT = "com.discord.chat.input.views.DCDChatInput"
@@ -101,9 +106,27 @@ private fun clear(view: TextView) {
 	for (span in text.getSpans(0, text.length, MdSpan::class.java)) text.removeSpan(span)
 }
 
+/** Wraps whatever selection callback the box has with ours, once. */
+private fun ensureMenu(view: TextView) {
+	val current = view.customSelectionActionModeCallback
+	if (current is FormatCallback) return
+	view.customSelectionActionModeCallback = FormatCallback(view, current, ::enabledFormats)
+}
+
+/** Discord sets its callback in ChatInputRootView's constructor; wrap it as it's set. */
+private fun onSetSelectionCallback(param: HookParam) {
+	val view = param.thisObject as? TextView ?: return
+	if (view.javaClass !== chatInputClass) return
+	val callback = param.args.getOrNull(0) as? ActionMode.Callback
+	if (callback !is FormatCallback) param.args[0] = FormatCallback(view, callback, ::enabledFormats)
+}
+
 private fun onTextChanged(param: HookParam) {
 	val view = param.thisObject as? TextView ?: return
-	if (view.javaClass !== chatInputClass || watchers.containsKey(view)) return
+	if (view.javaClass !== chatInputClass) return
+	// Boxes made before the plugin started missed the setter hook.
+	runCatching { ensureMenu(view) }
+	if (watchers.containsKey(view)) return
 	val watcher = object : TextWatcher {
 		override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
 		override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -118,12 +141,18 @@ private fun settingsMap() = mapOf(
 	"headings" to Settings.headings,
 	"dimMarkers" to Settings.dimMarkers,
 	"monoCode" to Settings.monoCode,
+	"menu" to Settings.menu.toList(),
 )
 
 private fun applySettings(get: (String) -> Any?) {
 	(get("headings") as? Boolean)?.let { Settings.headings = it }
 	(get("dimMarkers") as? Boolean)?.let { Settings.dimMarkers = it }
 	(get("monoCode") as? Boolean)?.let { Settings.monoCode = it }
+	when (val menu = get("menu")) {
+		is List<*> -> Settings.menu = menu.filterIsInstance<String>().toSet()
+		is org.json.JSONArray -> Settings.menu = (0 until menu.length()).map { menu.optString(it) }.toSet()
+		is Array<*> -> Settings.menu = menu.filterIsInstance<String>().toSet()
+	}
 }
 
 val liveMarkdownPlugin = plugin {
@@ -156,6 +185,14 @@ val liveMarkdownPlugin = plugin {
 			errors.tryEmit(it)
 		}
 
+		runCatching {
+			val method = TextView::class.java.getMethod("setCustomSelectionActionModeCallback", ActionMode.Callback::class.java)
+			unhooks += hookMethod(method, before = ::onSetSelectionCallback)
+		}.onFailure {
+			log.e("could not hook the selection menu", it)
+			errors.tryEmit(it)
+		}
+
 		registerNativeMethod("${manifest.id}.getSettings") { _ -> settingsMap() }
 		registerNativeMethod("${manifest.id}.setSettings") { args ->
 			val patch = args.firstOrNull() as? Map<*, *> ?: emptyMap<Any, Any>()
@@ -177,6 +214,7 @@ val liveMarkdownPlugin = plugin {
 				runCatching {
 					view.removeTextChangedListener(watcher)
 					clear(view)
+					(view.customSelectionActionModeCallback as? FormatCallback)?.let { view.customSelectionActionModeCallback = it.inner }
 				}
 			}
 			watchers.clear()

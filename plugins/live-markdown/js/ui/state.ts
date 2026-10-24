@@ -15,6 +15,8 @@ export function useSettings(): LiveMarkdownStorage {
 
 /** Saves a change and hands it to native, which restyles open message boxes straight away. */
 export function update(patch: Partial<LiveMarkdownStorage>) {
-	storage?.set(patch)
+	// A list must replace, not merge: set() deep-merges arrays by index, so a shorter one would keep old entries.
+	if (patch.menu) storage?.set({ ...DEFAULTS, ...((storage as any)?.cache ?? {}), ...patch }, true as any)
+	else storage?.set(patch)
 	callNative('setSettings', [patch]).catch(error => reportError('[LiveMarkdown] setSettings failed:', error))
 }

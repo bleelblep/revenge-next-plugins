@@ -3,6 +3,41 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.2.4',
+		date: '2026-10-22',
+		title: 'Discord version limit removed',
+		changes: [
+			'Installs on any Discord version again. Newer Discord versions have not been tested yet.',
+		],
+	},
+	{
+		version: '0.2.3',
+		date: '2026-10-22',
+		title: 'Discord 352.2',
+		changes: ['Also starts on Discord 352.2 (was 351.6 or older).'],
+	},
+	{
+		version: '0.2.2',
+		date: '2026-10-21',
+		title: 'Discord version limit',
+		changes: ["Only starts on Discord 351.6 or older, so a newer Discord build can't break it."],
+	},
+	{
+		version: '0.2.1',
+		date: '2026-10-13',
+		title: 'ANSI colours',
+		changes: ['ANSI colour in the selection menu: pick a colour and the text goes into a ```ansi block, coloured for everyone.'],
+	},
+	{
+		version: '0.2.0',
+		date: '2026-10-13',
+		title: 'Format from the selection menu',
+		changes: [
+			'Select text in the message box to get Bold, Italic, Underline, Strikethrough, Spoiler, Code, Code block, Link, headings, Subtext and Quote next to Copy and Paste. Tap one again to undo it.',
+			'Choose which ones show in settings.',
+		],
+	},
+	{
 		version: '0.1.3',
 		date: '2026-10-13',
 		title: 'Tidy-up',

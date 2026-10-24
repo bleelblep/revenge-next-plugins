@@ -5,13 +5,13 @@
 	"description": "Screenshot Redactor for Discord before version 347. On newer versions, use Screenshot Redactor.",
 	"author": "bleelblep",
 	"icon": "EyeSlashIcon",
-	"version": "0.19.12",
+	"version": "0.19.14",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
 		},
 		"discord": {
-			"version": "<=351.6"
+			"version": "*"
 		}
 	},
 	"dist": {
