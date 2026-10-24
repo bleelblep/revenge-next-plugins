@@ -28,6 +28,8 @@ import { Stores } from '@revenge-mod/discord/flux'
 import * as finders from '@revenge-mod/modules/finders'
 import * as filters from '@revenge-mod/modules/finders/filters'
 import { reportError } from '../../../../shared/report'
+import { ORIGINAL_ICON_URL, tintedIconUrl } from '../lib/newUserIcon'
+import { settings } from '../state'
 
 const TAG = '[NewMembers]'
 const SPROUT = '🌱'
@@ -36,6 +38,8 @@ const DAY = 24 * 60 * 60 * 1000
 const NEW_FOR_MS = 7 * DAY
 // What Discord gives real role icons.
 const ICON_SIZE = 18
+// Also how a copy of the wrapper further out sees the icon is already there.
+const ICON_ALT = 'Role icon, New member'
 
 function joinedText(at: number): string {
 	const days = Math.floor((Date.now() - at) / DAY)
@@ -71,19 +75,24 @@ function addSprout(row: any, ret: any) {
 	const message = ret?.message
 	if (typeof message?.username !== 'string') return
 	// Already done by a copy of the wrapper further in.
-	if (message.roleIcon?.unicodeEmoji === SPROUT || message.username.endsWith(` ${SPROUT}`)) return
+	if (message.roleIcon?.alt === ICON_ALT || message.username.endsWith(` ${SPROUT}`)) return
 	const at = newMemberSince(String(record.channel_id), authorId)
 	if (at === undefined) return
 	if (message.roleIcon) {
 		message.username += ` ${SPROUT}`
 		return
 	}
+	const { style, color } = settings()
 	message.roleIcon = {
-		unicodeEmoji: SPROUT,
+		// The settings page picks 🌱, Discord's NewUserIcon as shipped, or that icon recoloured. A text
+		// name can't hold an image, so the fallback above stays 🌱 whatever is picked.
+		...(style === 'emoji'
+			? { unicodeEmoji: SPROUT }
+			: { source: style === 'icon' ? ORIGINAL_ICON_URL : tintedIconUrl(color) }),
 		// The toast already shows the icon, so the text is just the date.
 		name: joinedText(at),
 		size: ICON_SIZE,
-		alt: 'Role icon, New member',
+		alt: ICON_ALT,
 	}
 }
 
