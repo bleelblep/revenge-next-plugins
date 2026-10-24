@@ -1249,6 +1249,30 @@
         }
       }
     },
+    "bleelblep.new-members": {
+      "name": "New Members",
+      "description": "A sprout next to the names of people who joined the server in the last week, like desktop.",
+      "author": "bleelblep",
+      "icon": "UserCircleIcon",
+      "channels": {
+        "latest": "0.1.10"
+      },
+      "versions": {
+        "0.1.10": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.new-members@0.1.10.zip",
+          "sha256": "9c305198220e163741dfd407e5cb2668318150bea862107f8b93ed811eecab13",
+          "size": 1755,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.no-dividers": {
       "name": "No Dividers",
       "description": "Removes the thin lines between rows in settings and other lists.",
