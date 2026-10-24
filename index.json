@@ -2864,6 +2864,30 @@
         }
       }
     },
+    "bleelblep.timezones": {
+      "name": "Timezones",
+      "description": "Set someone's timezone and see their local time next to their messages.",
+      "author": "bleelblep, aniimalz",
+      "icon": "ClockIcon",
+      "channels": {
+        "latest": "0.2.0"
+      },
+      "versions": {
+        "0.2.0": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.timezones@0.2.0.zip",
+          "sha256": "f7ebd9b136c82b79c57a0a5364382c3fb94477f01de69bbae7f4c55e847ffb23",
+          "size": 22307,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.tldr": {
       "name": "TL;DR",
       "description": "Long-press a long message for a short summary only you can see. Needs AI Core.",
