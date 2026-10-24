@@ -1747,6 +1747,30 @@
         }
       }
     },
+    "bleelblep.round-icons": {
+      "name": "Fuck Squares",
+      "description": "Undoes the redesign's squares: round servers, round buttons, a pill You bar.",
+      "author": "bleelblep",
+      "icon": "AppsIcon",
+      "channels": {
+        "latest": "1.3.3"
+      },
+      "versions": {
+        "1.3.3": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.round-icons@1.3.3.zip",
+          "sha256": "5057d77591dff8851562307337740070d80cd7a2af0c4d52313f26361fb5515b",
+          "size": 9072,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.scenes": {
       "name": "Scenes",
       "description": "Living atmospheres for Discord: aurora, nebula, underwater light, rain, embers, enchanted light, Halloween, Thanksgiving and Christmas. Built-in GPU shaders, entirely offline.",
@@ -2546,6 +2570,30 @@
             "bleelblep.ai-core": {
               "version": ">=1 <3",
               "optional": true
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.sharp-corners": {
+      "name": "Fuck Circles",
+      "description": "Every corner in Discord sharp: square avatars, buttons, bubbles and bars.",
+      "author": "bleelblep",
+      "icon": "AppsIcon",
+      "channels": {
+        "latest": "0.1.5"
+      },
+      "versions": {
+        "0.1.5": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.sharp-corners@0.1.5.zip",
+          "sha256": "e1c0c3fed9d93c2562a637710c95ce8a962df8c5a5ff2400ecad38a48531b5a5",
+          "size": 27977,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
             }
           }
         }
