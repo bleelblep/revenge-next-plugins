@@ -2815,9 +2815,22 @@
       "author": "bleelblep",
       "icon": "ReactionIcon",
       "channels": {
-        "latest": "0.17.9"
+        "latest": "0.17.10"
       },
       "versions": {
+        "0.17.10": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.sparkle@0.17.10.zip",
+          "sha256": "bbb7c630d32a7954040f99625034a3a996c482d64c24fdc678c10c7974eb91ea",
+          "size": 3132867,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
         "0.17.9": {
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.sparkle@0.17.9.zip",
           "sha256": "649cc870c3c8ac56159b86d573f5e7118177c7c53567a4527c918ef34826e594",
