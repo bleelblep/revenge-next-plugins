@@ -1593,6 +1593,30 @@
         }
       }
     },
+    "bleelblep.pocket-browser": {
+      "name": "Pocket Browser",
+      "description": "A web browser with tabs and history in a new tab of the emoji picker.",
+      "author": "bleelblep",
+      "icon": "GlobeEarthIcon",
+      "channels": {
+        "latest": "0.4.9"
+      },
+      "versions": {
+        "0.4.9": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.pocket-browser@0.4.9.zip",
+          "sha256": "8f64203f78c9856b70b601128825607c5d0f0a7570068b9f0576c8c0ef2e057e",
+          "size": 165475,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.pronouns": {
       "name": "Pronouns",
       "description": "People's pronouns as a small tag next to their name in chat, from Discord profiles and PronounDB.",
@@ -1821,6 +1845,30 @@
           "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.scenes@0.2.2.zip",
           "sha256": "4c31e14ccc260171bb7f09083965fdd886551999d3b7c5ef1adc92e6f03d78b2",
           "size": 25280,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.screen-effects": {
+      "name": "VFX",
+      "description": "Tap effects, screen filters like CRT and VHS, typing sparks and /fx messages.",
+      "author": "bleelblep",
+      "icon": "WaveformIcon",
+      "channels": {
+        "latest": "0.31.4"
+      },
+      "versions": {
+        "0.31.4": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.screen-effects@0.31.4.zip",
+          "sha256": "a3c0aec0410cd1d619396e552b3c92673ff72462682333a0a3a0065a1a24163a",
+          "size": 496233,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -2251,6 +2299,30 @@
             "bleelblep.ai-core": {
               "version": ">=1 <3",
               "optional": true
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.sekai-stickers": {
+      "name": "Sekai Stickers",
+      "description": "Make Project Sekai stickers from a new tab in the emoji, GIF and sticker picker.",
+      "author": "bleelblep",
+      "icon": "StickerIcon",
+      "channels": {
+        "latest": "0.3.13"
+      },
+      "versions": {
+        "0.3.13": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.sekai-stickers@0.3.13.zip",
+          "sha256": "9fc77825dde2b69331ba260b8e54e02b2b73ddb8949b472e9321f9613d8feb4b",
+          "size": 4947411,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
             }
           }
         }
@@ -2859,6 +2931,30 @@
             },
             "discord": {
               "version": "<=351.6"
+            }
+          }
+        }
+      }
+    },
+    "bleelblep.text-animation": {
+      "name": "Text Animation",
+      "description": "Animates letters as you type and delete, with a smooth gliding cursor.",
+      "author": "bleelblep",
+      "icon": "TextIcon",
+      "channels": {
+        "latest": "0.1.7"
+      },
+      "versions": {
+        "0.1.7": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.text-animation@0.1.7.zip",
+          "sha256": "c756f5ae517075ba1df9c01cc6328decc66f1079b028e3cb192108e460c46239",
+          "size": 34697,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
             }
           }
         }
