@@ -3264,6 +3264,30 @@
         }
       }
     },
+    "bleelblep.ui-tweaks": {
+      "name": "UI Tweaks",
+      "description": "Hide parts of the long-press menu, Discord settings and the emoji picker; double-tap to reply.",
+      "author": "bleelblep",
+      "icon": "SlidersIcon",
+      "channels": {
+        "latest": "0.4.11"
+      },
+      "versions": {
+        "0.4.11": {
+          "url": "https://bleelblep.github.io/revenge-next-plugins/pool/bleelblep.ui-tweaks@0.4.11.zip",
+          "sha256": "546d571d62db0d29bb037f6f608716c8ef3dcc28c1d62aaaf37f4c7d38b365ac",
+          "size": 34165,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "bleelblep.veil": {
       "name": "Veil",
       "description": "Blur messages from chosen people, channels or keywords like spoilers, and tap to reveal.",
