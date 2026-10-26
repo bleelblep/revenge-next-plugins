@@ -39,6 +39,7 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **Text Animation** | Animates letters as you type and delete, with a smooth gliding cursor. |
 | **Sekai Stickers** | Make Project Sekai stickers from a new tab in the emoji, GIF and sticker picker. |
 | **VFX** | Tap effects, screen filters like CRT and VHS, typing sparks and `/fx` messages. |
+| **UI Tweaks** | Hide parts of the long-press menu, Discord settings and the emoji picker, and double-tap a message to reply. |
 
 ### AI plugins
 

@@ -26,6 +26,7 @@ plugin's `NOTICE.md` and `THIRD_PARTY_LICENSES/` directory before copying its co
 | Text Animation | CC0-1.0; idea from an exteraGram plugin by `@mihailkotovski`, `@mishabotov` and `@private_let`, no code used |
 | Sekai Stickers | CC0-1.0, except the sticker list (`js/data/characters.ts`) from TheOriginalAyaka/sekai-stickers under MIT; bundled fonts belong to their owners and character art is downloaded at runtime, not bundled; see `NOTICE.md` |
 | VFX | CC0-1.0, except `Ripple.kt` (port of Telegram's SuperRipple) under GPL-2.0-or-later; see `NOTICE.md` |
+| UI Tweaks | CC0-1.0 |
 | Themes | CC0-1.0; theme engine ported from classic Revenge under BSD-3-Clause; `js/lib/rawAliases.ts` from Themeify under GPL-3.0; icon packs adapted from nexpid's Themes+ (nexpid/RevengePlugins) under CC-BY-4.0, pack list downloaded from nexpid/ThemesPlus (unlicensed, nothing bundled); emoji-pack drawing (`Emoji.kt`) adapted from contrabag's System Emoji under GPL-3.0; bundled SerenityOS emoji font (`assets/emoji/serenityos.ttf`, built from SerenityOS's PNGs) under BSD-2-Clause, licence shipped beside it; old colour-name table worked out by reading nexpid/Themelings (unlicensed, read by a dev script only, nothing copied); test themes (`tests/fixtures/`, MIT, never built) |
 
 Show Tag's original repository and website are no longer available. Its Unlicense status was

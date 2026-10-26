@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "bleelblep.ui-tweaks",
+	"name": "UI Tweaks",
+	"description": "Hide parts of the long-press menu, Discord settings and the emoji picker; double-tap to reply.",
+	"author": "bleelblep",
+	"icon": "SlidersIcon",
+	"version": "0.4.11",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "com.bleelblep.uitweaks.UiTweaksPlugin"
+		}
+	}
+}
