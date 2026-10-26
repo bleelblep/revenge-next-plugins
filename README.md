@@ -40,6 +40,7 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **Sekai Stickers** | Make Project Sekai stickers from a new tab in the emoji, GIF and sticker picker. |
 | **VFX** | Tap effects, screen filters like CRT and VHS, typing sparks and `/fx` messages. |
 | **UI Tweaks** | Hide parts of the long-press menu, Discord settings and the emoji picker, and double-tap a message to reply. |
+| **Shimeji** | A pet that lives on top of Discord: a unicorn, Nyan Cat, Gary the Snail, a cat or a dog. |
 
 ### AI plugins
 

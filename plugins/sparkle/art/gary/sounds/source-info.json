@@ -1,0 +1,209 @@
+{
+  "sourcePage": "https://sounds.spriters-resource.com/playstation_2/spongebobsquarepantsbattleforbikinibottom/asset/401932/",
+  "sourceArchive": "https://sounds.spriters-resource.com/media/assets/399/401932.zip",
+  "game": "SpongeBob SquarePants: Battle for Bikini Bottom (PlayStation 2)",
+  "uploader": "Sandmanfan",
+  "archiveSha256": "6081e249e2d926d75da83258618a623d0bced16e3d657ada8d2c92d5c8e4f7b0",
+  "status": "Original WAVs; event suggestions based on source filenames, pending listening review.",
+  "rights": "Original game audio; no open reuse licence verified.",
+  "clips": [
+    {
+      "file": "sounds/Afraid001_b.wav",
+      "name": "Afraid001_b",
+      "duration": 2.277,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "fc83ba2bb3b7cc749e927c3015132191322a76bdbdd428d973bb00e5143a0c6b",
+      "suggestedUse": "Surprised, picked up, thrown"
+    },
+    {
+      "file": "sounds/Confused_a.wav",
+      "name": "Confused_a",
+      "duration": 0.557,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "a38c6b547d61515fb1db8efc5a948a0ab6b223b16e14ad2898cad423b713010b",
+      "suggestedUse": "Looking back, dizzy, curious idle"
+    },
+    {
+      "file": "sounds/Confused_b.wav",
+      "name": "Confused_b",
+      "duration": 0.832,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "03d64cd26c240c7c3861c83e9efa41ed25dd57efbbaec3048f2b61447b818ec6",
+      "suggestedUse": "Looking back, dizzy, curious idle"
+    },
+    {
+      "file": "sounds/Confused_c.wav",
+      "name": "Confused_c",
+      "duration": 0.91,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "66f9f5b740649f7391d3d6d82d3fe98e1bf2ba1e38330fb2ae453d9442d33b31",
+      "suggestedUse": "Looking back, dizzy, curious idle"
+    },
+    {
+      "file": "sounds/doubles_a.wav",
+      "name": "doubles_a",
+      "duration": 1.199,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "14a78392e90d76ad62e7cba3cac979d7658e009c66b8086029be01d3e48d51a3",
+      "suggestedUse": "Greeting, notification response"
+    },
+    {
+      "file": "sounds/doubles_b.wav",
+      "name": "doubles_b",
+      "duration": 1.47,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "1714ec1de57856a62ead417f17473ce0341440c953328ae9f61aec74c7891308",
+      "suggestedUse": "Greeting, notification response"
+    },
+    {
+      "file": "sounds/doubles_d.wav",
+      "name": "doubles_d",
+      "duration": 1.615,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "31e27251aaa4c53f47934f12c6f9158b8df317127f4f9b87f105803605144f6c",
+      "suggestedUse": "Greeting, notification response"
+    },
+    {
+      "file": "sounds/Embarassed001_a.wav",
+      "name": "Embarassed001_a",
+      "duration": 0.776,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "345a7bef25c04135a0b5e4eb7882a2291f9900387a4db91dec1bcfe34eb5b0c1",
+      "suggestedUse": "Embarrassed reaction, landing after a tumble"
+    },
+    {
+      "file": "sounds/Excited001_a.wav",
+      "name": "Excited001_a",
+      "duration": 0.683,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "a6dbb1440dd4c21d3b6dddc8acceb5e2d3888cb951ad60928a188070207485f8",
+      "suggestedUse": "Treats, celebration, happy bounce"
+    },
+    {
+      "file": "sounds/Excited001_b.wav",
+      "name": "Excited001_b",
+      "duration": 0.907,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "9b231b11487d23254ba820dd4a90bc7dff4147b8277471093323d77b54b49ccd",
+      "suggestedUse": "Treats, celebration, happy bounce"
+    },
+    {
+      "file": "sounds/Excited001_c.wav",
+      "name": "Excited001_c",
+      "duration": 0.928,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "381bc830a0413adfe3f60299def7034495416a4f6f369efa94a5e60ad907be99",
+      "suggestedUse": "Treats, celebration, happy bounce"
+    },
+    {
+      "file": "sounds/extended001_a.wav",
+      "name": "extended001_a",
+      "duration": 4.792,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "d7bc0e2de07df275668f25935794d1a09dda3d160186c988da304e7f728dfff6",
+      "suggestedUse": "Long attention call"
+    },
+    {
+      "file": "sounds/Hairball001_a.wav",
+      "name": "Hairball001_a",
+      "duration": 5.358,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "08683a9caaaccfd2b8e7cbb059c732271610c7dc911173a687d9913ac6ab9c69",
+      "suggestedUse": "Occasional hairball gag"
+    },
+    {
+      "file": "sounds/Happy001_a.wav",
+      "name": "Happy001_a",
+      "duration": 0.879,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "9e65581dac57621719217e92432ccdf5e6bd1a9c3b2f8fdb9c370ac281f69f3b",
+      "suggestedUse": "Petting, affection, heart reaction"
+    },
+    {
+      "file": "sounds/Happy001_b.wav",
+      "name": "Happy001_b",
+      "duration": 0.888,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "04d2b76ab41c11c8667a03731f712867813721800b224f192b16ecb3796cdafa",
+      "suggestedUse": "Petting, affection, heart reaction"
+    },
+    {
+      "file": "sounds/Happy001_c.wav",
+      "name": "Happy001_c",
+      "duration": 2.887,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "733d5ef3f67a3a285a16badfd017277c9d9735a4e292b32630204c60efbc35a5",
+      "suggestedUse": "Petting, affection, heart reaction"
+    },
+    {
+      "file": "sounds/meow.wav",
+      "name": "meow",
+      "duration": 1.036,
+      "channels": 1,
+      "sampleRate": 22050,
+      "sha256": "93676ec8b0cb62af48d115f8a99d7218be6d6ab03822c515693d1d0a0d4c9522",
+      "suggestedUse": "Tap, greeting, occasional idle meow"
+    },
+    {
+      "file": "sounds/Sad001_b.wav",
+      "name": "Sad001_b",
+      "duration": 1.242,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "63fee29fadc8aa9073718f09ac1885c3a46f8a3c71fc3415e6430f6d22440120",
+      "suggestedUse": "Sad, lonely, low battery"
+    },
+    {
+      "file": "sounds/singles_a.wav",
+      "name": "singles_a",
+      "duration": 0.723,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "d2cb8316888a8494942096f8ac75ac1d17f3196ef5c208227b4c5a2f5b821895",
+      "suggestedUse": "Tap, greeting, occasional idle meow"
+    },
+    {
+      "file": "sounds/singles_b.wav",
+      "name": "singles_b",
+      "duration": 0.791,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "bd6e4681b416ec7fd2fb26468eacd825d18d7bb775fa5a8f5a6bea8cafb5326c",
+      "suggestedUse": "Tap, greeting, occasional idle meow"
+    },
+    {
+      "file": "sounds/singles_c.wav",
+      "name": "singles_c",
+      "duration": 0.834,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "7ab462ea5a3793f33786f1e90b4f058d07b7b75f8a4b7598222f48cf52a73e3d",
+      "suggestedUse": "Tap, greeting, occasional idle meow"
+    },
+    {
+      "file": "sounds/singles_d.wav",
+      "name": "singles_d",
+      "duration": 0.944,
+      "channels": 1,
+      "sampleRate": 44100,
+      "sha256": "7d14258ad9c10ca654387d43b00516714d07457bbc86bc041f1b6091f0701c5e",
+      "suggestedUse": "Tap, greeting, occasional idle meow"
+    }
+  ]
+}

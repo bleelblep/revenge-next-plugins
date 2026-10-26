@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "bleelblep.sparkle",
+	"name": "Shimeji",
+	"description": "A pet that lives on top of Discord: a unicorn, Nyan Cat, Gary the Snail, a cat or a dog.",
+	"author": "bleelblep",
+	"icon": "ReactionIcon",
+	"version": "0.17.9",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "com.bleelblep.sparkle.SparklePlugin"
+		}
+	}
+}

@@ -1,0 +1,31 @@
+Sparkle's sounds, trimmed, faded and levelled by tools/make_sounds.py (the source packs are not kept
+here; the script records which file each came from).
+
+CC0 1.0 (public domain), credit not required but given anyway:
+- Juhani Junkala, "The Essential Retro Video Game Sound Effects Collection [512 sounds]"
+  https://opengameart.org/content/512-sound-effects-8-bit-style
+  appear, leave, tap, hop, pickup, slip, dizzy, heart, happy, sleep, gulp, spit, ding, charge,
+  low_battery
+- Kenney (www.kenney.nl): Interface Sounds, Impact Sounds, Digital Audio
+  https://kenney.nl/assets/interface-sounds  https://kenney.nl/assets/impact-sounds
+  https://kenney.nl/assets/digital-audio
+  thud_0-2 (impactSoft_medium), grab, wake, alert, twinkle, bloop, pop_0-1, talk (interface),
+  chime, sad (digital)
+
+Supplied by the plugin's author:
+- swoosh: Mixkit "Flying fast swoosh" (1469), Mixkit Sound Effects Free License
+  https://mixkit.co/license/#sfxFree  (free to use in a project; not to be redistributed on its own)
+- boing: source to be confirmed.
+
+Nyan Cat's own sounds (nyan_*.ogg), made by tools/make_nyan_sounds.py:
+- nyan_tap, nyan_talk: "Kitten Mew" by AntumDeluge, OpenGameArt, CC0.
+  https://opengameart.org/content/kitten-mew
+- nyan_heart, nyan_sleep, nyan_wake, nyan_gulp, nyan_sad: "Cat Purr & Meow" by Kerzoven,
+  OpenGameArt, CC0. https://opengameart.org/content/cat-purr-meow
+- nyan_appear, nyan_happy: snippets of the Nyan Cat song by daniwell (via iliana/html5nyancat).
+  Copyrighted: personal use on this phone only, never published.
+
+The cats' (cat_*.ogg) and dogs' (dog_*.ogg) own sounds, made by tools/make_pet_sounds.py:
+- cat_*: "Cat Purr & Meow" by Kerzoven and "Kitten Mew" by AntumDeluge, OpenGameArt, CC0.
+- dog_*: "Dog barking mono" by Brandon Morris, OpenGameArt, CC0.
+  https://opengameart.org/content/dog-barking-mono

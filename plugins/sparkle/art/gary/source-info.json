@@ -1,0 +1,167 @@
+{
+  "character": "Gary the Snail",
+  "sourcePage": "https://www.spriters-resource.com/pc_computer/spongebobsquarepantsscreensaver/asset/202075/",
+  "sourceImage": "https://www.spriters-resource.com/media/assets/199/202075.png",
+  "uploader": "toniophx",
+  "sourceTitle": "SpongeBob SquarePants Screensaver",
+  "sourceSha256": "2d655744e4b682a853c872174d7cc1624adce046e7d47fc1b774e76de10d1d67",
+  "backgroundCleanup": "Made exterior-connected sheet pink transparent; preserved enclosed colours.",
+  "status": "Extracted regions; poses, parts and animation order need visual review.",
+  "rights": "Original copyrighted artwork; no open reuse licence verified.",
+  "regions": [
+    {
+      "file": "region-01.png",
+      "box": [
+        1,
+        1,
+        55,
+        128
+      ],
+      "size": [
+        54,
+        127
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-02.png",
+      "box": [
+        56,
+        1,
+        245,
+        42
+      ],
+      "size": [
+        189,
+        41
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-03.png",
+      "box": [
+        246,
+        1,
+        342,
+        122
+      ],
+      "size": [
+        96,
+        121
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-04.png",
+      "box": [
+        1,
+        129,
+        174,
+        243
+      ],
+      "size": [
+        173,
+        114
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-05.png",
+      "box": [
+        1,
+        244,
+        182,
+        394
+      ],
+      "size": [
+        181,
+        150
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-06.png",
+      "box": [
+        183,
+        244,
+        238,
+        284
+      ],
+      "size": [
+        55,
+        40
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-07.png",
+      "box": [
+        1,
+        395,
+        166,
+        436
+      ],
+      "size": [
+        165,
+        41
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-08.png",
+      "box": [
+        167,
+        395,
+        337,
+        438
+      ],
+      "size": [
+        170,
+        43
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-09.png",
+      "box": [
+        1,
+        439,
+        172,
+        496
+      ],
+      "size": [
+        171,
+        57
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-10.png",
+      "box": [
+        1,
+        497,
+        118,
+        530
+      ],
+      "size": [
+        117,
+        33
+      ],
+      "classification": "unverified source region"
+    },
+    {
+      "file": "region-11.png",
+      "box": [
+        1,
+        531,
+        342,
+        672
+      ],
+      "size": [
+        341,
+        141
+      ],
+      "classification": "unverified source region"
+    }
+  ]
+}
