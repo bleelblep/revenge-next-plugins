@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "bleelblep.screen-effects",
+	"name": "VFX",
+	"description": "Tap effects, screen filters like CRT and VHS, typing sparks and /fx messages.",
+	"author": "bleelblep",
+	"icon": "WaveformIcon",
+	"version": "0.31.4",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "com.bleelblep.screeneffects.ScreenEffects"
+		}
+	}
+}

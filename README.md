@@ -35,6 +35,10 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **Pronouns** | Shows pronouns beside names in chat, using Discord profiles first and PronounDB as a fallback. |
 | **Dreamscape** | Opens shader worlds, interactive scenes and a small browser from inside Discord. |
 | **Scenes** | Adds animated shader scenes and atmospheric backgrounds. |
+| **Pocket Browser** | A web browser with tabs and history in a new tab of the emoji picker. Chat links open in it, and videos can pop out into picture-in-picture. |
+| **Text Animation** | Animates letters as you type and delete, with a smooth gliding cursor. |
+| **Sekai Stickers** | Make Project Sekai stickers from a new tab in the emoji, GIF and sticker picker. |
+| **VFX** | Tap effects, screen filters like CRT and VHS, typing sparks and `/fx` messages. |
 
 ### AI plugins
 

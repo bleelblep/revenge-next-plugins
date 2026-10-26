@@ -1,0 +1,17 @@
+The fighting-game sounds below are by Kenney (www.kenney.nl), released under Creative Commons
+Zero (CC0 1.0, public domain): https://creativecommons.org/publicdomain/zero/1.0/
+Credit is not required; it is given here anyway.
+
+The combo skins' sounds (sr_*, osu_*, pf_*, fire_*, shmup_*, comic_*, term_*, cosy_*, tc_*) are original:
+synthesised from scratch by tools/make_skin_sounds.py (no samples), and released under the same
+CC0 1.0.
+
+- punch_*.ogg           Impact Sounds 1.0        https://kenney.nl/assets/impact-sounds
+                        (impactPunch_medium_000-002, impactPunch_heavy_000-001, renamed)
+- combo.ogg, combo_breaker.ogg, flawless_victory.ogg, winner.ogg
+                        Voiceover Pack: Fighter  https://kenney.nl/assets/voiceover-pack-fighter
+- new_highscore.ogg, level_up.ogg
+                        Voiceover Pack #1 (Male) https://kenney.nl/assets/voiceover-pack
+- level_chime.ogg
+                        Digital Audio            https://kenney.nl/assets/digital-audio
+                        (threeTone1, renamed)
