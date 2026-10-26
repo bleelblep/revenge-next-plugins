@@ -1,3 +1,5 @@
 # Never commit: art cut from the purchased ToffeeCraft packs (tools/split_paid.py).
 assets/paid-pets.bin
 art/seasonal/
+# Key for paid-pets.bin.enc (tools/encrypt_paid.sh); also the repo secret SHIMEJI_PAID_KEY.
+.paid-key

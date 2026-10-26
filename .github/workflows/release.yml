@@ -51,6 +51,19 @@ jobs:
         id: plan
         run: .github/scripts/plan-releases.sh
 
+      # Shimeji's purchased pets are committed only as ciphertext; see plugins/sparkle/tools/encrypt_paid.sh.
+      - name: Decrypt Shimeji's purchased pets
+        if: steps.plan.outputs.count != '0'
+        env:
+          SHIMEJI_PAID_KEY: ${{ secrets.SHIMEJI_PAID_KEY }}
+        run: |
+          if [ -z "$SHIMEJI_PAID_KEY" ]; then echo "::error::SHIMEJI_PAID_KEY is not set"; exit 1; fi
+          mkdir -p plugins/sparkle/assets
+          printf '%s\n' "$SHIMEJI_PAID_KEY" > "$RUNNER_TEMP/paid-key"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:"$RUNNER_TEMP/paid-key" \
+            -in plugins/sparkle/paid-pets.bin.enc -out plugins/sparkle/assets/paid-pets.bin
+          rm "$RUNNER_TEMP/paid-key"
+
       - name: Build plugins
         if: steps.plan.outputs.count != '0'
         run: ./gradlew --no-daemon packageAllPlugins

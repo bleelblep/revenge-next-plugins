@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../../../shared/changelog'
 /** Newest first. Every version users got gets an entry; see shared/changelog.tsx. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.17.10',
+		date: '2026-10-27',
+		title: 'Holiday pets in every download',
+		changes: [
+			'Fixed the holiday pets showing up as the Dragon when Shimeji was installed from the repository.',
+		],
+	},
+	{
 		version: '0.17.9',
 		date: '2026-10-27',
 		title: 'Holiday pets are back',

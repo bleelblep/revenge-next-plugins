@@ -5,7 +5,7 @@
 	"description": "A pet that lives on top of Discord: a unicorn, Nyan Cat, Gary the Snail, a cat or a dog.",
 	"author": "bleelblep",
 	"icon": "ReactionIcon",
-	"version": "0.17.9",
+	"version": "0.17.10",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
