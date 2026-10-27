@@ -26,7 +26,6 @@ https://bleelblep.github.io/revenge-next-plugins/
 | **Second Thoughts** | Stops credentials and card numbers from being sent. With AI Core it also flags angry or oversharing drafts. |
 | **Plugin Hub** | A Plugin Hub section in settings with shortcuts into the plugins you use most, plus an AI Hub for AI Core's plugins. |
 | **Veil** | Blurs messages behind Discord's own spoiler, by word, person or channel. With AI Core it can also blur a category you describe yourself. |
-| **Free Stickers** | Send any sticker without Nitro. Locked stickers go as an image link, and animated ones are converted to a GIF first. |
 | **ANSI Colours** | Shows colours in `ansi` code blocks the way desktop Discord does. |
 | **Live Markdown** | Shows bold, italics, code, spoilers and more styled as you type a message. |
 | **Character Counter** | Shows the message character count above the composer and turns red past the limit. |

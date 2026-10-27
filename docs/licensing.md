@@ -19,7 +19,6 @@ plugin's `NOTICE.md` and `THIRD_PARTY_LICENSES/` directory before copying its co
 | Send Tweaks | CC0-1.0 |
 | Plugin Hub | CC0-1.0 |
 | ReviewDB | GPL-3.0; port of ReviewDB by mantikafasi and Vendicated from Vencord |
-| Free Stickers | CC0-1.0 |
 | Ask AI | CC0-1.0 |
 | Scenes | CC0-1.0, except `RainyWindow.kt` (from BigWings' "Heartfelt") under CC BY-NC-SA 3.0; illustrations in `art/` are CC0 from rawpixel |
 | Pocket Browser | CC0-1.0; bundles `libs/androidx-webkit-1.13.0.jar` (AndroidX WebKit) under Apache-2.0 |
